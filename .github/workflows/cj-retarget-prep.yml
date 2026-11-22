@@ -48,7 +48,11 @@ jobs:
             echo "Blender mirror blocked the archive; using Ubuntu Blender package for rig inspection."
             sudo apt-get install -y blender
           fi
-          blender --version
+          if [ -x "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" ]; then
+            "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --version
+          else
+            blender --version
+          fi
 
       - name: Download official SM64CoopDX Mario template
         shell: bash
