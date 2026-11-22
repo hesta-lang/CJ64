@@ -29,32 +29,46 @@ A first-pass Lua module was generated separately. Every clip has 63 channels
 (three fixed-zero root translation channels and 60 rotation channels for the
 20 Fast64 nodes) and a 126-entry index table. Source quaternion samples are
 interpolated at 30 FPS and converted through the inspected rest-basis map.
-Root translation is deliberately suppressed so the animation cannot take
-over native player movement or physics.
+Root translation is deliberately suppressed so these clips cannot take
+over native player movement or physics. The generator uses zero-based final
+frame indices for each clip.
 
 The reusable generator and non-keyframe retarget map are in
 `tools/generate_cj_sm64_animations.py` and
 `tools/cj64_sm64_animation_retarget_map.json`. The commercial IFP and
 derived per-frame Lua arrays remain outside the public repository.
 
-## Not yet integrated or validated
+## First-pass rig transfer
 
-The current DynOS actor is still a static CJ mesh. It has no compatible
-20-node Mario/Fast64 animated hierarchy or transferred weights. Therefore
-the generated Lua table module is not loaded or called by `main.lua`; doing
-so before the model is rigged would not animate CJ.
+The rig-transfer workflow
+`.github/workflows/cj-rig-transfer.yml` uses the inspected dual-rig Blender
+artifact and `tools/prepare_cj_rig_transfer.py`.
 
-Remaining work:
-1. Transfer/reassign CJ vertex weights to the Mario deform bones without
-   spawning a second character or changing `MarioState`, movement,
-   collision, or camera.
-2. Validate the retargeted poses and joint axes visually in Blender.
-3. Export the skinned `cj_geo` actor with the 20-node hierarchy using Coop
-   Deluxe Fast64.
-4. Load the private Lua module and map animation roles to native Mario
-   action/animation states, keeping the vanilla fallback.
+The first successful transfer:
+- Keeps the CJ mesh and its original material/UV data.
+- Converts source coordinates into the Mario/Fast64 armature coordinate
+  system and scales the model to 280 SM64 units.
+- Repositions the Mario animation bones using corresponding CJ rest matrices.
+- Generates nearest-bone-segment weights for 15 deform groups.
+- Assigns weights to all 1,630 CJ vertices.
+- Reports evaluated mesh dimensions of approximately
+  `[2.800, 2.771, 0.576]` Blender units.
+
+The workflow artifact `CJ64-rig-transfer-preview` contains the editable
+`CJ64-CJ-Rig-Transfer.blend` and validation JSON. This is not yet a Fast64
+DynOS export and has not been tested in game. Nearest-segment weights are a
+first-pass approximation; inspect deformations before accepting the rig.
+
+## Remaining work
+
+1. Visually inspect the rigged rest pose and the original GTA animation poses.
+2. Correct the weighting and retarget basis wherever the previews show errors.
+3. Export the skinned `cj_geo` actor through Coop Deluxe Fast64.
+4. Include/load the private Lua animation module and map its roles to native
+   Mario action states without changing `MarioState`, movement, collision,
+   or camera.
 5. Test idle, walk, run, jump, fall, land, and swim in SM64CoopDX on Android.
 
-The current result is a structurally checked first pass, not an in-game-ready
-animation release. `sprint_civi` remains a generic civilian sprint
-candidate, not confirmed as CJ-specific.
+The current static DynOS actor is unchanged. The rigged Blender scene is a
+separate preparation artifact; it must not be described as an in-game
+animation integration until Fast64 export and runtime tests succeed.
