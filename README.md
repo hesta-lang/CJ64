@@ -18,7 +18,7 @@ CJ64 is designed to replace only Mario's visible model while keeping the engine'
 
 The source Carl Johnson FBX has a 58-bone rig and four texture maps. It is an authoring source, not a ready-to-load DynOS actor.
 
-The static DynOS actor remains a model-visibility test. A separate rig-transfer preview now binds a duplicate of the CJ mesh to a copy of the Mario/Fast64 armature. The first pass generated weights for all 1,630 vertices across 15 deform groups and preserved the 280-SM64-unit height. It is an editable Blender artifact, not yet the exported `cj_geo` actor. See [docs/RETARGET_PLAN.md](docs/RETARGET_PLAN.md).
+The static DynOS actor remains the last verified model. The rig-transfer workflow now retargets the Mario/Fast64 bones using CJ source rest matrices, assigns one deform bone per vertex (weight 1.0), converts textures for TMEM, and attempts a Fast64 armature export at 280 SM64 units. The new exported actor still requires a passing CI build, visual review, and in-game test. See [docs/RETARGET_PLAN.md](docs/RETARGET_PLAN.md).
 
 The visual-size override remains 280 SM64 units. This is a project scale target, not a claim about CJ's canonical GTA height.
 
@@ -39,7 +39,7 @@ The generated keyframe Lua module and original IFP are kept outside the public r
 
 ## Remote Blender bridge
 
-CJ64 can run Blender headlessly through GitHub Actions. It exports the current DynOS actor, saves editable `.blend` scenes, and produces geometry/texture diagnostics. The rig-transfer preview is built by [the CJ rig transfer workflow](.github/workflows/cj-rig-transfer.yml). This is an on-demand cloud build, not a live Blender session. See [docs/BLENDER_BRIDGE.md](docs/BLENDER_BRIDGE.md).
+CJ64 can run Blender headlessly through GitHub Actions. It exports the current DynOS actor, saves editable `.blend` scenes, and produces geometry/texture diagnostics. The rigged actor package is built by [the CJ rig transfer workflow](.github/workflows/cj-rig-transfer.yml). This is an on-demand cloud build, not a live Blender session. See [docs/BLENDER_BRIDGE.md](docs/BLENDER_BRIDGE.md).
 
 ## Files
 
@@ -49,7 +49,6 @@ CJ64 can run Blender headlessly through GitHub Actions. It exports the current D
 - `tools/ifp_reader.py` — ANP3 parser for a user-provided `ped.ifp`.
 - `tools/extract_cj_animations.py` — extracts selected IFP tracks as intermediate JSON.
 - `tools/generate_cj_sm64_animations.py` — generates first-pass SM64CoopDX Lua animation tables from the owner-provided IFP and generated rig map.
-- `tools/rig_cj_to_mario.py` — experimental single-influence weight transfer and Fast64 armature export.
 - `tools/prepare_cj_rig_transfer.py` — builds the editable first-pass CJ-to-Mario skin transfer.
 - `tools/cj_animation_manifest.json` — selected original clip names and roles.
 - `tools/cj_fbx_bone_map.json` — first-stage IFP-to-source-FBX bone map.
@@ -62,6 +61,6 @@ Place the extracted `CJ64` folder inside the SM64CoopDX `mods` directory and ena
 
 ## Validation and current status
 
-CI checks Lua syntax/replacement tests and Python IFP parser tests using a synthetic ANP3 file. The animation generator passed structural checks. The rig-transfer workflow verified all 1,630 mesh vertices are weighted and the evaluated mesh height remains 280 SM64 units. This does not prove the retargeted poses, Fast64 export, or Android runtime are correct.
+CI checks Lua syntax/replacement tests and Python IFP parser tests using a synthetic ANP3 file. The animation generator passed structural checks. The previous rig-transfer preview verified 1,630 weighted vertices and a 280-unit evaluated mesh. The updated workflow now requires one influence per vertex and a Fast64 actor export; its new result has not yet been verified. Neither result proves Android runtime compatibility.
 
 **Current milestone:** the original animation tables have been generated and a first-pass skinned Blender actor has been prepared. Visual animation review, Fast64/DynOS export, Lua action integration, and in-game testing remain pending.
