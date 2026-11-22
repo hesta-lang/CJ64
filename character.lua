@@ -12,9 +12,7 @@ CJ64.character = CJ64.character or {
     applied = {},
     warnedMissing = false,
     warnedApi = false,
-    lastAnimationRole = nil,
-    transitionFrames = 0,
-    transitionNextRole = nil,
+    animationState = {},
 }
 local state = CJ64.character
 
@@ -73,18 +71,16 @@ local function choose_loop_role(m)
         return "swim_tread"
     end
 
-    if action_is(a, ACT_FREEFALL, ACT_HOLD_FREEFALL, ACT_BURNING_FALL,
-        ACT_BURNING_JUMP, ACT_LAVA_BOOST, ACT_GETTING_BLOWN) then
-        return "fall_air"
+    if action_is(a, ACT_FREEFALL, ACT_BURNING_FALL, ACT_BURNING_JUMP, ACT_LAVA_BOOST, ACT_GETTING_BLOWN) then
+        return "fall"
     end
+    if action_is(a, ACT_HOLD_FREEFALL) then return "fall_air" end
 
     if action_is(a, ACT_JUMP, ACT_DOUBLE_JUMP, ACT_TRIPLE_JUMP, ACT_BACKFLIP,
         ACT_STEEP_JUMP, ACT_WALL_KICK_AIR, ACT_SIDE_FLIP, ACT_LONG_JUMP,
         ACT_WATER_JUMP, ACT_HOLD_JUMP, ACT_HOLD_WATER_JUMP, ACT_TWIRLING,
         ACT_FLYING_TRIPLE_JUMP, ACT_SPECIAL_TRIPLE_JUMP) then
-        if m.vel ~= nil and m.vel.y ~= nil and m.vel.y < -12 then
-            return "jump_air"
-        end
+        if m.vel ~= nil and m.vel.y ~= nil and m.vel.y < -25 then return "fall" end
         return "jump_air"
     end
 
@@ -103,7 +99,7 @@ local function choose_loop_role(m)
     return nil
 end
 
-local function choose_transition_role(m, loopRole)
+local function choose_transition_role(m, loopRole, anim)
     local a = m.action
     if action_is(a, ACT_JUMP_LAND, ACT_DOUBLE_JUMP_LAND, ACT_TRIPLE_JUMP_LAND,
         ACT_BACKFLIP_LAND, ACT_SIDE_FLIP_LAND, ACT_LONG_JUMP_LAND) then
@@ -113,14 +109,14 @@ local function choose_transition_role(m, loopRole)
         return "fall_land", 14, loopRole
     end
     if action_is(a, ACT_BRAKING, ACT_DECELERATING, ACT_HOLD_DECELERATING)
-        and (state.lastAnimationRole == "run" or state.lastAnimationRole == "sprint_candidate") then
+        and (anim.lastRole == "run" or anim.lastRole == "sprint_candidate") then
         return "run_stop", 26, loopRole
     end
-    if loopRole == "walk" and state.lastAnimationRole == "idle" then
+    if loopRole == "walk" and anim.lastRole == "idle" then
         return "walk_start", 8, "walk"
     end
-    if loopRole == "jump_air" and state.lastAnimationRole ~= "jump_start"
-        and state.lastAnimationRole ~= "jump_air" then
+    if loopRole == "jump_air" and anim.lastRole ~= "jump_start"
+        and anim.lastRole ~= "jump_air" then
         return "jump_start", 6, "jump_air"
     end
     return nil, 0, loopRole
@@ -138,31 +134,36 @@ function state.apply_animation(m)
     end
     state.animationReady = true
 
-    local loopRole = choose_loop_role(m)
-    if loopRole == nil then return end
+    local index = m.playerIndex
+    local anim = state.animationState[index]
+    if anim == nil then
+        anim = { lastRole = nil, transitionFrames = 0, transitionNextRole = nil }
+        state.animationState[index] = anim
+    end
 
+    local loopRole = choose_loop_role(m)
     local role
-    if state.transitionFrames > 0 then
-        state.transitionFrames = state.transitionFrames - 1
-        role = state.lastAnimationRole
-        if state.transitionFrames == 0 then
-            role = state.transitionNextRole or loopRole
-            state.transitionNextRole = nil
+    if anim.transitionFrames > 0 then
+        anim.transitionFrames = anim.transitionFrames - 1
+        role = anim.lastRole
+        if anim.transitionFrames == 0 then
+            role = anim.transitionNextRole or loopRole or "idle"
+            anim.transitionNextRole = nil
         end
     else
-        local transition, frames, nextRole = choose_transition_role(m, loopRole)
+        local transition, frames, nextRole = choose_transition_role(m, loopRole, anim)
         if transition ~= nil then
             role = transition
-            state.transitionFrames = frames
-            state.transitionNextRole = nextRole
+            anim.transitionFrames = frames
+            anim.transitionNextRole = nextRole or "idle"
         else
             role = loopRole
         end
     end
 
-    if role ~= nil and role ~= state.lastAnimationRole then
+    if role ~= nil and role ~= anim.lastRole then
         if CJ64_GTA_ANIMATIONS.set_for_role(m, role) then
-            state.lastAnimationRole = role
+            anim.lastRole = role
         end
     end
 end
@@ -198,22 +199,16 @@ function state.apply(m)
             return
         end
         state.applied[index] = { obj = obj, id = state.modelId }
-        state.lastAnimationRole = nil
-        state.transitionFrames = 0
-        state.transitionNextRole = nil
+        state.animationState[index] = nil
     end
 
-    if m.playerIndex == 0 then
-        state.apply_animation(m)
-    end
+    state.apply_animation(m)
 end
 
 function state.reset()
     state.applied = {}
     state.retryFrames = 0
-    state.lastAnimationRole = nil
-    state.transitionFrames = 0
-    state.transitionNextRole = nil
+    state.animationState = {}
     state.animationReady = false
 end
 
