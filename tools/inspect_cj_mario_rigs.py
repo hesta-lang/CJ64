@@ -124,7 +124,7 @@ def main():
         raise SystemExit("FAST64_ADDON_PATH is required to read the template GeoLayout bone properties")
     fast64_dir = Path(fast64_path).resolve()
     if not (fast64_dir / "__init__.py").is_file():
-        raise SystemExit(f"Fast64-Coop add-on source not found: {fast64_dir}")
+        raise SystemExit(f"Fast64-Gart add-on source not found: {fast64_dir}")
     sys.path.insert(0, str(fast64_dir.parent))
     sys.path.insert(0, str(fast64_dir))
     import fast64  # type: ignore
@@ -201,17 +201,18 @@ def main():
     mario_armature_obj = next(obj for obj in bpy.context.scene.objects
                               if obj.type == "ARMATURE" and obj.name == "Mario")
 
-    # Match the Coop Deluxe Fast64 fork: traverse start bones and their
-    # alphabetically sorted children, exporting only animatable GeoLayout nodes.
-    from fast64_internal.utility import findStartBones
-    from fast64_internal.sm64.sm64_geolayout_bone import animatableBoneTypes
+    # Match Fast64-Gart: traverse start bones and alphabetically sorted children.
+    # Its current API detects standard and animated Custom nodes through
+    # is_bone_animatable(), replacing the removed animatableBoneTypes constant.
+    from fast64.fast64_internal.utility import findStartBones
+    from fast64.fast64_internal.sm64.sm64_geolayout_utility import is_bone_animatable
     bones_to_process = findStartBones(mario_armature_obj)
     target_animation_nodes = []
     while bones_to_process:
         bone_name = bones_to_process[0]
         bones_to_process = bones_to_process[1:]
         bone = mario_armature_obj.data.bones[bone_name]
-        if bone.geo_cmd in animatableBoneTypes:
+        if is_bone_animatable(bone):
             target_animation_nodes.append({
                 "index": len(target_animation_nodes),
                 "name": bone.name,
