@@ -45,6 +45,17 @@ jobs:
           tar -xf blender-3.6.23-linux-x64.tar.xz
           "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --version
 
+      - name: Install Blender 3.6 FBX importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          git clone --depth 1 --branch blender-v3.6-release https://github.com/blender/blender-addons.git blender-addons-3.6
+          addon_dir="$RUNNER_TEMP/blender-3.6.23-linux-x64/3.6/scripts/addons"
+          mkdir -p "$addon_dir"
+          cp -a "$RUNNER_TEMP/blender-addons-3.6/io_scene_fbx" "$addon_dir/"
+          test -s "$addon_dir/io_scene_fbx/__init__.py"
+
       - name: Download official Mario template and Fast64-Coop
         shell: bash
         run: |
