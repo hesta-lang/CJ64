@@ -142,94 +142,40 @@ def main():
     rigged_mesh.matrix_world = Matrix.Identity(4)
     rigged_mesh.parent = target_arm
 
-    # Convert GTA vertex groups to the actual deform groups used by the Mario template.
-    group_map = {
-        "root ground": "Butt",
-        "root hips": "Butt",
-        "pelvis": "Butt",
-        "spine lower": "Torso",
-        "spine middle": "Torso",
-        "spine upper": "Torso",
-        "head neck lower": "Head DL",
-        "head neck upper": "Head DL",
-        "head jaw": "Head DL",
-        "head mouth corner left": "Head DL",
-        "head mouth corner right": "Head DL",
-        "head lip upper left": "Head DL",
-        "head lip upper right": "Head DL",
-        "head lip upper middle": "Head DL",
-        "head lip lower left": "Head DL",
-        "head lip lower right": "Head DL",
-        "head lip lower middle": "Head DL",
-        "head eyeball left": "Head DL",
-        "head eyeball right": "Head DL",
-        "head eyelid left lower": "Head DL",
-        "head eyelid left upper": "Head DL",
-        "head eyelid right lower": "Head DL",
-        "head eyelid right upper": "Head DL",
-        "head eyebrow left 1": "Head DL",
-        "head eyebrow left 2": "Head DL",
-        "head eyebrow left 3": "Head DL",
-        "head eyebrow right 1": "Head DL",
-        "head eyebrow right 2": "Head DL",
-        "head eyebrow right 3": "Head DL",
-        "head eyebrow middle": "Head DL",
-        "arm left shoulder 1": "Left Arm Color",
-        "arm left shoulder 2": "Left Arm Color",
-        "arm left elbow": "Left Forearm",
-        "arm left wrist": "Left Hand DL",
-        "arm left finger 1a": "Left Hand DL",
-        "arm left finger 1b": "Left Hand DL",
-        "arm left finger 1c": "Left Hand DL",
-        "arm left finger 2a": "Left Hand DL",
-        "arm left finger 2b": "Left Hand DL",
-        "arm left finger 2c": "Left Hand DL",
-        "arm right shoulder 1": "Right Arm Color",
-        "arm right shoulder 2": "Right Arm Color",
-        "arm right elbow": "Right Forearm",
-        "arm right wrist": "Right Hand DL",
-        "arm right finger 1a": "Right Hand DL",
-        "arm right finger 1b": "Right Hand DL",
-        "arm right finger 1c": "Right Hand DL",
-        "arm right finger 2a": "Right Hand DL",
-        "arm right finger 2b": "Right Hand DL",
-        "arm right finger 2c": "Right Hand DL",
-        "leg left thigh": "Left Thigh Color",
-        "leg left knee": "Left Leg",
-        "leg left ankle": "Left Shoe",
-        "leg left toes": "Left Shoe",
-        "leg right thigh": "Right Thigh Color",
-        "leg right knee": "Right Leg",
-        "leg right ankle": "Right Shoe DL",
-        "leg right toes": "Right Shoe DL",
-    }
-    source_groups = {group.index: group.name for group in source_mesh.vertex_groups}
-    target_group_names = sorted(set(group_map.values()))
-    for group_name in list(rigged_mesh.vertex_groups):
-        rigged_mesh.vertex_groups.remove(group_name)
-    target_groups = {name: rigged_mesh.vertex_groups.new(name=name) for name in target_group_names}
-    unmapped_groups = sorted({name for name in source_groups.values() if name not in group_map})
-    for vertex in source_mesh.data.vertices:
-        accum = {}
-        for membership in vertex.groups:
-            source_name = source_groups.get(membership.group)
-            target_name = group_map.get(source_name)
-            if target_name:
-                accum[target_name] = accum.get(target_name, 0.0) + membership.weight
-        total = sum(accum.values())
-        if total > 1e-8:
-            for name, weight in accum.items():
-                target_groups[name].add([vertex.index], weight / total, "REPLACE")
-
-    # Replace source skin modifier with the Mario/Fast64-compatible hierarchy.
+    # Use Blender's automatic heat weights against the retargeted Mario deform bones.
+    # This avoids collapsing several GTA joints with different bind matrices into
+    # one target group, which would produce severe rest-pose deformation.
+    for bone_name in ("Left Wing DL", "Right Wing DL"):
+        bone = target_arm.data.bones.get(bone_name)
+        if bone is not None:
+            bone.use_deform = False
+    for group in list(rigged_mesh.vertex_groups):
+        rigged_mesh.vertex_groups.remove(group)
     for modifier in list(rigged_mesh.modifiers):
-        if modifier.type == "ARMATURE":
-            rigged_mesh.modifiers.remove(modifier)
-    arm_mod = rigged_mesh.modifiers.new("CJ64_Mario_Skin", "ARMATURE")
-    arm_mod.object = target_arm
+        rigged_mesh.modifiers.remove(modifier)
+    bpy.ops.object.select_all(action="DESELECT")
+    rigged_mesh.select_set(True)
+    target_arm.select_set(True)
+    bpy.context.view_layer.objects.active = target_arm
+    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    arm_mod = next((m for m in rigged_mesh.modifiers if m.type == "ARMATURE"), None)
+    require(arm_mod is not None and arm_mod.object == target_arm,
+            "Automatic weight transfer did not create a Mario armature modifier")
     arm_mod.use_vertex_groups = True
     arm_mod.use_bone_envelopes = False
-    rigged_mesh.data.update()
+
+    # Keep only the new actor and its target armature. This removes the template's
+    # auxiliary head/hand armatures and their unrelated dependency cycles.
+    for obj in list(bpy.context.scene.objects):
+        if obj not in (rigged_mesh, target_arm):
+            bpy.data.objects.remove(obj, do_unlink=True)
+    rigged_mesh.hide_render = False
+    rigged_mesh.hide_viewport = False
+    target_arm.hide_render = False
+    target_arm.hide_viewport = False
+    rigged_mesh.matrix_world = Matrix.Identity(4)
+    target_arm.matrix_world = Matrix.Identity(4)
+    rigged_mesh.parent = target_arm
 
     # Hide source and template meshes; keep source rig visible only for inspection.
     source_mesh.hide_render = True
