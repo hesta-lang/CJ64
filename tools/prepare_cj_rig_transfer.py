@@ -295,10 +295,26 @@ def main():
     checkpoint("clean-rigged-mesh-object-created")
     bpy.context.scene.collection.objects.link(rigged_mesh)
     checkpoint("clean-rigged-mesh-object-linked")
-    for vertex in rigged_mesh.data.vertices:
-        vertex.co = mesh_to_target @ vertex.co
+    checkpoint("before-transforming-cj-mesh-vertices")
+    vertex_count = len(rigged_mesh.data.vertices)
+    coordinates = [0.0] * (vertex_count * 3)
+    rigged_mesh.data.vertices.foreach_get("co", coordinates)
+    for offset in range(0, len(coordinates), 3):
+        transformed_point = mesh_to_target @ Vector((
+            coordinates[offset],
+            coordinates[offset + 1],
+            coordinates[offset + 2],
+        ))
+        coordinates[offset] = float(transformed_point.x)
+        coordinates[offset + 1] = float(transformed_point.y)
+        coordinates[offset + 2] = float(transformed_point.z)
+    rigged_mesh.data.vertices.foreach_set("co", coordinates)
+    rigged_mesh.data.update()
+    checkpoint(f"cj-mesh-vertices-transformed-{vertex_count}")
     rigged_mesh.matrix_world = Matrix.Identity(4)
+    checkpoint("cj-mesh-world-matrix-reset")
     rigged_mesh.parent = target_arm
+    checkpoint("cj-mesh-parented-to-target-armature")
 
     # Fast64/SM64 supports one deform-bone influence per vertex. Collapse the
     # original GTA FBX weights to the strongest mapped Mario deform group;
