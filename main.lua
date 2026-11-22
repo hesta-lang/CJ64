@@ -3,8 +3,8 @@
 CJ64 = CJ64 or {}
 CJ64.name = "CJ64"
 CJ64.version = "0.1.0-alpha"
-CJ64.riggedActor = false
-CJ64.animationTablesLoaded = false
+CJ64.riggedActor = CJ64.riggedActor == true
+CJ64.animationTablesLoaded = CJ64.animationTablesLoaded == true
 
 -- A rigged actor marker is generated only in the experimental skinned package.
 local rigOk = pcall(require, "rigged_actor")
