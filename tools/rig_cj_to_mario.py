@@ -140,7 +140,11 @@ def main():
     need(max_distance<=0.025*td.z,f"Vertex correspondence too distant: {max_distance:.5f}")
 
     # Scale the actual template armature uniformly to the 280-unit visual height.
-    bones=list(mario.data.bones)
+    core_names=["Body","Butt","Torso","Head","Left Arm","Left Arm Color","Left Forearm","Left Hand",
+                "Right Arm","Right Arm Color","Right Forearm","Right Hand","Left Thigh","Left Thigh Color",
+                "Left Leg","Left Shoe","Right Thigh","Right Thigh Color","Right Leg","Right Shoe"]
+    bones=[mario.data.bones.get(n) for n in core_names]
+    need(all(bones),"Mario core animation bones are incomplete")
     z0=min(min(b.head_local.z,b.tail_local.z) for b in bones)
     z1=max(max(b.head_local.z,b.tail_local.z) for b in bones)
     rig_h=z1-z0
