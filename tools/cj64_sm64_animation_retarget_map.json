@@ -42,10 +42,10 @@
     ],
     "Torso": [
       "spine lower",
-      "spine middle",
-      "spine upper"
+      "spine middle"
     ],
     "Head": [
+      "spine upper",
       "head neck lower",
       "head neck upper"
     ],
@@ -375,9 +375,9 @@
     ]
   },
   "notes": [
-    "Target node order and target rest rotations are regenerated from the official Mario/Fast64 template during the rigged actor workflow.",
-    "Source bone rest rotations and source-to-target armature axis alignment are regenerated from the imported CJ FBX and template transforms.",
-    "Source root translation is omitted from gameplay animation tables so MarioState remains authoritative.",
-    "This first-pass binary skinning assigns each mesh vertex to one target deform bone at weight 1.0, as required by SM64's skinning model."
+    "Starter map only: the current rig-transfer workflow overwrites target node order, rest rotations, source rest rotations and axis alignment from the actual Blender scene.",
+    "The workflow maps source spine lower/middle tracks to the Mario Torso node and spine upper/neck tracks to the Head node.",
+    "The workflow suppresses root translation in generated gameplay clips so MarioState remains authoritative.",
+    "SM64-compatible weights assign one deform bone per vertex at weight 1.0."
   ]
 }
