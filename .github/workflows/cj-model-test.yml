@@ -152,7 +152,11 @@ jobs:
           assert len(texture_budget) >= 4, texture_budget
           for info in texture_budget.values():
               assert info["rgba16_bytes"] <= 4096, info
+              assert info["row_padded_tmem_texels"] <= 2048, info
               assert info["export_size"][0] * info["export_size"][1] <= 2048, info
+          for island in islands["islands"]:
+              assert island["row_padded_tmem_texels"] <= 2048, island
+              assert island["rgba16_bytes"] <= 4096, island
           for material in report["texture_settings"].values():
               assert material["large_textures_enabled"] is False, material
           assert diagnostics["default_cube_removed"]
