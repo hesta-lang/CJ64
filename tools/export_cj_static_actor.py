@@ -577,8 +577,8 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "model_name": "cj_geo",
         "animation_mode": "STATIC_REST_POSE",
         "character_height_reference": {
-            "cj_estimated_height_m": cj_reference_height_m,
             "mario_reference_height_units": mario_reference_height_units,
+            "cj_visual_scale_ratio": cj_visual_scale_ratio,
             "cj_target_height_units": cj_target_height_units,
             "cj_to_mario_ratio": cj_target_height_units / mario_reference_height_units,
             "scale_is_visual_override": True,
