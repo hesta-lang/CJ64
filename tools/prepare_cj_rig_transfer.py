@@ -234,7 +234,8 @@ def main():
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
-        "bounds_after_armature_evaluation": bounds,\n        "preview_image": "CJ64-Rigged-Rest-Preview.png",
+        "bounds_after_armature_evaluation": bounds,
+        "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
             "First rig-transfer pass; deterministic nearest-bone-segment weights were generated for the Mario/Fast64 deform bones.",
             "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
