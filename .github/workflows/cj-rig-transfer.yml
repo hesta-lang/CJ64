@@ -1,89 +1,129 @@
-name: CJ64 rig transfer preview
+name: CJ64 rigged actor export
 
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/cj-rig-transfer.yml'
+      - 'tools/inspect_cj_mario_rigs.py'
       - 'tools/prepare_cj_rig_transfer.py'
+      - 'tools/export_cj_static_actor.py'
+      - 'tools/cj64_sm64_animation_retarget_map.json'
+      - 'main.lua'
+      - 'character.lua'
+      - 'assets/cj/source/**'
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
-  transfer:
+  inspect-rig-export:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
-      - name: Checkout CJ64
-        uses: actions/checkout@v4
-
-      - name: Download inspected CJ and Mario rigs
-        uses: actions/download-artifact@v4
-        with:
-          name: CJ64-Mario-rig-inspection
-          repository: hesta-lang/CJ64
-          run-id: 45058076896
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: ${{ runner.temp }}/rig-inspection
-
-      - name: Locate Blender scene
-        shell: bash
-        run: |
-          set -euo pipefail
-          find "${{ runner.temp }}/rig-inspection" -maxdepth 3 -type f -printf '%p %s bytes\n'
-          test -s "${{ runner.temp }}/rig-inspection/cj_mario_dual_rig_inspection.blend"
+      - uses: actions/checkout@v4
 
       - name: Install Blender runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils
+          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils lua5.4
 
-      - name: Install Blender 4.5.16
+      - name: Validate Lua controller
+        run: |
+          luac5.4 -p main.lua character.lua
+
+      - name: Install Blender 3.6.23
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          curl -fL --retry 3 --retry-delay 2 https://mirror.blender.org/release/Blender4.5/blender-4.5.16-linux-x64.tar.xz -o blender.tar.xz
-          curl -fL --retry 3 https://mirror.blender.org/release/Blender4.5/blender-4.5.16.sha256 -o blender.sha256
-          expected="$(awk '$2 == "blender-4.5.16-linux-x64.tar.xz" {print $1}' blender.sha256)"
+          curl -fL --retry 3 --retry-delay 2 https://mirror.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz -o blender-3.6.23-linux-x64.tar.xz
+          curl -fL --retry 3 https://mirror.blender.org/release/Blender3.6/blender-3.6.23.sha256 -o blender-3.6.23.sha256
+          expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
           test -n "$expected"
-          echo "$expected  blender.tar.xz" | sha256sum -c -
-          tar -xf blender.tar.xz
-          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --version
+          echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
+          tar -xf blender-3.6.23-linux-x64.tar.xz
+          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --version
 
-      - name: Transfer CJ skin to Mario animation hierarchy
+      - name: Download official Mario template and Fast64-Coop
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/cj-rig-transfer"
-          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background             --python tools/prepare_cj_rig_transfer.py --             "$RUNNER_TEMP/rig-inspection/cj_mario_dual_rig_inspection.blend"             "$RUNNER_TEMP/cj-rig-transfer"
-          test -s "$RUNNER_TEMP/cj-rig-transfer/CJ64-CJ-Rig-Transfer.blend"
-          test -s "$RUNNER_TEMP/cj-rig-transfer/cj64_rig_transfer_report.json"
-          test -s "$RUNNER_TEMP/cj-rig-transfer/CJ64-Rigged-Rest-Preview.png"
+          mkdir -p "$RUNNER_TEMP/cj-rig-input"
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://github.com/coop-deluxe/character-template/raw/refs/heads/main/Mario%20Coop%20Model%20Template.blend' \
+            -o "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend"
+          test "$(stat -c %s "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend")" -gt 10000000
+          test -s assets/cj/source/CarlJohnson-GTASA.FBX
+          git clone --depth 1 https://github.com/coop-deluxe/fast64.git "$RUNNER_TEMP/fast64"
+          test -s "$RUNNER_TEMP/fast64/__init__.py"
+          echo "FAST64_ADDON_PATH=$RUNNER_TEMP/fast64" >> "$GITHUB_ENV"
 
-      - name: Validate rig transfer
+      - name: Inspect CJ and Mario rigs with Blender 3.6
+        shell: bash
         run: |
-          python - "$RUNNER_TEMP/cj-rig-transfer/cj64_rig_transfer_report.json" <<'PY'
-          import json, sys
-          report = json.load(open(sys.argv[1]))
-          assert report["status"] == "RIGGED_PREVIEW_NOT_FAST64_EXPORTED_OR_IN_GAME_TESTED"
-          assert report["source_vertices"] > 1000
-          assert report["weighted_vertices"] == report["source_vertices"]
-          assert abs(report["target_height_blender_units"] - 2.8) < 1e-6
-          assert abs(report["bounds_after_armature_evaluation"][0] - 2.8) < 0.03
-          assert len(report["target_vertex_groups"]) >= 15
-          print("CJ skin transferred to the Mario armature; all vertices weighted and 280-unit height preserved.")
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cj-rig-inspection"
+          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --background --factory-startup \
+            --python tools/inspect_cj_mario_rigs.py -- \
+            "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
+            assets/cj/source/CarlJohnson-GTASA.FBX \
+            "$RUNNER_TEMP/cj-rig-inspection"
+          test -s "$RUNNER_TEMP/cj-rig-inspection/cj_mario_dual_rig_inspection.blend"
+          python - "$RUNNER_TEMP/cj-rig-inspection/cj_mario_rig_inspection.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert d["format"]=="cj64-cj-mario-rig-inspection-v3"
+          assert d["target_animation_node_count"]==20
+          assert len(d["source_cj"]["armatures"])==1
+          assert len(d["source_cj"]["meshes"])>=1
+          print("Inspected actual CJ and Mario/Fast64 rigs")
           PY
 
-      - name: Upload rigged Blender scene and report
+      - name: Transfer CJ skin and export the Fast64 actor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cj-rig-output"
+          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --background --factory-startup \
+            --python tools/prepare_cj_rig_transfer.py -- \
+            "$RUNNER_TEMP/cj-rig-inspection/cj_mario_dual_rig_inspection.blend" \
+            "$RUNNER_TEMP/cj-rig-output"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test.zip"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-CJ-Rig-Transfer.blend"
+          test -s "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Rest-Preview.png"
+          test -s "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json"
+          test -s "$RUNNER_TEMP/cj-rig-output/target_animation_node_order.json"
+
+      - name: Validate exported actor and single-bone skinning
+        run: |
+          python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert d["status"]=="FAST64_EXPORTED_EXPERIMENTAL_NOT_VISUALLY_OR_IN_GAME_VALIDATED"
+          assert d["source_vertices"]>1000
+          assert d["weighted_vertices"]==d["source_vertices"]
+          assert d["weight_influences_per_vertex"]==1
+          assert d["target_animation_node_count"]==20
+          assert abs(d["target_height_sm64_units"]-280.0)<0.1
+          assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
+          assert any(p.endswith("geo.inc.c") for p in d["actor_files"])
+          assert any(p.endswith("model.inc.c") for p in d["actor_files"])
+          print("Fast64 exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
+          PY
+
+      - name: Upload rigged CJ actor package and authoring scene
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-rig-transfer-preview
+          name: CJ64-rigged-actor
           path: |
-            ${{ runner.temp }}/cj-rig-transfer/CJ64-CJ-Rig-Transfer.blend
-            ${{ runner.temp }}/cj-rig-transfer/cj64_rig_transfer_report.json
-            ${{ runner.temp }}/cj-rig-transfer/CJ64-Rigged-Rest-Preview.png
+            \${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Test.zip
+            \${{ runner.temp }}/cj-rig-output/CJ64-CJ-Rig-Transfer.blend
+            \${{ runner.temp }}/cj-rig-output/cj64_rig_transfer_report.json
+            \${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Rest-Preview.png
+            \${{ runner.temp }}/cj-rig-output/cj64_sm64_animation_retarget_map.json
+            \${{ runner.temp }}/cj-rig-output/target_animation_node_order.json
           if-no-files-found: error
           retention-days: 14
+          compression-level: 1
