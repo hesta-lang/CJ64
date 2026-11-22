@@ -147,27 +147,47 @@ def main():
     rigged_mesh.matrix_world = Matrix.Identity(4)
     rigged_mesh.parent = target_arm
 
-    # Use Blender's automatic heat weights against the retargeted Mario deform bones.
-    # This avoids collapsing several GTA joints with different bind matrices into
-    # one target group, which would produce severe rest-pose deformation.
+    # Generate deterministic skin weights from the nearest retargeted deform-bone
+    # segments. Automatic heat weights fail on this source's overlapping helper
+    # bones; this distance-based pass keeps every vertex attached to real limbs.
     for bone_name in ("Left Wing DL", "Right Wing DL"):
         bone = target_arm.data.bones.get(bone_name)
         if bone is not None:
             bone.use_deform = False
     for group in list(rigged_mesh.vertex_groups):
         rigged_mesh.vertex_groups.remove(group)
-    for modifier in list(rigged_mesh.modifiers):
-        rigged_mesh.modifiers.remove(modifier)
-    bpy.ops.object.select_all(action="DESELECT")
-    rigged_mesh.select_set(True)
-    target_arm.select_set(True)
-    bpy.context.view_layer.objects.active = target_arm
-    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
-    arm_mod = next((m for m in rigged_mesh.modifiers if m.type == "ARMATURE"), None)
-    require(arm_mod is not None and arm_mod.object == target_arm,
-            "Automatic weight transfer did not create a Mario armature modifier")
+    deform_bones = [bone for bone in target_arm.data.bones if bone.use_deform]
+    require(len(deform_bones) >= 15,
+            f"Expected at least 15 Mario deform bones, found {len(deform_bones)}")
+    groups = {bone.name: rigged_mesh.vertex_groups.new(name=bone.name)
+              for bone in deform_bones}
+    segments = []
+    for bone in deform_bones:
+        head = bone.head_local.copy()
+        tail = bone.tail_local.copy()
+        axis_vec = tail - head
+        axis_len_sq = max(axis_vec.length_squared, 1e-10)
+        segments.append((bone.name, head, axis_vec, axis_len_sq))
+
+    for vertex in rigged_mesh.data.vertices:
+        point = vertex.co
+        distances = []
+        for name, head, axis_vec, axis_len_sq in segments:
+            amount = max(0.0, min(1.0, (point - head).dot(axis_vec) / axis_len_sq))
+            nearest = head + axis_vec * amount
+            distances.append(((point - nearest).length, name))
+        nearest_bones = sorted(distances)[:3]
+        raw = [(name, 1.0 / ((distance + 0.05) ** 4))
+               for distance, name in nearest_bones]
+        total = sum(weight for _, weight in raw)
+        for name, weight in raw:
+            groups[name].add([vertex.index], weight / total, "REPLACE")
+
+    arm_mod = rigged_mesh.modifiers.new("CJ64_Mario_Skin", "ARMATURE")
+    arm_mod.object = target_arm
     arm_mod.use_vertex_groups = True
     arm_mod.use_bone_envelopes = False
+    rigged_mesh.parent = target_arm
 
     # Keep only the new actor and its target armature. This removes the template's
     # auxiliary head/hand armatures and their unrelated dependency cycles.
@@ -216,7 +236,7 @@ def main():
         "weighted_vertices": weighted_vertices,
         "bounds_after_armature_evaluation": bounds,
         "notes": [
-            "First rig-transfer pass; Blender automatic heat weights were generated against the transferred Mario/Fast64 deform bones.",
+            "First rig-transfer pass; deterministic nearest-bone-segment weights were generated for the Mario/Fast64 deform bones.",
             "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
             "Inspect all major poses before Fast64 export; no runtime animation is enabled by this workflow.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
