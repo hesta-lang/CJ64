@@ -1,4 +1,4 @@
-name: CJ64 Lua validation
+name: CJ64 validation
 
 on:
   push:
@@ -24,3 +24,9 @@ jobs:
           done < <(find . -type f -name '*.lua' -print0)
       - name: Test model replacement
         run: lua5.4 tools/test_model_swap.lua
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test IFP parser
+        run: python -m unittest discover -s tests -v
