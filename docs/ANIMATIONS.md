@@ -93,3 +93,26 @@ values array). It has not been visually approved, Fast64-exported with the
 rigged CJ scene, or tested inside SM64CoopDX on Android. The private Lua
 output is distributed separately to the owner; neither it nor the commercial
 IFP is committed here.
+
+
+## Rigging and runtime controller work
+
+The repository now includes an experimental rigged-actor pipeline:
+`tools/rig_cj_to_mario.py` imports the official Mario template, transfers the
+dominant source FBX weight to exactly one Mario deform group per vertex
+(weight 1.0), applies the 280-unit visual scale, and exports through
+`bpy.ops.object.sm64_export_geolayout_armature`. The workflow derives the
+20-node order and rest rotations from the actual Fast64 template rather than
+trusting a hand-written node list.
+
+The runtime controller in `character.lua` selects GTA roles for idle, walk,
+run, sprint candidate, jump, fall, landing, and swimming. It tracks each
+player independently and only runs when both marker files are present:
+`rigged_actor.lua` and the private `cj64_gta_animations.lua` module.
+The public repository does not contain the private keyframe arrays.
+
+**Current state:** the rigging workflow and controller are committed, but the
+experimental actor has not yet passed its Blender/Fast64 CI build, pose review,
+or SM64CoopDX/Android test. The previous static actor remains the only
+verified install package. SM64 skinning requires one bone per vertex; smooth
+multi-bone weights are not used in this pipeline.
