@@ -277,6 +277,11 @@ def main():
     actual_node_names = {node["name"] for node in animation_nodes}
     require(actual_node_names == set(retarget_map["target_source_chains"]),
             "Fast64 node names do not match retarget chain map: " + str(sorted(actual_node_names)))
+    retarget_map["format"] = "cj64-sm64-animation-retarget-map-v2"
+    retarget_map["generated_from_actual_rig"] = True
+    retarget_map["source_armature"] = source_arm.name
+    retarget_map["target_armature"] = target_arm.name
+    retarget_map["target_animation_node_count"] = len(animation_nodes)
     retarget_map["target_node_order"] = [node["name"] for node in animation_nodes]
     retarget_map["target_rest_rotation_wxyz"] = {
         node["name"]: node["rest_rotation_wxyz"] for node in animation_nodes
