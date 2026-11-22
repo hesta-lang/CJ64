@@ -82,11 +82,28 @@ jobs:
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-retarget-output"
 
-      - name: Upload Fast64 animation node order report
+      - name: Verify Fast64 node order and rig report
+        run: |
+          python - "$RUNNER_TEMP/cj-retarget-output/cj_mario_rig_inspection.json" "$RUNNER_TEMP/cj-retarget-output/target_animation_node_order.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          order = json.load(open(sys.argv[2], encoding="utf-8"))
+          assert report["format"].endswith("v3"), report.get("format")
+          assert report["target_animation_node_count"] == order["node_count"]
+          assert order["node_count"] == 20, order["node_count"]
+          assert len(order["nodes"]) == 20
+          assert all(node.get("rest_matrix") and node.get("rest_rotation_wxyz") for node in order["nodes"])
+          print("Verified actual Fast64 animation node order and rest matrices")
+          PY
+
+      - name: Upload complete Fast64 rig inspection
         uses: actions/upload-artifact@v4
         with:
           name: CJ64-Fast64-animation-node-order
-          path: ${{ runner.temp }}/cj-retarget-output/target_animation_node_order.json
+          path: |
+            ${{ runner.temp }}/cj-retarget-output/target_animation_node_order.json
+            ${{ runner.temp }}/cj-retarget-output/cj_mario_rig_inspection.json
+            ${{ runner.temp }}/cj-retarget-output/cj_mario_dual_rig_inspection.blend
           if-no-files-found: error
           retention-days: 14
           compression-level: 1
