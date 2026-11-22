@@ -6,6 +6,7 @@ It writes a rig report and a combined inspection .blend.
 """
 from __future__ import annotations
 import json
+import os
 import sys
 from pathlib import Path
 import bpy  # type: ignore
@@ -34,6 +35,7 @@ def bone_report(armature):
             "collections": [collection.name for collection in bone.collections] if hasattr(bone, "collections") else [],
             "geo_cmd": getattr(bone, "geo_cmd", None),
             "field_layout": getattr(bone, "field_layout", None),
+            "custom_geo_cmd_macro": getattr(getattr(getattr(bone, "fast64", None), "sm64", None), "custom_geo_cmd_macro", None),
             "head_local": vec(bone.head_local),
             "tail_local": vec(bone.tail_local),
             "length": round(float(bone.length), 6),
@@ -116,6 +118,16 @@ def main():
     if not template.is_file() or not fbx.is_file():
         raise SystemExit("Mario template .blend and CJ FBX must both exist")
     out.mkdir(parents=True, exist_ok=True)
+
+    fast64_path = os.environ.get("FAST64_ADDON_PATH")
+    if not fast64_path:
+        raise SystemExit("FAST64_ADDON_PATH is required to read the template GeoLayout bone properties")
+    fast64_dir = Path(fast64_path).resolve()
+    if not (fast64_dir / "__init__.py").is_file():
+        raise SystemExit(f"Fast64-Coop add-on source not found: {fast64_dir}")
+    sys.path.insert(0, str(fast64_dir.parent))
+    import fast64  # type: ignore
+    fast64.register()
 
     bpy.ops.wm.open_mainfile(filepath=str(template))
     bpy.context.view_layer.update()
