@@ -129,6 +129,12 @@ def main():
     sys.path.insert(0, str(fast64_dir))
     import fast64  # type: ignore
     fast64.register()
+    addon_version = tuple(fast64.bl_info.get("version", ()))
+    addon_name = fast64.bl_info.get("name", "")
+    if addon_name != "Fast64 Gart Edition" or addon_version != (2, 5, 3):
+        raise SystemExit(
+            f"Expected pinned Fast64-Gart 2.5.3, found {addon_name} {addon_version}"
+        )
     if not hasattr(bpy.ops.wm, "fbx_import"):
         try:
             bpy.ops.preferences.addon_enable(module="io_scene_fbx")
@@ -235,6 +241,8 @@ def main():
     report = {
         "format": "cj64-cj-mario-rig-inspection-v3",
         "blender_version": bpy.app.version_string,
+        "fast64_addon": addon_name,
+        "fast64_version": list(addon_version),
         "template_file": template.name,
         "source_model_import": fbx.name,
         "target_template": template_report,
