@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+"""Generate first-pass SM64CoopDX animation tables from a user-provided GTA SA ped.ifp.
+
+The script only emits a 20-node Mario/Fast64 animation table. It does not rig
+or skin the CJ mesh and does not certify visual or in-game compatibility.
+"""
+from __future__ import annotations
+import argparse
+import json
+import math
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+TOOLS = ROOT / "tools"
+sys.path.insert(0, str(TOOLS))
+from ifp_reader import IFPError, load_ifp  # noqa: E402
+
+
+def qnorm(q):
+    length = math.sqrt(sum(value * value for value in q))
+    if length < 1e-10:
+        raise ValueError("zero-length quaternion")
+    return tuple(value / length for value in q)
+
+
+def qmul(a, b):
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return (
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    )
+
+
+def qinv(q):
+    q = qnorm(q)
+    return (-q[0], -q[1], -q[2], q[3])
+
+
+def qdot(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def qslerp(a, b, t):
+    a, b = qnorm(a), qnorm(b)
+    dot = qdot(a, b)
+    if dot < 0.0:
+        b = tuple(-x for x in b)
+        dot = -dot
+    dot = max(-1.0, min(1.0, dot))
+    if dot > 0.9995:
+        return qnorm(tuple(x + t * (y - x) for x, y in zip(a, b)))
+    theta = math.acos(dot)
+    sin_theta = math.sin(theta)
+    wa = math.sin((1.0 - t) * theta) / sin_theta
+    wb = math.sin(t * theta) / sin_theta
+    return qnorm(tuple(wa * x + wb * y for x, y in zip(a, b)))
+
+
+def from_wxyz(value):
+    return qnorm((value[1], value[2], value[3], value[0]))
+
+
+def euler_xyz(q):
+    x, y, z, w = qnorm(q)
+    rx = math.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
+    sin_y = 2.0 * (w * y - z * x)
+    ry = math.copysign(math.pi / 2.0, sin_y) if abs(sin_y) >= 1.0 else math.asin(sin_y)
+    rz = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+    return rx, ry, rz
+
+
+def angle16(radians):
+    return int(round(radians * 65536.0 / (2.0 * math.pi))) & 0xFFFF
+
+
+def sample_track(track, time_seconds):
+    frames = track.frames
+    if len(frames) == 1 or time_seconds <= frames[0].time_seconds:
+        return frames[0].rotation_xyzw
+    if time_seconds >= frames[-1].time_seconds:
+        return frames[-1].rotation_xyzw
+    low = 0
+    while low + 1 < len(frames) and frames[low + 1].time_seconds < time_seconds:
+        low += 1
+    first, second = frames[low], frames[low + 1]
+    span = second.time_seconds - first.time_seconds
+    amount = 0.0 if span <= 1e-9 else (time_seconds - first.time_seconds) / span
+    return qslerp(first.rotation_xyzw, second.rotation_xyzw, amount)
+
+
+def wrap_track_name(name):
+    return name.strip().casefold()
+
+
+def build_basis(target_node, source_bone, source_rest, target_rest, q_align):
+    # Source local axes -> target local axes: inv(Trest) * A * Srest.
+    return qnorm(qmul(qmul(qinv(target_rest[target_node]), q_align), source_rest[source_bone]))
+
+
+def mapped_target_rotation(target_node, source_quats, chain, bases):
+    result = (0.0, 0.0, 0.0, 1.0)
+    for source_bone, source_quat in zip(chain, source_quats):
+        basis = bases[(target_node, source_bone)]
+        mapped = qnorm(qmul(qmul(basis, source_quat), qinv(basis)))
+        result = qnorm(qmul(result, mapped))
+    return result
+
+
+def emit_table(lua, name, flags, sample_count, values, index):
+    lua.extend([
+        f'smlua_anim_util_register_animation("{name}", {flags}, 1, 0, 0, {sample_count},',
+        "    {",
+    ])
+    for start in range(0, len(values), 12):
+        lua.append("        " + ", ".join(f"0x{v:04X}" for v in values[start:start + 12]) + ",")
+    lua.extend(["    },", "    {"])
+    for start in range(0, len(index), 12):
+        lua.append("        " + ", ".join(f"0x{v:04X}" for v in index[start:start + 12]) + ",")
+    lua.extend(["    }", ")", ""])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("ifp", type=Path, help="user-provided GTA SA ped.ifp")
+    parser.add_argument("--output", type=Path, required=True, help="output Lua file")
+    parser.add_argument("--map", type=Path, default=TOOLS / "cj64_sm64_animation_retarget_map.json")
+    parser.add_argument("--manifest", type=Path, default=TOOLS / "cj_animation_manifest.json")
+    parser.add_argument("--fps", type=int, default=30)
+    args = parser.parse_args()
+    if args.fps <= 0:
+        parser.error("--fps must be positive")
+
+    try:
+        package = load_ifp(str(args.ifp))
+    except (OSError, IFPError) as exc:
+        parser.error(str(exc))
+
+    mapping = json.loads(args.map.read_text(encoding="utf-8"))
+    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+    node_order = mapping["target_node_order"]
+    source_rest = {name: from_wxyz(value) for name, value in mapping["source_rest_rotation_wxyz"].items()}
+    target_rest = {name: from_wxyz(value) for name, value in mapping["target_rest_rotation_wxyz"].items()}
+    source_map = {key.casefold(): value for key, value in mapping["source_track_to_bone"].items()}
+    chains = mapping["target_source_chains"]
+    align_data = mapping["axis_alignment"]["quaternion_xyzw"]
+    q_align = qnorm(tuple(align_data))
+
+    bases = {}
+    for node in node_order:
+        if node not in target_rest:
+            raise SystemExit(f"Target rest pose lacks Fast64 node: {node}")
+        for source_bone in chains[node]:
+            if source_bone not in source_rest:
+                raise SystemExit(f"Source rest pose lacks mapped bone: {source_bone}")
+            bases[(node, source_bone)] = build_basis(node, source_bone, source_rest, target_rest, q_align)
+
+    lua = [
+        "-- CJ64: first-pass GTA San Andreas ped.ifp retarget for SM64CoopDX.",
+        "-- Generated from a user-provided ANP3 file; the source IFP is not included.",
+        "-- 20 Fast64 Mario animation nodes; root translation channels are intentionally zero.",
+        "-- Source-to-target basis uses the checked-in inspected rig rest rotations.",
+        "-- Must be visually checked in Blender and exported with Fast64 before enabling in-game.",
+        "CJ64_GTA_ANIMATIONS = CJ64_GTA_ANIMATIONS or {}",
+        "CJ64_GTA_ANIMATIONS.names = CJ64_GTA_ANIMATIONS.names or {}",
+        "",
+    ]
+    clip_reports = []
+    missing = []
+    for item in manifest["clips"]:
+        clip = package.find(item["name"])
+        if clip is None:
+            missing.append(item["name"])
+            continue
+        track_by_source = {}
+        dropped = []
+        for track in clip.bones:
+            source_bone = source_map.get(wrap_track_name(track.name))
+            if source_bone is None:
+                dropped.append(track.name.strip())
+            else:
+                track_by_source[source_bone] = track
+        frame_count = max(2, int(math.ceil(clip.duration * args.fps - 1e-8)) + 1)
+        times = [frame / args.fps for frame in range(frame_count)]
+        if times[-1] < clip.duration - 1e-6:
+            times.append(clip.duration)
+            frame_count += 1
+
+        channels = [[0], [0], [0]]
+        for node in node_order:
+            axes = [[], [], []]
+            chain = chains[node]
+            for time_seconds in times:
+                source_quats = []
+                for source_bone in chain:
+                    track = track_by_source.get(source_bone)
+                    source_quats.append(
+                        sample_track(track, time_seconds) if track and track.frames
+                        else (0.0, 0.0, 0.0, 1.0)
+                    )
+                quaternion = mapped_target_rotation(node, source_quats, chain, bases)
+                for axis, angle in enumerate(euler_xyz(quaternion)):
+                    axes[axis].append(angle)
+            for axis_values in axes:
+                for frame in range(1, len(axis_values)):
+                    while axis_values[frame] - axis_values[frame - 1] > math.pi:
+                        axis_values[frame] -= 2.0 * math.pi
+                    while axis_values[frame] - axis_values[frame - 1] < -math.pi:
+                        axis_values[frame] += 2.0 * math.pi
+                channels.append([angle16(value) for value in axis_values])
+
+        if len(channels) != 63:
+            raise RuntimeError(f"{clip.name}: expected 63 channels, got {len(channels)}")
+        values, index = [], []
+        for samples in channels:
+            index.extend([len(samples), len(values)])
+            values.extend(samples)
+        if len(index) != 126 or len(values) >= 65536:
+            raise RuntimeError(f"{clip.name}: invalid index/value size")
+        for count, offset in zip(index[::2], index[1::2]):
+            if count < 1 or offset + count > len(values):
+                raise RuntimeError(f"{clip.name}: channel index points outside values")
+
+        loop = bool(item.get("loop", False))
+        role = item["role"]
+        lua_name = "cj64_anim_" + role
+        flags = "0" if loop else "ANIM_FLAG_NOLOOP"
+        lua.append(f"-- {clip.name}: {sum(len(t.frames) for t in clip.bones)} source keys; {len(times)} samples at {args.fps} FPS.")
+        emit_table(lua, lua_name, flags, len(times), values, index)
+        lua.append(f'CJ64_GTA_ANIMATIONS.names["{role}"] = "{lua_name}"')
+        lua.append("")
+        clip_reports.append({
+            "name": clip.name, "role": role, "loop": loop,
+            "duration_seconds": clip.duration, "sample_fps": args.fps,
+            "source_tracks": len(clip.bones),
+            "source_keyframes": sum(len(t.frames) for t in clip.bones),
+            "sampled_frames": len(times), "channels": len(channels),
+            "index_entries": len(index), "values_entries": len(values),
+            "dropped_tracks": dropped,
+        })
+
+    if missing:
+        raise SystemExit("Missing clips: " + ", ".join(missing))
+
+    lua.extend([
+        "-- Use only after CJ has a skinned actor with the same 20-node Mario/Fast64 hierarchy.",
+        "-- The character replacement code must set animationReady=true only after that actor is installed.",
+        "function CJ64_GTA_ANIMATIONS.set_for_role(m, role)",
+        "    if m == nil or m.marioObj == nil then return false end",
+        "    if CJ64 == nil or CJ64.character == nil or CJ64.character.animationReady ~= true then return false end",
+        "    local name = CJ64_GTA_ANIMATIONS.names[role]",
+        "    if name == nil then return false end",
+        "    smlua_anim_util_set_animation(m.marioObj, name)",
+        "    return true",
+        "end",
+        "",
+    ])
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text("\n".join(lua), encoding="utf-8")
+
+    report_path = args.output.with_suffix(".report.json")
+    report = {
+        "format": "cj64-sm64-lua-animation-retarget-report-v1",
+        "source_package": package.package_name,
+        "source_ifp_name": args.ifp.name,
+        "source_file_size_bytes": args.ifp.stat().st_size,
+        "source_animation_count": len(package.animations),
+        "selected_clip_count": len(clip_reports),
+        "total_selected_source_keyframes": sum(item["source_keyframes"] for item in clip_reports),
+        "target_node_order": node_order,
+        "axis_alignment": mapping["axis_alignment"],
+        "root_translation": "zeroed",
+        "status": "STRUCTURAL_GENERATION_ONLY_NOT_VISUALLY_OR_IN_GAME_VALIDATED",
+        "output_lua": args.output.name,
+        "output_lua_bytes": args.output.stat().st_size,
+        "clips": clip_reports,
+    }
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps({
+        "package": package.package_name,
+        "clips_total": len(package.animations),
+        "selected": len(clip_reports),
+        "source_keyframes": report["total_selected_source_keyframes"],
+        "lua_bytes": args.output.stat().st_size,
+        "report": str(report_path),
+        "validation": report["status"],
+    }, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
