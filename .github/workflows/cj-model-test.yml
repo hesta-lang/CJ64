@@ -7,6 +7,7 @@ on:
       - '.github/workflows/cj-model-test.yml'
       - 'tools/prepare_cj_static_glb.py.gz'
       - 'tools/export_cj_static_actor.py'
+      - 'tools/fix_cj_dynos_texture_paths.py'
       - 'main.lua'
       - 'character.lua'
       - 'assets/cj/source/**'
@@ -92,6 +93,14 @@ jobs:
             "$GITHUB_WORKSPACE" \
             "$RUNNER_TEMP/cj-model-test"
 
+      - name: Normalize DynOS texture paths and rebuild install ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/fix_cj_dynos_texture_paths.py \
+            "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test" \
+            "$RUNNER_TEMP/cj-model-test"
+
       - name: Verify generated package
         shell: bash
         run: |
@@ -100,8 +109,8 @@ jobs:
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-model-preview.png"
           test -s "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json"
           unzip -l "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip"
-          python - "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json" <<'PY'
-          import json, sys
+          python - "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json" "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip" <<'PY'
+          import json, sys, zipfile
           from pathlib import Path
           report = json.loads(Path(sys.argv[1]).read_text())
           assert report["model_name"] == "cj_geo"
@@ -109,7 +118,17 @@ jobs:
           assert any(x["path"].endswith("geo.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith("model.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith(".png") for x in report["actor_files"])
-          print("CJ model test package verified")
+          assert report["renamed_texture_files"].get("upper body.rgba16.png") == "upper_body.rgba16.png"
+          assert len(report["dynos_texture_includes"]) >= 5
+          with zipfile.ZipFile(sys.argv[2]) as archive:
+              members = set(archive.namelist())
+              for texture in report["dynos_texture_includes"]:
+                  assert f"CJ64-Model-Test/{texture}" in members, texture
+              assert "CJ64-Model-Test/actors/cj/upper_body.rgba16.png" in members
+              assert not any("upper body.rgba16.png" in p for p in members)
+              assert "CJ64-Model-Test/actors/cj/geo.inc.c" in members
+              assert "CJ64-Model-Test/actors/cj/model.inc.c" in members
+          print("CJ model package and all DynOS texture paths verified")
           PY
 
       - name: Upload CJ model test package and preview
