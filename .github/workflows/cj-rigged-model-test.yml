@@ -64,13 +64,16 @@ jobs:
           test -s "$RUNNER_TEMP/cj-rigged/CJ64-Rigged-Test.zip"
           test -s "$RUNNER_TEMP/cj-rigged/CJ64-Rigged-Scene.blend"
           test -s "$RUNNER_TEMP/cj-rigged/cj64_rigged_actor_report.json"
+          test -s "$RUNNER_TEMP/cj-rigged/cj64_sm64_animation_retarget_map.json"
+          test -s "$RUNNER_TEMP/cj-rigged/target_animation_node_order.json"
       - name: Verify binary skinning and actor export
         run: |
           python - "$RUNNER_TEMP/cj-rigged/cj64_rigged_actor_report.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
           assert d["model_name"]=="cj_geo"
-          assert d["height_sm64_units"]==280.0
+          assert abs(d["height_sm64_units"]-280.0)<0.01
+          assert d["target_animation_node_count"]==20
           assert sum(d["vertices_by_target_bone"].values())==d["total_vertices"]
           assert d["max_nearest_source_vertex_distance"]<0.07
           print("Verified 280-unit actor and one-bone-per-vertex assignments")
@@ -83,5 +86,7 @@ jobs:
             \${{ runner.temp }}/cj-rigged/CJ64-Rigged-Test.zip
             \${{ runner.temp }}/cj-rigged/CJ64-Rigged-Scene.blend
             \${{ runner.temp }}/cj-rigged/cj64_rigged_actor_report.json
+            ${{ runner.temp }}/cj-rigged/cj64_sm64_animation_retarget_map.json
+            ${{ runner.temp }}/cj-rigged/target_animation_node_order.json
           if-no-files-found: error
           retention-days: 14
