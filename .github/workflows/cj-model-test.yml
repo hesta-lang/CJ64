@@ -112,6 +112,7 @@ jobs:
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-Blender-Scene.blend"
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-3.6-GLB-Preview.png"
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-3.6-TMEM-Preview.png"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-3.6-Back-Preview.png"
           unzip -l "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip"
           python - "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json" "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip" "$RUNNER_TEMP/cj-model-test/cj_scene_diagnostics.json" <<'PY'
           import json, re, sys, zipfile
@@ -123,26 +124,30 @@ jobs:
           assert any(x["path"].endswith("geo.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith("model.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith(".png") for x in report["actor_files"])
-          assert report["renamed_texture_files"].get("upper body.rgba16.png") == "upper_body.rgba16.png"
           assert len(report["dynos_texture_includes"]) >= 4
+          assert report["back_blender_preview"]["path"] == "CJ64-3.6-Back-Preview.png"
+          islands = report["texture_uv_islands"]
+          assert islands["generated_material_count"] > 4, islands
+          assert islands["island_count"] == islands["generated_material_count"], islands
+          assert len(islands["islands"]) >= 4
           scene = report["blender_scene"]
           assert scene["default_cube_removed"], scene
           assert not scene["unexpected_default_cube_in_export"], scene
           assert scene["saved_blend_scene"] == "CJ64-Blender-Scene.blend"
-          assert 1.795 <= scene["joined_geometry"]["dimensions"][2] <= 1.805, scene["joined_geometry"]
-          assert abs(scene["visual_scale_factor"] - 1.125) < 1e-6
+          assert 2.155 <= scene["joined_geometry"]["dimensions"][2] <= 2.165, scene["joined_geometry"]
+          assert abs(scene["visual_scale_factor"] - 1.35) < 1e-6
           scale = scene["scale_calculation"]
           assert scale["mario_reference_height_units"] == 160.0
-          assert scale["cj_reference_height_m"] == 1.80
+          assert scale["cj_visual_scale_ratio"] == 1.35
           assert scale["sm64_units_per_blender_unit"] == 100.0
-          assert scale["cj_target_height_units"] == 180.0
-          assert abs(scale["cj_to_mario_height_ratio"] - 1.125) < 1e-6
-          assert scale["authoritative_cj_height"] is False
+          assert scale["cj_target_height_units"] == 216.0
+          assert abs(scale["cj_to_mario_height_ratio"] - 1.35) < 1e-6
+          assert scale["scale_is_visual_override"] is True
           assert scene["pre_fast64_blender_preview"]["path"] == "CJ64-3.6-GLB-Preview.png"
           assert len(scene["pre_fast64_blender_preview"]["mesh_materials"]) == 4
           assert report["tmem_safe_blender_preview"]["path"] == "CJ64-3.6-TMEM-Preview.png"
           texture_budget = report["texture_tmem_budget"]
-          assert len(texture_budget) == 4, texture_budget
+          assert len(texture_budget) >= 4, texture_budget
           for info in texture_budget.values():
               assert info["rgba16_bytes"] <= 4096, info
               assert info["export_size"][0] * info["export_size"][1] <= 2048, info
@@ -151,15 +156,16 @@ jobs:
           assert diagnostics["default_cube_removed"]
           assert not diagnostics["unexpected_default_cube_in_export"]
           assert diagnostics["joined_geometry"] == scene["joined_geometry"]
-          assert abs(diagnostics["visual_scale_factor"] - 1.125) < 1e-6
-          assert diagnostics["scale_calculation"]["cj_target_height_units"] == 180.0
+          assert abs(diagnostics["visual_scale_factor"] - 1.35) < 1e-6
+          assert diagnostics["scale_calculation"]["cj_target_height_units"] == 216.0
           assert report["generated_solid_fallback_materials"] == [], report["generated_solid_fallback_materials"]
           with zipfile.ZipFile(sys.argv[2]) as archive:
               members = set(archive.namelist())
               for texture in report["dynos_texture_includes"]:
                   assert f"CJ64-Model-Test/{texture}" in members, texture
-              assert "CJ64-Model-Test/actors/cj/upper_body.rgba16.png" in members
-              assert not any("upper body.rgba16.png" in p for p in members)
+              texture_paths = [p for p in members if p.startswith("CJ64-Model-Test/actors/cj/") and p.endswith(".png")]
+              assert len(texture_paths) >= 4, texture_paths
+              assert all(not any(ch.isspace() for ch in p) for p in texture_paths), texture_paths
               assert "CJ64-Model-Test/actors/cj/geo.inc.c" in members
               assert "CJ64-Model-Test/actors/cj/model.inc.c" in members
               model_source = archive.read("CJ64-Model-Test/actors/cj/model.inc.c").decode()
@@ -183,6 +189,7 @@ jobs:
             ${{ runner.temp }}/cj-model-test/CJ64-model-preview.png
             ${{ runner.temp }}/cj-model-test/CJ64-3.6-GLB-Preview.png
             ${{ runner.temp }}/cj-model-test/CJ64-3.6-TMEM-Preview.png
+            ${{ runner.temp }}/cj-model-test/CJ64-3.6-Back-Preview.png
             ${{ runner.temp }}/cj-model-test/cj_model_test_report.json
             ${{ runner.temp }}/cj-model-test/cj_scene_diagnostics.json
             ${{ runner.temp }}/cj-model-test/CJ-Static-Model.glb
