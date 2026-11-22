@@ -351,7 +351,7 @@ def main():
 
     report = {
         "format": "cj64-rig-transfer-preview-v1",
-        "status": "RIGGED_PREVIEW_NOT_FAST64_EXPORTED_OR_IN_GAME_TESTED",
+        "status": "FAST64_EXPORTED_EXPERIMENTAL_NOT_VISUALLY_OR_IN_GAME_VALIDATED",
         "source_armature": source_arm_name,
         "target_armature": target_arm.name,
         "source_mesh": source_mesh_name,
@@ -365,12 +365,19 @@ def main():
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
+        "weight_influences_per_vertex": 1,
+        "target_animation_node_count": len(animation_nodes),
+        "target_animation_nodes": animation_nodes,
+        "texture_uv_islands": texture_islands,
+        "generated_fallback_materials": fallback_materials,
+        "fast64_export_result": str(export_result),
+        "actor_files": [str(path.relative_to(mod_dir)) for path in actor_dir.rglob("*") if path.is_file()],
         "bounds_after_armature_evaluation": bounds,
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
-            "First rig-transfer pass; deterministic nearest-bone-segment weights were generated for the Mario/Fast64 deform bones.",
+            "First rig-transfer pass; each vertex is assigned to its nearest Mario/Fast64 deform-bone segment at weight 1.0.",
             "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
-            "Inspect all major poses before Fast64 export; no runtime animation is enabled by this workflow.",
+            "The Fast64 DynOS actor is exported, but major poses and in-game rendering still require visual and runtime validation.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
         ]
     }
@@ -431,7 +438,15 @@ def main():
 
     scene_path = output_dir / "CJ64-CJ-Rig-Transfer.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(scene_path))
-    print(json.dumps({"scene": str(scene_path), "report": str(report_path), **report}, indent=2))
+    archive = output_dir / "CJ64-Rigged-Test.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=8) as package:
+        for path in sorted(mod_dir.rglob("*")):
+            if path.is_file():
+                package.write(path, path.relative_to(output_dir))
+    print(json.dumps({
+        "scene": str(scene_path), "report": str(report_path),
+        "package": str(archive), **report
+    }, indent=2))
 
 
 if __name__ == "__main__":
