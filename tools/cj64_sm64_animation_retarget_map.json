@@ -1,0 +1,381 @@
+{
+  "format": "cj64-sm64-animation-retarget-map-v1",
+  "source_armature": "CJ_SRC__Armature",
+  "target_armature": "Mario",
+  "axis_alignment": {
+    "quaternion_xyzw": [
+      0,
+      0,
+      -0.7071067811865476,
+      0.7071067811865476
+    ],
+    "description": "Source X -> target -Y; source Y -> target X; source Z -> target Z (Rz -90 degrees), derived from corresponding rest-joint positions."
+  },
+  "target_node_order": [
+    "Body",
+    "Butt",
+    "Torso",
+    "Head",
+    "Left Arm",
+    "Left Arm Color",
+    "Left Forearm",
+    "Left Hand",
+    "Right Arm",
+    "Right Arm Color",
+    "Right Forearm",
+    "Right Hand",
+    "Left Thigh",
+    "Left Thigh Color",
+    "Left Leg",
+    "Left Shoe",
+    "Right Thigh",
+    "Right Thigh Color",
+    "Right Leg",
+    "Right Shoe"
+  ],
+  "target_source_chains": {
+    "Body": [
+      "root ground"
+    ],
+    "Butt": [
+      "pelvis"
+    ],
+    "Torso": [
+      "spine lower",
+      "spine middle"
+    ],
+    "Head": [
+      "head neck lower",
+      "head neck upper"
+    ],
+    "Left Arm": [
+      "arm left shoulder 1"
+    ],
+    "Left Arm Color": [
+      "arm left shoulder 2"
+    ],
+    "Left Forearm": [
+      "arm left elbow"
+    ],
+    "Left Hand": [
+      "arm left wrist"
+    ],
+    "Right Arm": [
+      "arm right shoulder 1"
+    ],
+    "Right Arm Color": [
+      "arm right shoulder 2"
+    ],
+    "Right Forearm": [
+      "arm right elbow"
+    ],
+    "Right Hand": [
+      "arm right wrist"
+    ],
+    "Left Thigh": [],
+    "Left Thigh Color": [
+      "leg left thigh"
+    ],
+    "Left Leg": [
+      "leg left knee"
+    ],
+    "Left Shoe": [
+      "leg left ankle"
+    ],
+    "Right Thigh": [],
+    "Right Thigh Color": [
+      "leg right thigh"
+    ],
+    "Right Leg": [
+      "leg right knee"
+    ],
+    "Right Shoe": [
+      "leg right ankle"
+    ]
+  },
+  "source_track_to_bone": {
+    "normal": "root ground",
+    "pelvis": "pelvis",
+    "spine": "spine lower",
+    "spine1": "spine middle",
+    "spine 1": "spine lower",
+    "spine 2": "spine middle",
+    "neck": "head neck lower",
+    "head": "head neck upper",
+    "bip01 l clavicle": "arm left shoulder 1",
+    "l upperarm": "arm left shoulder 2",
+    "l forearm": "arm left elbow",
+    "l hand": "arm left wrist",
+    "bip01 r clavicle": "arm right shoulder 1",
+    "r upperarm": "arm right shoulder 2",
+    "r forearm": "arm right elbow",
+    "r hand": "arm right wrist",
+    "l thigh": "leg left thigh",
+    "l calf": "leg left knee",
+    "l foot": "leg left ankle",
+    "r thigh": "leg right thigh",
+    "r calf": "leg right knee",
+    "r foot": "leg right ankle",
+    "l finger": "arm left finger 1a",
+    "l finger01": "arm left finger 1b",
+    "r finger": "arm right finger 1a",
+    "r finger01": "arm right finger 1b",
+    "l toe0": "leg left toes",
+    "r toe0": "leg right toes",
+    "jaw": "head jaw",
+    "l brow": "head eyebrow left 1",
+    "r brow": "head eyebrow right 1",
+    "l breast": null,
+    "r breast": null,
+    "belly": null
+  },
+  "source_rest_rotation_wxyz": {
+    "root ground": [
+      0.0292315,
+      -0.7065023,
+      -0.7065023,
+      -0.0292316
+    ],
+    "pelvis": [
+      0.0523914,
+      -0.7051632,
+      0.7051632,
+      0.0523914
+    ],
+    "leg left thigh": [
+      0.559527,
+      -0.4816709,
+      0.4323535,
+      -0.5176805
+    ],
+    "leg left knee": [
+      0.1058195,
+      -0.701351,
+      0.699144,
+      -0.0900374
+    ],
+    "leg left ankle": [
+      0.6258264,
+      -0.3364552,
+      -0.3291525,
+      -0.6219308
+    ],
+    "leg right thigh": [
+      0.51768,
+      0.4323539,
+      -0.4816714,
+      -0.5595267
+    ],
+    "leg right knee": [
+      0.0900207,
+      0.6991463,
+      -0.7013532,
+      -0.1058036
+    ],
+    "leg right ankle": [
+      0.6219311,
+      -0.3291512,
+      -0.336455,
+      -0.6258267
+    ],
+    "spine lower": [
+      0.0017443,
+      -0.7071047,
+      -0.7071045,
+      -0.001745
+    ],
+    "spine middle": [
+      0.7070578,
+      -0.0083067,
+      0.0083076,
+      0.7070581
+    ],
+    "head neck lower": [
+      0.1213727,
+      -0.6966122,
+      -0.6966122,
+      -0.1213732
+    ],
+    "head neck upper": [
+      0.322731,
+      -0.6291896,
+      -0.6291619,
+      -0.3226771
+    ],
+    "arm left shoulder 1": [
+      0.7064338,
+      -0.7064338,
+      -0.0308434,
+      0.0308433
+    ],
+    "arm left shoulder 2": [
+      0.7070322,
+      -0.7070322,
+      0.0102733,
+      -0.010273
+    ],
+    "arm left elbow": [
+      0.7070057,
+      -0.7041395,
+      -0.0119582,
+      -0.0647125
+    ],
+    "arm left wrist": [
+      0.7063313,
+      -0.6558628,
+      -0.0331093,
+      -0.2642801
+    ],
+    "arm right shoulder 1": [
+      0.0308433,
+      0.0308436,
+      0.7064338,
+      0.7064338
+    ],
+    "arm right shoulder 2": [
+      0.0102733,
+      0.0102734,
+      -0.7070321,
+      -0.7070321
+    ],
+    "arm right elbow": [
+      0.0647131,
+      -0.0119565,
+      -0.7041395,
+      -0.7070056
+    ],
+    "arm right wrist": [
+      0.26428,
+      -0.0331138,
+      -0.6558629,
+      -0.706331
+    ]
+  },
+  "target_rest_rotation_wxyz": {
+    "Body": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Butt": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Torso": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Head": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Arm": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Arm Color": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Forearm": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Hand": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Arm": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Arm Color": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Forearm": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Hand": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Thigh": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Thigh Color": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Leg": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Left Shoe": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Thigh": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Thigh Color": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Leg": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ],
+    "Right Shoe": [
+      0.7071068,
+      0.7071068,
+      0,
+      0
+    ]
+  },
+  "notes": [
+    "First-pass rest-basis retarget, not a substitute for visual pose inspection.",
+    "Auxiliary fingers, toes, jaw, brows, breasts and belly have no independent channel in the 20-node target order.",
+    "Source root translation is omitted to leave player movement and physics with MarioState."
+  ]
+}
