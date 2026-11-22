@@ -83,9 +83,9 @@ jobs:
         with:
           name: CJ64-rigged-actor-experiment
           path: |
-            \${{ runner.temp }}/cj-rigged/CJ64-Rigged-Test.zip
-            \${{ runner.temp }}/cj-rigged/CJ64-Rigged-Scene.blend
-            \${{ runner.temp }}/cj-rigged/cj64_rigged_actor_report.json
+            ${{ runner.temp }}/cj-rigged/CJ64-Rigged-Test.zip
+            ${{ runner.temp }}/cj-rigged/CJ64-Rigged-Scene.blend
+            ${{ runner.temp }}/cj-rigged/cj64_rigged_actor_report.json
             ${{ runner.temp }}/cj-rigged/cj64_sm64_animation_retarget_map.json
             ${{ runner.temp }}/cj-rigged/target_animation_node_order.json
           if-no-files-found: error
