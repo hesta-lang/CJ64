@@ -92,6 +92,9 @@ jobs:
             "$RUNNER_TEMP/cj-model-test/CJ-Static-Model.glb" \
             "$GITHUB_WORKSPACE" \
             "$RUNNER_TEMP/cj-model-test"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test/actors/cj/geo.inc.c"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test/actors/cj/model.inc.c"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test/CJ64-Model-Test.zip" || true
 
       - name: Normalize DynOS texture paths and rebuild install ZIP
         shell: bash
