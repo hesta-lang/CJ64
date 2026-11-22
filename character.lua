@@ -1,18 +1,20 @@
--- CJ64: replace the native Mario model with the CJ DynOS actor.
--- Expected model/GeoLayout name: cj_geo
---
--- No extra object is spawned. marioObj and MarioState remain engine-owned.
--- Native movement, collision, camera, actions and interactions are untouched.
+-- CJ64: replace only Mario's rendered model and, when a rigged actor is present,
+-- drive its 20-node armature with converted GTA San Andreas animation clips.
+-- MarioState, marioObj, movement, collision, camera and physics remain native.
 
 CJ64 = CJ64 or {}
 CJ64.character = CJ64.character or {
     modelName = "cj_geo",
     modelId = nil,
     ready = false,
+    animationReady = false,
     retryFrames = 0,
     applied = {},
     warnedMissing = false,
     warnedApi = false,
+    lastAnimationRole = nil,
+    transitionFrames = 0,
+    transitionNextRole = nil,
 }
 local state = CJ64.character
 
@@ -54,6 +56,117 @@ function state.try_register(force)
     return true
 end
 
+local function action_is(action, ...)
+    if action == nil then return false end
+    for i = 1, select("#", ...) do
+        local candidate = select(i, ...)
+        if candidate ~= nil and action == candidate then return true end
+    end
+    return false
+end
+
+local function choose_loop_role(m)
+    local a = m.action
+    if action_is(a, ACT_WATER_IDLE, ACT_HOLD_WATER_IDLE, ACT_BREASTSTROKE,
+        ACT_SWIMMING_END, ACT_FLUTTER_KICK, ACT_HOLD_BREASTSTROKE,
+        ACT_HOLD_SWIMMING_END, ACT_HOLD_FLUTTER_KICK, ACT_WATER_SHELL_SWIMMING) then
+        return "swim_tread"
+    end
+
+    if action_is(a, ACT_FREEFALL, ACT_HOLD_FREEFALL, ACT_BURNING_FALL,
+        ACT_BURNING_JUMP, ACT_LAVA_BOOST, ACT_GETTING_BLOWN) then
+        return "fall_air"
+    end
+
+    if action_is(a, ACT_JUMP, ACT_DOUBLE_JUMP, ACT_TRIPLE_JUMP, ACT_BACKFLIP,
+        ACT_STEEP_JUMP, ACT_WALL_KICK_AIR, ACT_SIDE_FLIP, ACT_LONG_JUMP,
+        ACT_WATER_JUMP, ACT_HOLD_JUMP, ACT_HOLD_WATER_JUMP, ACT_TWIRLING,
+        ACT_FLYING_TRIPLE_JUMP, ACT_SPECIAL_TRIPLE_JUMP) then
+        if m.vel ~= nil and m.vel.y ~= nil and m.vel.y < -12 then
+            return "jump_air"
+        end
+        return "jump_air"
+    end
+
+    if action_is(a, ACT_WALKING, ACT_HOLD_WALKING, ACT_RIDING_SHELL_GROUND,
+        ACT_HOLD_HEAVY_WALKING, ACT_CRAWLING) then
+        local speed = math.abs(tonumber(m.forwardVel) or 0)
+        if speed >= 28 then return "sprint_candidate" end
+        if speed >= 16 then return "run" end
+        return "walk"
+    end
+
+    if action_is(a, ACT_IDLE, ACT_PANTING, ACT_HOLD_IDLE, ACT_HOLD_HEAVY_IDLE,
+        ACT_START_SLEEPING, ACT_SLEEPING, ACT_WAKING_UP, ACT_STANDING_AGAINST_WALL) then
+        return "idle"
+    end
+    return nil
+end
+
+local function choose_transition_role(m, loopRole)
+    local a = m.action
+    if action_is(a, ACT_JUMP_LAND, ACT_DOUBLE_JUMP_LAND, ACT_TRIPLE_JUMP_LAND,
+        ACT_BACKFLIP_LAND, ACT_SIDE_FLIP_LAND, ACT_LONG_JUMP_LAND) then
+        return "jump_land", 7, loopRole
+    end
+    if action_is(a, ACT_FREEFALL_LAND, ACT_HOLD_FREEFALL_LAND) then
+        return "fall_land", 14, loopRole
+    end
+    if action_is(a, ACT_BRAKING, ACT_DECELERATING, ACT_HOLD_DECELERATING)
+        and (state.lastAnimationRole == "run" or state.lastAnimationRole == "sprint_candidate") then
+        return "run_stop", 26, loopRole
+    end
+    if loopRole == "walk" and state.lastAnimationRole == "idle" then
+        return "walk_start", 8, "walk"
+    end
+    if loopRole == "jump_air" and state.lastAnimationRole ~= "jump_start"
+        and state.lastAnimationRole ~= "jump_air" then
+        return "jump_start", 6, "jump_air"
+    end
+    return nil, 0, loopRole
+end
+
+function state.apply_animation(m)
+    if not state.ready or CJ64.riggedActor ~= true or CJ64.animationTablesLoaded ~= true then
+        state.animationReady = false
+        return
+    end
+    if type(CJ64_GTA_ANIMATIONS) ~= "table"
+        or type(CJ64_GTA_ANIMATIONS.set_for_role) ~= "function" then
+        state.animationReady = false
+        return
+    end
+    state.animationReady = true
+
+    local loopRole = choose_loop_role(m)
+    if loopRole == nil then return end
+
+    local role
+    if state.transitionFrames > 0 then
+        state.transitionFrames = state.transitionFrames - 1
+        role = state.lastAnimationRole
+        if state.transitionFrames == 0 then
+            role = state.transitionNextRole or loopRole
+            state.transitionNextRole = nil
+        end
+    else
+        local transition, frames, nextRole = choose_transition_role(m, loopRole)
+        if transition ~= nil then
+            role = transition
+            state.transitionFrames = frames
+            state.transitionNextRole = nextRole
+        else
+            role = loopRole
+        end
+    end
+
+    if role ~= nil and role ~= state.lastAnimationRole then
+        if CJ64_GTA_ANIMATIONS.set_for_role(m, role) then
+            state.lastAnimationRole = role
+        end
+    end
+end
+
 function state.apply(m)
     if m == nil or m.marioObj == nil or m.playerIndex == nil then return end
     if not state.ready and not state.try_register(false) then return end
@@ -85,12 +198,23 @@ function state.apply(m)
             return
         end
         state.applied[index] = { obj = obj, id = state.modelId }
+        state.lastAnimationRole = nil
+        state.transitionFrames = 0
+        state.transitionNextRole = nil
+    end
+
+    if m.playerIndex == 0 then
+        state.apply_animation(m)
     end
 end
 
 function state.reset()
     state.applied = {}
     state.retryFrames = 0
+    state.lastAnimationRole = nil
+    state.transitionFrames = 0
+    state.transitionNextRole = nil
+    state.animationReady = false
 end
 
 hook_event(HOOK_MARIO_UPDATE, state.apply)
