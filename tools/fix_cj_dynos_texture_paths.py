@@ -21,14 +21,20 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
-        raise SystemExit("usage: fix_cj_dynos_texture_paths.py <mod_root> <output_dir>")
+    if len(sys.argv) not in (3, 5):
+        raise SystemExit(
+            "usage: fix_cj_dynos_texture_paths.py <mod_root> <output_dir> "
+            "[archive_name report_name]"
+        )
 
     mod_root = Path(sys.argv[1]).resolve()
     output_dir = Path(sys.argv[2]).resolve()
+    archive_name = sys.argv[3] if len(sys.argv) == 5 else "CJ64-Model-Test.zip"
+    report_name = sys.argv[4] if len(sys.argv) == 5 else "cj_model_test_report.json"
+    package_root = mod_root.name
     actor_dir = mod_root / "actors" / "cj"
     model_file = actor_dir / "model.inc.c"
-    report_file = output_dir / "cj_model_test_report.json"
+    report_file = output_dir / report_name
 
     require(mod_root.is_dir(), f"Mod folder not found: {mod_root}")
     require(actor_dir.is_dir(), f"CJ actor folder not found: {actor_dir}")
@@ -81,7 +87,7 @@ def main() -> None:
     ]
     report_file.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    archive = output_dir / "CJ64-Model-Test.zip"
+    archive = output_dir / archive_name
     if archive.exists():
         archive.unlink()
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=8) as zf:
@@ -93,12 +99,12 @@ def main() -> None:
     with zipfile.ZipFile(archive, "r") as zf:
         members = set(zf.namelist())
         for include in includes:
-            expected = f"CJ64-Model-Test/{include}.png"
+            expected = f"{package_root}/{include}.png"
             require(expected in members, f"ZIP is missing DynOS texture: {expected}")
         required = (
-            "CJ64-Model-Test/actors/cj/model.inc.c",
-            "CJ64-Model-Test/actors/cj/geo.inc.c",
-            "CJ64-Model-Test/character.lua",
+            f"{package_root}/actors/cj/model.inc.c",
+            f"{package_root}/actors/cj/geo.inc.c",
+            f"{package_root}/character.lua",
         )
         for entry in required:
             require(entry in members, f"ZIP is missing required file: {entry}")
