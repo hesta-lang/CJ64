@@ -325,7 +325,7 @@ def main():
     # Prepare TMEM-safe textures and convert materials for Fast64.
     fallback_materials = [
         material.name for material in rigged_mesh.data.materials
-        if shared.ensure_base_color_texture(material)
+        if material is not None and shared.ensure_base_color_texture(material)
     ]
     texture_islands = shared.split_materials_into_tmem_uv_islands(
         rigged_mesh, max_texels=2048
