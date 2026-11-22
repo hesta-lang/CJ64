@@ -1,58 +1,65 @@
-# CJ original animations: extraction and integration route
+# CJ original animations: extraction and integration status
 
 ## Source package
 
 The selected clips come from the user-supplied GTA: San Andreas `anim/ped.ifp`
-package. The file itself is game data and is not committed to this repository. The current project workspace does not contain the IFP bytes, so the original file must be supplied again as an external build input before keyframes can be regenerated.
-The CJ FBX and its four textures remain under `assets/cj/source/`.
+package. The IFP itself and keyframe-derived Lua tables are not committed to
+this repository.
 
-Eleven candidates were extracted locally: `IDLE_stance`, `WALK_player`,
-`run_player`, `sprint_civi`, `JUMP_launch`, `JUMP_glide`, `JUMP_land`,
-`FALL_fall`, `FALL_glide`, `FALL_land`, and `Swim_Tread`.
-`sprint_civi` is a generic civilian sprint, not verified as a CJ-exclusive clip.
+The supplied ANP3 package was parsed successfully: package name `ped`, 294
+clips, 1,433,248 bytes, and no trailing data. The 13 selected candidates below
+contain 5,097 source keyframes in total:
 
-## Retarget result
+- `IDLE_stance`
+- `WALK_start`, `WALK_player`
+- `run_player`, `sprint_civi`, `Run_stop`
+- `JUMP_launch`, `JUMP_glide`, `JUMP_land`
+- `FALL_fall`, `FALL_glide`, `FALL_land`
+- `Swim_Tread`
 
-The supplied IFP contained 294 clips. The 11 selected candidates were present,
-with 4,731 source keyframes total. The CJ FBX has 58 source bones. The official
-Coop Deluxe Mario template was inspected with Blender 4.5.16 and Fast64-Coop:
-the Mario armature contains 68 bones, while Fast64 exports exactly 20 animation
-nodes in its GeoLayout traversal order.
+`sprint_civi` is a generic civilian sprint candidate, not confirmed as a
+CJ-exclusive animation.
 
-A first-pass mathematical retarget was generated locally as
-`CJ64-CJ-Mario-Animations.lua`. It registers 11 clips through
-`smlua_anim_util_register_animation`. Each clip contains 63 animation
-channels: three root translation channels fixed at zero, plus three rotation
-channels for each of the 20 Fast64 nodes. The corresponding index array contains
-126 16-bit count/offset entries.
+## First-pass SM64 retarget data
 
-The generated Lua, detailed report and validation JSON are delivered separately
-to the project maintainer. They are not committed here because the generated
-tables contain animation data extracted from commercial game data. The input
-`ped.ifp` is not redistributed.
+The official Coop Deluxe Fast64 traversal was inspected against the Mario
+character template. It exports exactly 20 GeoLayout animation nodes, in this
+order:
 
-## Retarget assumptions and limitations
+`Body`, `Butt`, `Torso`, `Head`, `Left Arm`, `Left Arm Color`,
+`Left Forearm`, `Left Hand`, `Right Arm`, `Right Arm Color`,
+`Right Forearm`, `Right Hand`, `Left Thigh`, `Left Thigh Color`,
+`Left Leg`, `Left Shoe`, `Right Thigh`, `Right Thigh Color`,
+`Right Leg`, `Right Shoe`.
 
-- The first `IDLE_stance` keyframe is used as the shared source reference pose.
-- Source joint rotation changes are transported through the source hierarchy
-  and mapped into Mario's 20 exportable animation nodes.
-- Extra source spine/shoulder joints are combined where Mario has fewer nodes.
-- Finger, toe, detailed facial, breast and belly tracks have no independent
-  channel in this 20-node target hierarchy and are omitted.
-- Root translation is zeroed intentionally; the original SM64CoopDX player
-  movement, physics and `marioObj` remain authoritative.
-- Vanilla Mario animations remain the fallback.
+A first-pass retarget was generated locally as
+`CJ64-Original-Animations.lua` (provided separately to the maintainer). It
+contains all 13 registrations through `smlua_anim_util_register_animation`.
+Each registration has 63 channels: three root translation channels fixed at
+zero and three rotation channels for each of the 20 Fast64 nodes. Each index
+table has 126 16-bit values.
 
-**Validation boundary:** all 11 generated tables passed structural validation
-for channel count, 16-bit values, contiguous offsets, report consistency and
-zero root translation. The retarget has not yet been visually validated as
-Blender Actions on Mario's Armature, exported through Fast64 inside Blender, or
-tested in SM64CoopDX. This is not an in-game-ready animation release.
+Rotations are sampled at 30 FPS, expressed as deltas from the first
+`IDLE_stance` reference keyframe, combined for source chains where the Mario
+rig has fewer nodes, and encoded as SM64 16-bit Euler angle values. Root
+translation is deliberately zeroed so native MarioState movement, physics,
+and collision remain authoritative.
 
-## Next steps
+## Important integration boundary
 
-1. Inspect the generated actions and deformation visually in Blender.
-2. Transfer CJ mesh weights to Mario's Armature and export the DynOS actor.
-3. Export/bake the animations using Fast64 and test the actor and clips in-game.
-4. Connect each registered clip to the appropriate Mario action/state hook while
-   retaining the vanilla animation fallback.
+**The animation tables are not yet active in CJ64.** The current exported
+`cj_geo` DynOS actor is still a static mesh: it does not contain the 20-node
+animated GeoLayout rig or compatible vertex weights. Registering these clips
+against that static model would not animate CJ.
+
+Before enabling the tables, the project still needs to:
+1. Transfer the CJ mesh weights to the Mario rig and preserve the 280-unit size
+   and existing texture/TMEM fixes.
+2. Visually validate the retargeted poses and joint axes in Blender.
+3. Export the skinned actor and animations with Fast64-Coop.
+4. Connect idle, walk, run, jump, fall, land, and swim clips to native Mario
+   action states while retaining the vanilla fallback.
+
+The current first-pass output has passed structural array checks only. It has
+not been visually approved, Fast64-exported as a skinned CJ character, or
+tested inside SM64CoopDX on Android. The source IFP is not redistributed.
