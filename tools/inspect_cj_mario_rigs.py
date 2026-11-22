@@ -32,6 +32,8 @@ def bone_report(armature):
             "parent": bone.parent.name if bone.parent else None,
             "use_deform": bool(bone.use_deform),
             "collections": [collection.name for collection in bone.collections] if hasattr(bone, "collections") else [],
+            "geo_cmd": getattr(bone, "geo_cmd", None),
+            "field_layout": getattr(bone, "field_layout", None),
             "head_local": vec(bone.head_local),
             "tail_local": vec(bone.tail_local),
             "length": round(float(bone.length), 6),
