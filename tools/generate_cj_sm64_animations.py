@@ -141,7 +141,13 @@ def main():
 
     mapping = json.loads(args.map.read_text(encoding="utf-8"))
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+    if mapping.get("generated_from_actual_rig") is not True:
+        raise SystemExit("--map must be the retarget map emitted by the CJ64 rig-transfer workflow, not the starter map")
+    if mapping.get("target_animation_node_count") != 20:
+        raise SystemExit("Retarget map does not contain 20 inspected Fast64 animation nodes")
     node_order = mapping["target_node_order"]
+    if len(node_order) != 20 or len(set(node_order)) != 20:
+        raise SystemExit("Retarget map has an invalid Fast64 animation-node order")
     source_rest = {name: from_wxyz(value) for name, value in mapping["source_rest_rotation_wxyz"].items()}
     target_rest = {name: from_wxyz(value) for name, value in mapping["target_rest_rotation_wxyz"].items()}
     source_map = {key.casefold(): value for key, value in mapping["source_track_to_bone"].items()}
