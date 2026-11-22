@@ -42,7 +42,7 @@ def combined_mesh_bounds(meshes):
 
 
 
-def render_glb_import_preview(obj, output_path):
+def render_glb_import_preview(obj, output_path, view="front"):
     """Render imported glTF materials in Blender 3.6 before Fast64 conversion."""
     scene = bpy.context.scene
     original_engine = scene.render.engine
@@ -55,7 +55,7 @@ def render_glb_import_preview(obj, output_path):
     camera_data = bpy.data.cameras.new("CJ64_Diagnostic_Camera")
     camera = bpy.data.objects.new("CJ64_Diagnostic_Camera", camera_data)
     scene.collection.objects.link(camera)
-    camera.location = (2.9, -4.8, 2.45)
+    camera.location = (2.9, -4.8, 2.45) if view == "front" else (2.9, 4.8, 2.45)
     direction = Vector(target) - camera.location
     camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
     camera_data.lens = 58
@@ -130,46 +130,190 @@ def largest_power_of_two_at_most(value):
     return 1 << (value.bit_length() - 1)
 
 
-def downscale_texture_to_tmem(image, max_texels=2048):
-    """Resize a texture to RGBA16 dimensions that fit in N64 TMEM.
-
-    Keep the original image aspect ratio and normalized UVs. With RGBA16,
-    2048 texels consume 4096 bytes, so no large-texture tile offsets are needed.
-    """
-    width, height = (int(image.size[0]), int(image.size[1]))
-    require(width > 0 and height > 0, f"Invalid image dimensions for {image.name}: {image.size}")
-
-    aspect = width / height
-    if aspect >= 1.0:
-        target_height = 32
-        target_width = largest_power_of_two_at_most(min(64, target_height * aspect))
-    else:
-        target_width = 32
-        target_height = largest_power_of_two_at_most(min(64, target_width / aspect))
-
-    while target_width * target_height > max_texels:
-        if target_width >= target_height:
-            target_width //= 2
+def tmem_safe_dimensions(width, height, max_texels=2048):
+    """Power-of-two dimensions, preserving crop aspect, within 4 KiB RGBA16."""
+    width, height = max(1, int(width)), max(1, int(height))
+    target_w = largest_power_of_two_at_most(min(64, width))
+    target_h = largest_power_of_two_at_most(min(64, height))
+    while target_w * target_h > max_texels:
+        if target_w >= target_h:
+            target_w //= 2
         else:
-            target_height //= 2
+            target_h //= 2
+    return max(1, target_w), max(1, target_h)
 
-    require(target_width * target_height <= max_texels,
-            f"Texture {image.name} exceeds TMEM budget after resize")
-    original_size = [width, height]
-    if (width, height) != (target_width, target_height):
-        image.scale(target_width, target_height)
+
+def material_base_image(material):
+    if not material or not material.use_nodes or not material.node_tree:
+        return None
+    principled = next((n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if principled is not None:
+        base = principled.inputs.get("Base Color")
+        if base is not None:
+            for link in base.links:
+                node = link.from_node
+                if node.type == "TEX_IMAGE" and node.image:
+                    return node.image
+    return next((n.image for n in material.node_tree.nodes
+                 if n.type == "TEX_IMAGE" and n.image), None)
+
+
+def face_uv_islands(mesh, material_index, uv_layer, epsilon=1e-5):
+    """Find connected UV islands for a material by matching shared UV edges."""
+    from collections import defaultdict, deque
+
+    edge_records = defaultdict(list)
+    face_ids = [poly.index for poly in mesh.polygons if poly.material_index == material_index]
+    for face_id in face_ids:
+        loops = list(mesh.polygons[face_id].loop_indices)
+        for i, loop_index in enumerate(loops):
+            next_loop = loops[(i + 1) % len(loops)]
+            va = mesh.loops[loop_index].vertex_index
+            vb = mesh.loops[next_loop].vertex_index
+            uva = tuple(float(v) for v in uv_layer.data[loop_index].uv)
+            uvb = tuple(float(v) for v in uv_layer.data[next_loop].uv)
+            key = tuple(sorted((va, vb)))
+            endpoint_uv = (uva, uvb) if va <= vb else (uvb, uva)
+            edge_records[key].append((face_id, endpoint_uv))
+
+    adjacency = {face_id: set() for face_id in face_ids}
+    def uv_equal(a, b):
+        return abs(a[0] - b[0]) <= epsilon and abs(a[1] - b[1]) <= epsilon
+
+    for records in edge_records.values():
+        for i in range(len(records)):
+            face_a, uv_a = records[i]
+            for j in range(i + 1, len(records)):
+                face_b, uv_b = records[j]
+                if face_a != face_b and uv_equal(uv_a[0], uv_b[0]) and uv_equal(uv_a[1], uv_b[1]):
+                    adjacency[face_a].add(face_b)
+                    adjacency[face_b].add(face_a)
+
+    islands, unseen = [], set(face_ids)
+    while unseen:
+        start_face = unseen.pop()
+        component, queue = {start_face}, deque([start_face])
+        while queue:
+            current = queue.popleft()
+            for other in adjacency[current]:
+                if other in unseen:
+                    unseen.remove(other)
+                    component.add(other)
+                    queue.append(other)
+        islands.append(sorted(component))
+    return islands
+
+
+def create_cropped_uv_image(source_image, source_material, island_id, uv_bounds,
+                            island_report, max_texels=2048, padding=1):
+    """Create a high-detail local image crop for one UV island."""
+    width, height = int(source_image.size[0]), int(source_image.size[1])
+    umin, vmin, umax, vmax = uv_bounds
+    x0 = max(0, int(math.floor(umin * width)) - padding)
+    x1 = min(width, int(math.ceil(umax * width)) + padding)
+    y0 = max(0, int(math.floor(vmin * height)) - padding)
+    y1 = min(height, int(math.ceil(vmax * height)) + padding)
+    x1, y1 = max(x0 + 1, x1), max(y0 + 1, y1)
+    crop_w, crop_h = x1 - x0, y1 - y0
+
+    # Blender stores pixels row-major from the lower-left, the same origin as UVs.
+    source_pixels = list(source_image.pixels[:])
+    cropped_pixels = []
+    for y in range(y0, y1):
+        start = (y * width + x0) * 4
+        cropped_pixels.extend(source_pixels[start:start + crop_w * 4])
+
+    image = bpy.data.images.new(
+        f"CJ64_{source_material.name}_uv{island_id:03d}",
+        width=crop_w, height=crop_h, alpha=True
+    )
+    image.pixels[:] = cropped_pixels
+    image.update()
+
+    target_w, target_h = tmem_safe_dimensions(crop_w, crop_h, max_texels)
+    if (crop_w, crop_h) != (target_w, target_h):
+        image.scale(target_w, target_h)
         image.update()
-        try:
-            image.pack()
-        except Exception:
-            pass
+    image.pack()
 
+    island_report.append({
+        "source_material": source_material.name,
+        "source_image": source_image.name,
+        "island": island_id,
+        "source_size": [width, height],
+        "source_crop": [x0, y0, x1, y1],
+        "crop_size": [crop_w, crop_h],
+        "export_size": [target_w, target_h],
+        "rgba16_bytes": target_w * target_h * 2,
+        "uv_bounds": [umin, vmin, umax, vmax],
+    })
+    return image, (x0, y0, crop_w, crop_h)
+
+
+def split_materials_into_tmem_uv_islands(obj, max_texels=2048):
+    """Crop the original atlas per UV island instead of shrinking the whole atlas.
+
+    Every resulting texture is <= 4 KiB RGBA16, has local 0..1 UV coordinates,
+    and uses normal zero-origin texture loads in SM64CoopDX.
+    """
+    mesh = obj.data
+    require(len(mesh.uv_layers) > 0, "CJ mesh has no UV layer")
+    uv_layer = mesh.uv_layers.get("UVMap") or mesh.uv_layers[0]
+    uv_layer.name = "UVMap"
+
+    original_material_count = len(mesh.materials)
+    island_report, generated = [], 0
+    for material_index in range(original_material_count):
+        if material_index >= len(mesh.materials):
+            continue
+        source_material = mesh.materials[material_index]
+        source_image = material_base_image(source_material)
+        if source_image is None:
+            continue
+
+        islands = face_uv_islands(mesh, material_index, uv_layer)
+        for island_number, face_ids in enumerate(islands):
+            loop_ids = [loop_index for face_id in face_ids
+                        for loop_index in mesh.polygons[face_id].loop_indices]
+            coords = [tuple(float(v) for v in uv_layer.data[index].uv) for index in loop_ids]
+            umin, vmin = min(v[0] for v in coords), min(v[1] for v in coords)
+            umax, vmax = max(v[0] for v in coords), max(v[1] for v in coords)
+            require(umin >= -0.001 and vmin >= -0.001 and umax <= 1.001 and vmax <= 1.001,
+                    f"{source_material.name} UV island {island_number} exceeds [0,1]: "
+                    f"{[umin, vmin, umax, vmax]}")
+
+            image, crop = create_cropped_uv_image(
+                source_image, source_material, island_number,
+                (umin, vmin, umax, vmax), island_report, max_texels
+            )
+            x0, y0, crop_w, crop_h = crop
+
+            new_material = source_material.copy()
+            new_material.name = f"{source_material.name}_uv{island_number:03d}"
+            for node in new_material.node_tree.nodes:
+                if node.type == "TEX_IMAGE" and node.image == source_image:
+                    node.image = image
+            mesh.materials.append(new_material)
+            new_slot = len(mesh.materials) - 1
+
+            for face_id in face_ids:
+                poly = mesh.polygons[face_id]
+                poly.material_index = new_slot
+                for loop_index in poly.loop_indices:
+                    uv = uv_layer.data[loop_index].uv
+                    u, v = float(uv[0]), float(uv[1])
+                    uv_layer.data[loop_index].uv = (
+                        (u * width - x0) / crop_w,
+                        (v * height - y0) / crop_h,
+                    )
+            generated += 1
+
+    require(generated > 0, "No textured UV islands were split")
     return {
-        "name": image.name,
-        "original_size": original_size,
-        "export_size": [int(image.size[0]), int(image.size[1])],
-        "rgba16_bytes": int(image.size[0]) * int(image.size[1]) * 2,
-        "downscaled": original_size != [int(image.size[0]), int(image.size[1])],
+        "original_material_count": original_material_count,
+        "generated_material_count": generated,
+        "island_count": len(island_report),
+        "islands": island_report,
     }
 
 
@@ -256,15 +400,12 @@ def main():
     obj = bpy.context.view_layer.objects.active
     obj.name = "CJ_Static_Model_Test"
 
-    # Match CJ's estimated GTA:SA height to SM64's measured Mario scale.
-    # Mario's normal reference hitbox/model height is 160 SM64 units.
-    # The CJ estimate used here is 1.80 m (5 ft 11 in); Rockstar has not
-    # published an authoritative height, so this is an explicit working estimate.
-    # Fast64's scale below converts 1 Blender unit to 100 SM64 units.
+    # Deliberate visual gameplay scale: CJ is 1.35x the Mario reference height.
+    # This is an art/gameplay choice, not a claim about a canonical GTA character height.
     mario_reference_height_units = 160.0
-    cj_reference_height_m = 1.80
+    cj_visual_scale_ratio = 1.35
     blender_to_sm64_scale = 100.0
-    cj_target_height_units = cj_reference_height_m * blender_to_sm64_scale
+    cj_target_height_units = mario_reference_height_units * cj_visual_scale_ratio
     cj_target_height_blender_units = cj_target_height_units / blender_to_sm64_scale
     source_height_blender_units = source_bounds["dimensions"][2]
     require(source_height_blender_units > 0.0, "CJ source model has zero height")
@@ -287,6 +428,8 @@ def main():
     unresolved = [m.name for m in obj.data.materials if m and not bool(getattr(m, "is_f3d", False))]
     require(not unresolved, f"Fast64 failed to convert: {unresolved}")
 
+    # Preserve atlas detail by cropping each UV island to its own TMEM-safe map.
+    texture_island_report = split_materials_into_tmem_uv_islands(obj, max_texels=2048)
     from fast64.fast64_internal.f3d.f3d_material import all_combiner_uses
     texture_settings = {}
     texture_budget = {}
@@ -299,16 +442,15 @@ def main():
             f3d.tex1.tex_set = False
         require(not (uses.get("Texture 0", False) and uses.get("Texture 1", False)),
                 f"{material.name} samples both texture slots; the static test needs one map per material")
-
-        # SM64CoopDX's PC renderer only accepts DPLoadTile origins at (0, 0).
-        # Fast64's large-texture path emits arbitrary non-zero tile origins, so
-        # bake each source map down to a TMEM-safe RGBA16 image instead.
-        image_info = None
-        if f3d.tex0.tex is not None and f3d.tex0.tex_set:
-            image_info = downscale_texture_to_tmem(f3d.tex0.tex, max_texels=2048)
-            texture_budget[material.name] = image_info
         f3d.use_large_textures = False
         f3d.large_edges = "Clamp"
+        image_info = None
+        if f3d.tex0.tex is not None and f3d.tex0.tex_set:
+            w, h = int(f3d.tex0.tex.size[0]), int(f3d.tex0.tex.size[1])
+            image_info = {"name": f3d.tex0.tex.name, "export_size": [w, h],
+                          "rgba16_bytes": w * h * 2}
+            require(w * h <= 2048, f"{material.name} image exceeds TMEM: {w}x{h}")
+            texture_budget[material.name] = image_info
         texture_settings[material.name] = {
             "tex0_size": list(f3d.tex0.tex.size) if f3d.tex0.tex else None,
             "tex0_enabled": bool(f3d.tex0.tex_set),
@@ -321,7 +463,10 @@ def main():
     tmem_preview = render_glb_import_preview(
         obj, output / "CJ64-3.6-TMEM-Preview.png"
     )
-    print("CJ64 TMEM-safe texture settings:", json.dumps(texture_settings, sort_keys=True))
+    back_preview = render_glb_import_preview(
+        obj, output / "CJ64-3.6-Back-Preview.png", view="back"
+    )
+    print("CJ64 UV-island texture settings:", json.dumps(texture_settings, sort_keys=True))
 
     output.mkdir(parents=True, exist_ok=True)
     mod = output / "CJ64-Model-Test"
@@ -403,13 +548,13 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "visual_scale_factor": visual_scale_factor,
         "scale_calculation": {
             "mario_reference_height_units": mario_reference_height_units,
-            "cj_reference_height_m": cj_reference_height_m,
+            "cj_visual_scale_ratio": cj_visual_scale_ratio,
             "sm64_units_per_blender_unit": blender_to_sm64_scale,
             "cj_target_height_units": cj_target_height_units,
             "source_height_blender_units": source_height_blender_units,
             "target_height_blender_units": cj_target_height_blender_units,
             "cj_to_mario_height_ratio": cj_target_height_units / mario_reference_height_units,
-            "authoritative_cj_height": False,
+            "scale_is_visual_override": True,
         },
         "pre_fast64_blender_preview": pre_fast64_preview,
         "saved_blend_scene": blender_scene_path.name,
@@ -432,7 +577,7 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
             "mario_reference_height_units": mario_reference_height_units,
             "cj_target_height_units": cj_target_height_units,
             "cj_to_mario_ratio": cj_target_height_units / mario_reference_height_units,
-            "authoritative_cj_height": False,
+            "scale_is_visual_override": True,
         },
         "keeps_native_mario_object": True,
         "keeps_native_mariostate_physics_collision_camera": True,
@@ -442,7 +587,9 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "generated_solid_fallback_materials": fallbacks,
         "texture_settings": texture_settings,
         "texture_tmem_budget": texture_budget,
+        "texture_uv_islands": texture_island_report,
         "tmem_safe_blender_preview": tmem_preview,
+        "back_blender_preview": back_preview,
         "blender_scene": scene_diagnostics,
         "actor_files": actor_files,
         "warnings": ["Static rest-pose model; it does not follow Mario's limb animations.",
