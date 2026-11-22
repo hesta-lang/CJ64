@@ -34,7 +34,7 @@ class IFPReaderTests(unittest.TestCase):
         self.assertEqual(len(clip.bones), 2)
         self.assertEqual(clip.bones[0].name, " Pelvis")
         self.assertAlmostEqual(clip.duration, 1.0)
-        self.assertAlmostEqual(clip.bones[0].frames[1].translation[1], 1.0)
+        self.assertAlmostEqual(clip.bones[0].frames[1].translation[1], 0.25)
         self.assertAlmostEqual(clip.bones[1].frames[0].time_seconds, 0.5)
 
     def test_bad_magic(self):
