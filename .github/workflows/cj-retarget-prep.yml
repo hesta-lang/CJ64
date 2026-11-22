@@ -1,0 +1,72 @@
+name: CJ64 Mario rig inspection
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/cj-retarget-prep.yml'
+      - 'tools/inspect_cj_mario_rigs.py'
+      - 'assets/cj/source/**'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-rigs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout CJ64
+        uses: actions/checkout@v4
+
+      - name: Install Blender runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils
+
+      - name: Download Blender 3.6.23 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 --retry-delay 2 \
+            https://download.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz \
+            -o blender-3.6.23-linux-x64.tar.xz
+          curl -fL --retry 3 \
+            https://download.blender.org/release/Blender3.6/blender-3.6.23.sha256 \
+            -o blender-3.6.23.sha256
+          expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
+          test -n "$expected"
+          echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
+          tar -xf blender-3.6.23-linux-x64.tar.xz
+          echo "$RUNNER_TEMP/blender-3.6.23-linux-x64" >> "$GITHUB_PATH"
+
+      - name: Download official SM64CoopDX Mario template
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cj-retarget-input"
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://github.com/coop-deluxe/character-template/raw/refs/heads/main/Mario%20Coop%20Model%20Template.blend' \
+            -o "$RUNNER_TEMP/cj-retarget-input/Mario Coop Model Template.blend"
+          test "$(stat -c %s "$RUNNER_TEMP/cj-retarget-input/Mario Coop Model Template.blend")" -gt 10000000
+          test -s assets/cj/source/CarlJohnson-GTASA.FBX
+
+      - name: Inspect both rigs and preserve source data
+        run: |
+          mkdir -p "$RUNNER_TEMP/cj-retarget-output"
+          blender --background --factory-startup \
+            --python tools/inspect_cj_mario_rigs.py -- \
+            "$RUNNER_TEMP/cj-retarget-input/Mario Coop Model Template.blend" \
+            assets/cj/source/CarlJohnson-GTASA.FBX \
+            "$RUNNER_TEMP/cj-retarget-output"
+
+      - name: Upload rig report and editable inspection project
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-Mario-rig-inspection
+          path: |
+            ${{ runner.temp }}/cj-retarget-output/cj_mario_rig_inspection.json
+            ${{ runner.temp }}/cj-retarget-output/cj_mario_dual_rig_inspection.blend
+          if-no-files-found: error
+          retention-days: 14
