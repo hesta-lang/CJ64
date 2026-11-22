@@ -48,7 +48,8 @@ CJ64 can run Blender headlessly through GitHub Actions. It exports the current D
 - `actors/cj/` — final DynOS actor destination.
 - `tools/ifp_reader.py` — ANP3 parser for a user-provided `ped.ifp`.
 - `tools/extract_cj_animations.py` — extracts selected IFP tracks as intermediate JSON.
-- `tools/generate_cj_sm64_animations.py` — generates first-pass 20-node SM64CoopDX Lua animation tables.
+- `tools/generate_cj_sm64_animations.py` — generates first-pass SM64CoopDX Lua animation tables from the owner-provided IFP and generated rig map.
+- `tools/rig_cj_to_mario.py` — experimental single-influence weight transfer and Fast64 armature export.
 - `tools/prepare_cj_rig_transfer.py` — builds the editable first-pass CJ-to-Mario skin transfer.
 - `tools/cj_animation_manifest.json` — selected original clip names and roles.
 - `tools/cj_fbx_bone_map.json` — first-stage IFP-to-source-FBX bone map.
