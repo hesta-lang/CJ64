@@ -92,6 +92,13 @@ def main():
     glb_meshes=[o for o in bpy.context.scene.objects if o.type=="MESH" and o!=src_mesh]
     target=join_meshes(glb_meshes,"CJ64_Carl_Johnson")
     bake_world(target)
+    # The prepared GLB is the 160-unit source size; apply the project 1.75x
+    # visual override here, matching the existing static export pipeline.
+    _,_,raw_dims=get_bounds(target)
+    need(raw_dims.z>0,"Prepared CJ mesh has zero height")
+    visual_scale=2.8/raw_dims.z
+    for vertex in target.data.vertices: vertex.co *= visual_scale
+    target.data.update()
 
     # Align source FBX vertices to the prepared GLB by uniform AABB fit.
     # Abort rather than transfer if the two imports have incompatible axes.
@@ -237,9 +244,9 @@ def main():
       "format":"cj64-rigged-actor-test-v1",
       "status":"EXPORTED_EXPERIMENTAL_NOT_VISUALLY_OR_IN_GAME_VALIDATED",
       "model_name":"cj_geo","height_blender_units":float(td.z),"height_sm64_units":float(td.z*100),
-      "rig_scale":float(rig_scale),"max_nearest_source_vertex_distance":max_distance,
+      "rig_scale":float(rig_scale),"visual_scale_factor":float(visual_scale),"max_nearest_source_vertex_distance":max_distance,
       "weight_mode":"one influence per vertex, weight 1.0",
-      "vertices_by_target_bone":counts,"total_vertices":len(target.data.vertices),
+      "vertices_by_target_bone":counts,"total_vertices":len(target.data.vertices),"target_animation_node_count":len(nodes),
       "target_deform_groups":sorted(TARGETS),"target_animation_nodes":nodes,
       "native_mario_state_preserved":True,
       "warnings":["Weight transfer uses nearest source vertex dominant bone.","Mario rig is uniformly scaled; joint proportions still need visual review.",
