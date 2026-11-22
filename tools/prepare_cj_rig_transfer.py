@@ -205,6 +205,59 @@ def main():
     arm_mod.use_bone_envelopes = False
     rigged_mesh.parent = target_arm
 
+    # Rebuild the animation retarget map from the actual retargeted armatures.
+    from fast64_internal.utility import findStartBones
+    from fast64_internal.sm64.sm64_geolayout_bone import animatableBoneTypes
+    node_queue = findStartBones(target_arm)
+    animation_nodes = []
+    while node_queue:
+        bone_name = node_queue.pop(0)
+        bone = target_arm.data.bones[bone_name]
+        if bone.geo_cmd in animatableBoneTypes:
+            q = bone.matrix_local.to_3x3().to_quaternion()
+            animation_nodes.append({
+                "index": len(animation_nodes),
+                "name": bone.name,
+                "parent": bone.parent.name if bone.parent else None,
+                "rest_rotation_wxyz": [round(float(x), 7) for x in (q.w, q.x, q.y, q.z)],
+            })
+        node_queue = sorted(child.name for child in bone.children) + node_queue
+    require(len(animation_nodes) == 20,
+            f"Fast64 expected 20 animation nodes, found {len(animation_nodes)}")
+    map_path = Path(__file__).resolve().parents[1] / "tools" / "cj64_sm64_animation_retarget_map.json"
+    retarget_map = json.loads(map_path.read_text(encoding="utf-8"))
+    retarget_map["target_node_order"] = [node["name"] for node in animation_nodes]
+    retarget_map["target_rest_rotation_wxyz"] = {
+        node["name"]: node["rest_rotation_wxyz"] for node in animation_nodes
+    }
+    retarget_map["target_source_chains"]["Torso"] = ["spine lower", "spine middle"]
+    retarget_map["target_source_chains"]["Head"] = [
+        "spine upper", "head neck lower", "head neck upper"
+    ]
+    source_rest = {}
+    for chain in retarget_map["target_source_chains"].values():
+        for source_name in chain:
+            source_bone = source_arm.data.bones.get(source_name)
+            if source_bone is not None:
+                q = source_bone.matrix_local.to_3x3().to_quaternion()
+                source_rest[source_name] = [round(float(x), 7) for x in (q.w, q.x, q.y, q.z)]
+    require(source_rest, "No source rest rotations were read from the CJ armature")
+    retarget_map["source_rest_rotation_wxyz"] = source_rest
+    align_q = source_to_target.to_3x3().to_quaternion()
+    retarget_map["axis_alignment"] = {
+        "quaternion_xyzw": [round(float(x), 8) for x in
+                            (align_q.x, align_q.y, align_q.z, align_q.w)],
+        "description": "Computed from the actual FBX-to-Mario rest-space transform used for bone retargeting."
+    }
+    retarget_map_path = output_dir / "cj64_sm64_animation_retarget_map.json"
+    retarget_map_path.write_text(json.dumps(retarget_map, indent=2), encoding="utf-8")
+    node_order_path = output_dir / "target_animation_node_order.json"
+    node_order_path.write_text(json.dumps({
+        "format": "cj64-fast64-animation-node-order-v1",
+        "node_count": len(animation_nodes),
+        "nodes": animation_nodes,
+    }, indent=2), encoding="utf-8")
+
     # Keep only the new actor and its target armature. This removes the template's
     # auxiliary head/hand armatures and their unrelated dependency cycles.
     for obj in list(bpy.context.scene.objects):
