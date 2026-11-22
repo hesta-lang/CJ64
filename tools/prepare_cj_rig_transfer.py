@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 import bpy
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 
 def require(condition, message):
@@ -234,7 +234,7 @@ def main():
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
-        "bounds_after_armature_evaluation": bounds,
+        "bounds_after_armature_evaluation": bounds,\n        "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
             "First rig-transfer pass; deterministic nearest-bone-segment weights were generated for the Mario/Fast64 deform bones.",
             "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
@@ -244,6 +244,59 @@ def main():
     }
     report_path = output_dir / "cj64_rig_transfer_report.json"
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    # Render a rest-pose preview with the Mario template's X-up orientation.
+    scene = bpy.context.scene
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.eevee.taa_render_samples = 32
+    scene.render.resolution_x = 900
+    scene.render.resolution_y = 900
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+    scene.render.film_transparent = False
+    scene.view_settings.view_transform = "Standard"
+    scene.view_settings.look = "Medium High Contrast"
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("CJ64_Rig_Preview_World")
+    scene.world.use_nodes = True
+    background = scene.world.node_tree.nodes.get("Background")
+    if background is not None:
+        background.inputs["Color"].default_value = (0.055, 0.055, 0.055, 1.0)
+        background.inputs["Strength"].default_value = 0.8
+
+    target = Vector((1.4, 0.0, 0.0))
+    camera_data = bpy.data.cameras.new("CJ64_Rig_Preview_Camera")
+    camera = bpy.data.objects.new("CJ64_Rig_Preview_Camera", camera_data)
+    scene.collection.objects.link(camera)
+    camera.location = (1.4, 0.0, -5.2)
+    forward = (target - camera.location).normalized()
+    up_reference = Vector((1.0, 0.0, 0.0))
+    right = forward.cross(up_reference).normalized()
+    camera_up = right.cross(forward).normalized()
+    camera_basis = Matrix((right, camera_up, -forward)).transposed()
+    camera.rotation_euler = camera_basis.to_euler()
+    camera_data.lens = 55
+    scene.camera = camera
+
+    light_specs = [
+        ("CJ64_Rig_Key", (3.0, -3.0, -3.0), 850.0, 3.0),
+        ("CJ64_Rig_Fill", (0.0, 3.0, -2.0), 500.0, 4.0),
+        ("CJ64_Rig_Rim", (1.5, 0.0, 3.0), 650.0, 3.0),
+    ]
+    for light_name, location, energy, size in light_specs:
+        light_data = bpy.data.lights.new(light_name, "AREA")
+        light_data.energy = energy
+        light_data.shape = "DISK"
+        light_data.size = size
+        light_obj = bpy.data.objects.new(light_name, light_data)
+        scene.collection.objects.link(light_obj)
+        light_obj.location = location
+        light_obj.rotation_euler = (target - light_obj.location).to_track_quat("-Z", "Y").to_euler()
+
+    preview_path = output_dir / "CJ64-Rigged-Rest-Preview.png"
+    scene.render.filepath = str(preview_path)
+    bpy.ops.render.render(write_still=True)
+
     scene_path = output_dir / "CJ64-CJ-Rig-Transfer.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(scene_path))
     print(json.dumps({"scene": str(scene_path), "report": str(report_path), **report}, indent=2))
