@@ -8,6 +8,22 @@ The public animation index includes the player clips `IDLE_stance`, `WALK_start`
 
 Do not bundle a random mirror copy of `ped.ifp`. It is commercial game data. Supply the file from your own legitimate GTA: San Andreas installation; CJ64 does not include it.
 
+## Find it on Android
+
+For the classic Android build, check the game's extracted data first:
+
+```text
+Android/data/com.rockstargames.gtasa/files/anim/ped.ifp
+```
+
+If it is not there, check the OBB directory:
+
+```text
+Android/obb/com.rockstargames.gtasa/
+```
+
+Open the matching `main.*.com.rockstargames.gtasa.obb` with ZArchiver without modifying it, and look for `anim/ped.ifp` inside. The exact OBB filename depends on the game build. Copy only `ped.ifp) out to a normal folder. If your install uses a different package name or layout, the path will differ.
+
 ## Extract
 
 Python 3 is required. From the repository root:
