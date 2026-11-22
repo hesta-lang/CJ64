@@ -31,6 +31,7 @@ def bone_report(armature):
             "name": bone.name,
             "parent": bone.parent.name if bone.parent else None,
             "use_deform": bool(bone.use_deform),
+            "collections": [collection.name for collection in bone.collections] if hasattr(bone, "collections") else [],
             "head_local": vec(bone.head_local),
             "tail_local": vec(bone.tail_local),
             "length": round(float(bone.length), 6),
@@ -146,13 +147,42 @@ def main():
     if not source_report["armatures"]:
         raise SystemExit("The CJ FBX import did not contain an Armature")
 
+    actions_report = []
+    for action in bpy.data.actions:
+        curves = []
+        for curve in action.fcurves:
+            group_name = curve.group.name if curve.group else None
+            curves.append({
+                "data_path": curve.data_path,
+                "array_index": curve.array_index,
+                "group": group_name,
+                "keyframes": len(curve.keyframe_points),
+            })
+        actions_report.append({
+            "name": action.name,
+            "frame_range": [float(action.frame_range[0]), float(action.frame_range[1])],
+            "fcurves": curves,
+        })
+
+    target_bone_collections = []
+    mario_armature_obj = next(obj for obj in bpy.context.scene.objects
+                              if obj.type == "ARMATURE" and obj.name == "Mario")
+    for collection in getattr(mario_armature_obj.data, "collections", []):
+        target_bone_collections.append({
+            "name": collection.name,
+            "visible": bool(collection.is_visible),
+            "bones": [bone.name for bone in collection.bones],
+        })
+
     report = {
-        "format": "cj64-cj-mario-rig-inspection-v1",
+        "format": "cj64-cj-mario-rig-inspection-v2",
         "blender_version": bpy.app.version_string,
         "template_file": template.name,
         "source_model_import": fbx.name,
         "target_template": template_report,
         "source_cj": source_report,
+        "target_bone_collections": target_bone_collections,
+        "template_actions": actions_report,
         "retarget_status": "NOT_STARTED",
         "warnings": [
             "No automatic source-to-Mario mapping was applied.",
