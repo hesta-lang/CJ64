@@ -32,6 +32,10 @@ The original GTA: San Andreas clips may be added later if their source animation
 
 The IFP file is not included, and it is **not required for the current native-animation approach**. Custom clips would still need to be retargeted and baked onto the Mario Armature before being converted to SM64/DynOS animation data. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
 
+## Remote Blender bridge
+
+CJ64 can run Blender headlessly through GitHub Actions. It exports the DynOS actor, saves an editable `.blend` scene, and produces geometry/texture diagnostics. This is an on-demand cloud build, not a live MCP session. See [docs/BLENDER_BRIDGE.md](docs/BLENDER_BRIDGE.md) for instructions from Android.
+
 ## Files
 
 - `main.lua` — mod entry point.
