@@ -452,10 +452,10 @@ def main():
     obj = bpy.context.view_layer.objects.active
     obj.name = "CJ_Static_Model_Test"
 
-    # Deliberate visual gameplay scale: CJ is 1.50x the Mario reference height.
+    # Deliberate visual gameplay scale: CJ is 1.75x the Mario reference height.
     # This is an art/gameplay choice, not a claim about a canonical GTA character height.
     mario_reference_height_units = 160.0
-    cj_visual_scale_ratio = 1.50
+    cj_visual_scale_ratio = 1.75
     blender_to_sm64_scale = 100.0
     cj_target_height_units = mario_reference_height_units * cj_visual_scale_ratio
     cj_target_height_blender_units = cj_target_height_units / blender_to_sm64_scale
@@ -471,7 +471,7 @@ def main():
         obj, output / "CJ64-3.6-GLB-Preview.png"
     )
     require(abs(joined_geometry["dimensions"][2] - cj_target_height_blender_units) < 0.005,
-            "CJ visual height does not match the 1.80 m / 180-unit target: "
+            "CJ visual height does not match the 2.80-unit / 280-unit target: "
             + json.dumps(joined_geometry, sort_keys=True))
 
     fallbacks = [m.name for m in obj.data.materials if ensure_base_color_texture(m)]
