@@ -345,6 +345,14 @@ def main():
     weighted_vertices = sum(1 for vertex in rigged_mesh.data.vertices if vertex.groups)
     require(weighted_vertices == len(rigged_mesh.data.vertices),
             f"Unweighted CJ vertices remain: {len(rigged_mesh.data.vertices) - weighted_vertices}")
+    influence_counts = [
+        sum(1 for assignment in vertex.groups if assignment.weight > 0.0001)
+        for vertex in rigged_mesh.data.vertices
+    ]
+    max_influences = max(influence_counts) if influence_counts else 0
+    invalid_weight_vertices = sum(1 for count in influence_counts if count != 1)
+    require(invalid_weight_vertices == 0,
+            f"{invalid_weight_vertices} vertices do not have exactly one bone influence")
     require(abs(bounds[0] - target_height) < 0.03,
             f"CJ target height is not 2.8 units on Mario X-up rig: {bounds}")
 
@@ -364,7 +372,8 @@ def main():
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
-        "weight_influences_per_vertex": 1,
+        "weight_influences_per_vertex": max_influences,
+        "invalid_weight_vertices": invalid_weight_vertices,
         "target_animation_node_count": len(animation_nodes),
         "target_animation_nodes": animation_nodes,
         "texture_uv_islands": texture_islands,
