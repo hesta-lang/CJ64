@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export the prepared static CJ GLB as an SM64CoopDX DynOS actor."""
 from __future__ import annotations
-import json, os, re, shutil, sys, zipfile
+import json, math, os, re, shutil, sys, zipfile
 from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
