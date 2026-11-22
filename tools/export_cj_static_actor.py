@@ -41,6 +41,90 @@ def combined_mesh_bounds(meshes):
             "max_dimension": max(dimensions)}
 
 
+
+def render_glb_import_preview(obj, output_path):
+    """Render imported glTF materials in Blender 3.6 before Fast64 conversion."""
+    scene = bpy.context.scene
+    original_engine = scene.render.engine
+    original_filepath = scene.render.filepath
+    original_x = scene.render.resolution_x
+    original_y = scene.render.resolution_y
+    original_percentage = scene.render.resolution_percentage
+
+    target = (0.0, 0.0, 0.94)
+    camera_data = bpy.data.cameras.new("CJ64_Diagnostic_Camera")
+    camera = bpy.data.objects.new("CJ64_Diagnostic_Camera", camera_data)
+    scene.collection.objects.link(camera)
+    camera.location = (2.9, -4.8, 2.45)
+    direction = Vector(target) - camera.location
+    camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
+    camera_data.lens = 58
+    scene.camera = camera
+
+    lights = []
+    light_specs = [
+        ("CJ64_Key", (2.0, -3.0, 3.5), 650.0, 3.2),
+        ("CJ64_Fill", (-3.0, -1.5, 2.2), 350.0, 4.0),
+        ("CJ64_Rim", (0.0, 3.0, 2.8), 450.0, 3.0),
+    ]
+    for name, location, energy, size in light_specs:
+        data = bpy.data.lights.new(name, "AREA")
+        data.energy = energy
+        data.shape = "DISK"
+        data.size = size
+        light = bpy.data.objects.new(name, data)
+        scene.collection.objects.link(light)
+        light.location = location
+        light.rotation_euler = (Vector(target) - light.location).to_track_quat("-Z", "Y").to_euler()
+        lights.append(light)
+
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("CJ64_Diagnostic_World")
+    scene.world.use_nodes = True
+    background = scene.world.node_tree.nodes.get("Background")
+    if background is not None:
+        background.inputs["Color"].default_value = (0.055, 0.055, 0.055, 1.0)
+        background.inputs["Strength"].default_value = 0.8
+
+    scene.render.engine = "BLENDER_EEVEE"
+    scene.eevee.taa_render_samples = 32
+    scene.render.resolution_x = 900
+    scene.render.resolution_y = 900
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+    scene.render.film_transparent = False
+    scene.view_settings.view_transform = "Standard"
+    scene.view_settings.look = "Medium High Contrast"
+    scene.render.filepath = str(output_path)
+    bpy.ops.render.render(write_still=True)
+
+    scene.render.engine = original_engine
+    scene.render.filepath = original_filepath
+    scene.render.resolution_x = original_x
+    scene.render.resolution_y = original_y
+    scene.render.resolution_percentage = original_percentage
+
+    return {
+        "path": output_path.name,
+        "engine": "BLENDER_EEVEE",
+        "render_size": [900, 900],
+        "camera": list(camera.location),
+        "lighting": [name for name, *_ in light_specs],
+        "mesh_materials": [
+            {
+                "name": material.name if material else None,
+                "image_textures": [
+                    node.image.name
+                    for node in material.node_tree.nodes
+                    if material and material.use_nodes and node.type == "TEX_IMAGE" and node.image
+                ] if material and material.use_nodes else [],
+            }
+            for material in obj.data.materials
+        ],
+    }
+
+
 def ensure_base_color_texture(material):
     """Keep image maps; give the one untextured source slot a solid color map."""
     if material is None:
@@ -122,7 +206,18 @@ def main():
         bpy.ops.object.join()
     obj = bpy.context.view_layer.objects.active
     obj.name = "CJ_Static_Model_Test"
+
+    # Increase visual height relative to vanilla Mario, without touching MarioState,
+    # marioObj scale at runtime, collision/hitboxes, or any gameplay physics.
+    visual_scale_factor = 1.20
+    for vertex in obj.data.vertices:
+        vertex.co *= visual_scale_factor
+    obj.data.update()
+
     joined_geometry = mesh_summary(obj)
+    pre_fast64_preview = render_glb_import_preview(
+        obj, output / "CJ64-3.6-GLB-Preview.png"
+    )
     require(joined_geometry["max_dimension"] <= 1.80,
             "Joined CJ geometry exceeds expected 1.80-unit envelope: "
             + json.dumps(joined_geometry, sort_keys=True))
@@ -220,6 +315,8 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "imported_meshes": imported_mesh_diagnostics,
         "source_bounds": source_bounds,
         "joined_geometry": joined_geometry,
+        "visual_scale_factor": visual_scale_factor,
+        "pre_fast64_blender_preview": pre_fast64_preview,
         "saved_blend_scene": blender_scene_path.name,
         "unexpected_default_cube_in_export": any(
             abs(joined_geometry["minimum"][axis] + 100.0) < 0.01
