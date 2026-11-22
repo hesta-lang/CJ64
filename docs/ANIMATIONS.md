@@ -3,7 +3,7 @@
 ## Source package
 
 The selected clips come from the user-supplied GTA: San Andreas `anim/ped.ifp`
-package. The file itself is game data and is not committed to this repository.
+package. The file itself is game data and is not committed to this repository. The current project workspace does not contain the IFP bytes, so the original file must be supplied again as an external build input before keyframes can be regenerated.
 The CJ FBX and its four textures remain under `assets/cj/source/`.
 
 Eleven candidates were extracted locally: `IDLE_stance`, `WALK_player`,
