@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/cj-model-test.yml'
       - 'tools/prepare_cj_static_glb.py.gz'
-      - 'tools/export_cj_static_actor.py.gz'
+      - 'tools/export_cj_static_actor.py'
       - 'main.lua'
       - 'character.lua'
       - 'assets/cj/source/**'
@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gzip -dc tools/export_cj_static_actor.py.gz > "$RUNNER_TEMP/export_cj_static_actor.py"
+          cp tools/export_cj_static_actor.py "$RUNNER_TEMP/export_cj_static_actor.py"
           "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --background --factory-startup \
             --python "$RUNNER_TEMP/export_cj_static_actor.py" -- \
             "$RUNNER_TEMP/cj-model-test/CJ-Static-Model.glb" \
