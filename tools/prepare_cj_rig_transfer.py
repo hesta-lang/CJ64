@@ -78,7 +78,7 @@ def main():
     fast64_path = os.environ.get("FAST64_ADDON_PATH")
     require(fast64_path, "FAST64_ADDON_PATH is required for DynOS export")
     fast64_dir = Path(fast64_path).resolve()
-    require((fast64_dir / "__init__.py").is_file(), f"Fast64-Coop add-on missing: {fast64_dir}")
+    require((fast64_dir / "__init__.py").is_file(), f"Fast64-Gart add-on missing: {fast64_dir}")
     sys.path.insert(0, str(fast64_dir.parent))
     sys.path.insert(0, str(fast64_dir))
     import fast64
@@ -258,14 +258,14 @@ def main():
     rigged_mesh.parent = target_arm
 
     # Rebuild the animation retarget map from the actual retargeted armatures.
-    from fast64_internal.utility import findStartBones
-    from fast64_internal.sm64.sm64_geolayout_bone import animatableBoneTypes
+    from fast64.fast64_internal.utility import findStartBones
+    from fast64.fast64_internal.sm64.sm64_geolayout_utility import is_bone_animatable
     node_queue = findStartBones(target_arm)
     animation_nodes = []
     while node_queue:
         bone_name = node_queue.pop(0)
         bone = target_arm.data.bones[bone_name]
-        if bone.geo_cmd in animatableBoneTypes:
+        if is_bone_animatable(bone):
             q = bone.matrix_local.to_3x3().to_quaternion()
             animation_nodes.append({
                 "index": len(animation_nodes),
@@ -348,33 +348,46 @@ def main():
     require(not unresolved_materials,
             "Fast64 material conversion failed: " + ", ".join(unresolved_materials))
 
-    # Export the actual skinned actor with the official armature GeoLayout operator.
+    # Export through Fast64-Gart's current Combined Exporter settings.
+    # The armature GeoLayout operator still exists, but it now reads from
+    # scene.fast64.sm64.combined_export instead of the legacy geo* Scene props.
     mod_dir = output_dir / "CJ64-Rigged-Test"
     actor_root = mod_dir / "actors"
     actor_root.mkdir(parents=True, exist_ok=True)
     scene = bpy.context.scene
     scene.gameEditorMode = "SM64"
-    scene.fast64.sm64.exportType = "C"
+    scene.fast64.sm64.export_type = "C"
+    scene.fast64.sm64.blender_to_sm64_scale = 100.0
     scene.saveTextures = True
+    require(hasattr(scene, "geoSeparateTextureDef"),
+            "Fast64-Gart did not register the GeoLayout texture export setting")
     scene.geoSeparateTextureDef = False
-    scene.geoCustomExport = True
-    scene.geoExportPath = str(actor_root)
-    scene.geoTexDir = "actors/cj/"
-    scene.geoName = "cj"
-    scene.geoStructName = "cj_geo"
-    scene.geoGroupName = "group0"
-    scene.geoExportHeaderType = "Actor"
-    scene.geoDeleteOldGeo = True
     scene.exportInlineF3D = False
-    scene.blenderToSM64Scale = 100.0
+
+    combined = scene.fast64.sm64.combined_export
+    combined.export_header_type = "Custom"
+    combined.custom_export_path = str(actor_root.resolve())
+    combined.custom_include_directory = "actors/cj/"
+    combined.object_name = "cj"
+    combined.group_name = "group0"
+    combined.export_gfx = True
+    combined.export_col = False
+    combined.export_anim = False
+    combined.export_bhv = False
+    combined.export_script_loads = False
+    combined.export_all_selected = False
+    combined.use_name_filtering = False
+    combined.graphics_object = rigged_mesh
+    combined.context_obj = rigged_mesh
+
     bpy.ops.object.select_all(action="DESELECT")
     target_arm.select_set(True)
     bpy.context.view_layer.objects.active = target_arm
     if bpy.context.object.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
-    export_result = bpy.ops.object.sm64_export_geolayout_armature()
+    export_result = bpy.ops.object.sm64_export_geolayout_armature(export_obj=target_arm.name)
     require("FINISHED" in export_result,
-            f"Fast64 armature export did not finish: {export_result}")
+            f"Fast64-Gart armature export did not finish: {export_result}")
     actor_dir = actor_root / "cj"
     require((actor_dir / "geo.inc.c").is_file() and
             (actor_dir / "model.inc.c").is_file(),
