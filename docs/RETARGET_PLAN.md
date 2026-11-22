@@ -68,12 +68,10 @@ must pass CI and visual inspection before being treated as complete.
 
 1. Visually inspect the rigged rest pose and the original GTA animation poses.
 2. Correct the weighting and retarget basis wherever the previews show errors.
-3. Export the skinned `cj_geo` actor through Coop Deluxe Fast64.
+3. Verify the new Fast64 `cj_geo` export and correct any CI or export errors.
 4. Include/load the private Lua animation module and map its roles to native
    Mario action states without changing `MarioState`, movement, collision,
    or camera.
 5. Test idle, walk, run, jump, fall, land, and swim in SM64CoopDX on Android.
 
-The current static DynOS actor is unchanged. The rigged Blender scene is a
-separate preparation artifact; it must not be described as an in-game
-animation integration until Fast64 export and runtime tests succeed.
+The last verified static DynOS actor remains unchanged. The updated rigged actor workflow now attempts a Fast64 export, but it must not be described as a working in-game animation integration until CI, visual pose review, and Android runtime tests succeed.
