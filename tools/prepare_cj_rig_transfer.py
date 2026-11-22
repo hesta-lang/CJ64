@@ -16,6 +16,38 @@ from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
 
+SOURCE_WEIGHT_TO_TARGET = {
+    "root ground": "Butt", "root hips": "Butt", "pelvis": "Butt",
+    "spine lower": "Torso", "spine middle": "Torso", "spine upper": "Torso",
+    "belly": "Torso", "l breast": "Torso", "r breast": "Torso",
+    "head neck lower": "Head DL", "head neck upper": "Head DL",
+    "head eyeball left": "Head DL", "head eyeball right": "Head DL",
+    "head eyebrow left 1": "Head DL", "head eyebrow left 2": "Head DL",
+    "head eyebrow left 3": "Head DL", "head eyebrow right 1": "Head DL",
+    "head eyebrow right 2": "Head DL", "head eyebrow right 3": "Head DL",
+    "head eyebrow middle": "Head DL", "head eyelid left lower": "Head DL",
+    "head eyelid left upper": "Head DL", "head eyelid right lower": "Head DL",
+    "head eyelid right upper": "Head DL", "head lip upper left": "Head DL",
+    "head lip upper right": "Head DL", "head lip upper middle": "Head DL",
+    "head jaw": "Head DL", "head lip lower left": "Head DL",
+    "head lip lower right": "Head DL", "head lip lower middle": "Head DL",
+    "head mouth corner left": "Head DL", "head mouth corner right": "Head DL",
+    "arm left shoulder 1": "Left Arm Color", "arm left shoulder 2": "Left Arm Color",
+    "arm left elbow": "Left Forearm", "arm left wrist": "Left Hand DL",
+    "arm left finger 1a": "Left Hand DL", "arm left finger 1b": "Left Hand DL",
+    "arm left finger 1c": "Left Hand DL", "arm left finger 2a": "Left Hand DL",
+    "arm left finger 2b": "Left Hand DL", "arm left finger 2c": "Left Hand DL",
+    "arm right shoulder 1": "Right Arm Color", "arm right shoulder 2": "Right Arm Color",
+    "arm right elbow": "Right Forearm", "arm right wrist": "Right Hand DL",
+    "arm right finger 1a": "Right Hand DL", "arm right finger 1b": "Right Hand DL",
+    "arm right finger 1c": "Right Hand DL", "arm right finger 2a": "Right Hand DL",
+    "arm right finger 2b": "Right Hand DL", "arm right finger 2c": "Right Hand DL",
+    "leg left thigh": "Left Thigh Color", "leg left knee": "Left Leg",
+    "leg left ankle": "Left Shoe", "leg left toes": "Left Shoe",
+    "leg right thigh": "Right Thigh Color", "leg right knee": "Right Leg",
+    "leg right ankle": "Right Shoe DL", "leg right toes": "Right Shoe DL",
+}
+
 
 def require(condition, message):
     if not condition:
@@ -148,6 +180,12 @@ def main():
     require(not missing_source_bones,
             "CJ source armature is missing expected bones: " + ", ".join(missing_source_bones))
 
+    # Preserve original FBX vertex-group assignments before creating the target groups.
+    source_group_names = {
+        group.index: group.name.strip().casefold()
+        for group in source_mesh.vertex_groups
+    }
+
     # Copy CJ mesh and bake its coordinate conversion/280-unit scale.
     rigged_mesh = source_mesh.copy()
     rigged_mesh.data = source_mesh.data.copy()
@@ -159,9 +197,9 @@ def main():
     rigged_mesh.matrix_world = Matrix.Identity(4)
     rigged_mesh.parent = target_arm
 
-    # Generate deterministic skin weights from the nearest retargeted deform-bone
-    # segments. Automatic heat weights fail on this source's overlapping helper
-    # bones; this distance-based pass keeps every vertex attached to real limbs.
+    # Fast64/SM64 supports one deform-bone influence per vertex. Collapse the
+    # original GTA FBX weights to the strongest mapped Mario deform group;
+    # use nearest retargeted segment only for any source vertex without a mapped group.
     for bone_name in ("Left Wing DL", "Right Wing DL"):
         bone = target_arm.data.bones.get(bone_name)
         if bone is not None:
@@ -181,18 +219,29 @@ def main():
         axis_len_sq = max(axis_vec.length_squared, 1e-10)
         segments.append((bone.name, head, axis_vec, axis_len_sq))
 
+    source_weighted_vertices = 0
+    fallback_weight_vertices = 0
     for vertex in rigged_mesh.data.vertices:
-        point = vertex.co
-        distances = []
-        for name, head, axis_vec, axis_len_sq in segments:
-            amount = max(0.0, min(1.0, (point - head).dot(axis_vec) / axis_len_sq))
-            nearest = head + axis_vec * amount
-            distances.append(((point - nearest).length, name))
-        # Fast64/SM64 skinning uses a single deform-bone influence per
-        # vertex. Assign the closest deform segment at full weight instead
-        # of Blender-style smooth multi-bone weights.
-        distance, nearest_bone = min(distances)
-        groups[nearest_bone].add([vertex.index], 1.0, "REPLACE")
+        mapped_weights = {}
+        source_vertex = source_mesh.data.vertices[vertex.index]
+        for assignment in source_vertex.groups:
+            source_name = source_group_names.get(assignment.group)
+            target_name = SOURCE_WEIGHT_TO_TARGET.get(source_name)
+            if target_name in groups:
+                mapped_weights[target_name] = mapped_weights.get(target_name, 0.0) + float(assignment.weight)
+        if mapped_weights:
+            target_name = max(mapped_weights, key=mapped_weights.get)
+            source_weighted_vertices += 1
+        else:
+            point = vertex.co
+            distances = []
+            for name, head, axis_vec, axis_len_sq in segments:
+                amount = max(0.0, min(1.0, (point - head).dot(axis_vec) / axis_len_sq))
+                nearest = head + axis_vec * amount
+                distances.append(((point - nearest).length, name))
+            _, target_name = min(distances)
+            fallback_weight_vertices += 1
+        groups[target_name].add([vertex.index], 1.0, "REPLACE")
 
     # The copied FBX object still references the source armature; remove that
     # modifier before binding it to the retargeted Mario armature.
@@ -376,6 +425,8 @@ def main():
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
         "weight_influences_per_vertex": max_influences,
+        "vertices_using_original_source_weights": source_weighted_vertices,
+        "vertices_using_nearest_bone_fallback": fallback_weight_vertices,
         "invalid_weight_vertices": invalid_weight_vertices,
         "target_animation_node_count": len(animation_nodes),
         "target_animation_nodes": animation_nodes,
@@ -386,7 +437,7 @@ def main():
         "bounds_after_armature_evaluation": bounds,
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
-            "First rig-transfer pass; each vertex is assigned to its nearest Mario/Fast64 deform-bone segment at weight 1.0.",
+            "Original FBX vertex weights are collapsed to one mapped Mario deform bone at weight 1.0; nearest-bone fallback is used only for unweighted/unmapped source vertices.",
             "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
             "The Fast64 DynOS actor is exported, but major poses and in-game rendering still require visual and runtime validation.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
