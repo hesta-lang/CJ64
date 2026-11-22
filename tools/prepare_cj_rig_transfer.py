@@ -54,6 +54,10 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def checkpoint(label):
+    print(f"[CJ64-RIG-CHECKPOINT] {label}", flush=True)
+
+
 def find_object(name, object_type):
     obj = bpy.data.objects.get(name)
     require(obj is not None and obj.type == object_type,
@@ -97,17 +101,37 @@ def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import export_cj_static_actor as shared
 
-    # Open the original Mario template and import CJ in this same Blender
-    # process. Do not reopen the intermediate inspection .blend: it contains
-    # template-linked material libraries and auxiliary armature modifiers
-    # which caused Blender 4.5 to segfault when reloading that saved scene.
+    # Load Mario, copy its Fast64 armature, then remove every unrelated
+    # template object BEFORE evaluating the dependency graph. The source
+    # template contains seven auxiliary facial meshes whose Armature modifiers
+    # form dependency cycles in Blender 4.5. Those cycles were present during
+    # CJ import and preceded the native crash (exit 139) in the prior runs.
+    checkpoint("before-opening-mario-template")
     bpy.ops.wm.open_mainfile(filepath=str(template_path))
-    bpy.context.view_layer.update()
-    template_objects = list(bpy.context.scene.objects)
+    checkpoint("mario-template-opened")
     mario_arm = find_object("Mario", "ARMATURE")
+    checkpoint("mario-armature-found")
+
+    target_arm = mario_arm.copy()
+    target_arm.data = mario_arm.data.copy()
+    target_arm.name = "CJ64_Mario_Armature"
+    target_arm.data.name = "CJ64_Mario_ArmatureData"
+    target_arm.matrix_world = Matrix.Identity(4)
+    bpy.context.scene.collection.objects.link(target_arm)
+    checkpoint("fast64-mario-armature-copied")
+
+    removed_template_objects = 0
+    for obj in list(bpy.context.scene.objects):
+        if obj is not target_arm:
+            bpy.data.objects.remove(obj, do_unlink=True)
+            removed_template_objects += 1
+    checkpoint(f"template-isolated-removed-{removed_template_objects}-objects")
+    bpy.context.view_layer.update()
+    checkpoint("isolated-template-dependency-graph-updated")
 
     if source_fbx.suffix.casefold() != ".fbx":
         raise SystemExit("The current CJ rig-transfer pipeline requires an FBX source")
+    checkpoint("before-cj-fbx-import")
     if bpy.app.version >= (4, 4, 0):
         bpy.ops.wm.fbx_import(
             filepath=str(source_fbx),
@@ -126,20 +150,25 @@ def main():
             automatic_bone_orientation=False,
             ignore_leaf_bones=False,
         )
+    checkpoint("cj-fbx-import-completed")
     bpy.context.view_layer.update()
-    template_names = {obj.name for obj in template_objects}
+    checkpoint("dependency-graph-updated-after-cj-import")
+
     imported_objects = [
-        obj for obj in bpy.context.scene.objects if obj.name not in template_names
+        obj for obj in bpy.context.scene.objects if obj is not target_arm
     ]
+    checkpoint(f"imported-object-count-{len(imported_objects)}")
     for obj in imported_objects:
         obj.name = "CJ_SRC__" + obj.name
         if obj.type == "ARMATURE":
             obj.data.name = "CJ_SRC__" + obj.data.name
+    checkpoint("source-objects-renamed")
 
     source_arm = find_object("CJ_SRC__Armature", "ARMATURE")
     source_mesh = find_object("CJ_SRC__Object001", "MESH")
     require(source_mesh.find_armature() == source_arm,
             "CJ source mesh is not bound to CJ_SRC__Armature")
+    checkpoint("cj-source-rig-and-mesh-validated")
 
     # Source FBX local axes are X lateral / Y vertical / Z depth.
     # The Coop Mario template uses X vertical / Y lateral / Z depth.
@@ -167,15 +196,8 @@ def main():
     source_arm_name = source_arm.name
     source_mesh_name = source_mesh.name
 
-    # Duplicate the template armature so the inspection source remains untouched.
-    source_mesh_name = source_mesh.name
-
-    target_arm = mario_arm.copy()
-    target_arm.data = mario_arm.data.copy()
-    target_arm.name = "CJ64_Mario_Armature"
-    target_arm.data.name = "CJ64_Mario_ArmatureData"
-    target_arm.matrix_world = Matrix.Identity(4)
-    bpy.context.scene.collection.objects.link(target_arm)
+    # The target armature was copied before template cleanup and CJ import.
+    checkpoint("beginning-cj-to-mario-rest-pose-transfer")
 
     # Position the Fast64 animation bones using the actual CJ source rest matrices.
     target_bone_sources = {
