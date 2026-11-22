@@ -209,7 +209,7 @@ def main():
 
     # Match Fast64-Gart: traverse start bones and alphabetically sorted children.
     # Its current API detects standard and animated Custom nodes through
-    # is_bone_animatable(), replacing the removed animatableBoneTypes constant.
+    # is_bone_animatable(), which handles standard and animated Custom nodes.
     from fast64.fast64_internal.utility import findStartBones
     from fast64.fast64_internal.sm64.sm64_geolayout_utility import is_bone_animatable
     bones_to_process = findStartBones(mario_armature_obj)
