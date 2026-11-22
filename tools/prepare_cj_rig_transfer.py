@@ -83,6 +83,12 @@ def main():
     sys.path.insert(0, str(fast64_dir))
     import fast64
     fast64.register()
+    addon_version = tuple(fast64.bl_info.get("version", ()))
+    addon_name = fast64.bl_info.get("name", "")
+    if addon_name != "Fast64 Gart Edition" or addon_version != (2, 5, 3):
+        raise SystemExit(
+            f"Expected pinned Fast64-Gart 2.5.3, found {addon_name} {addon_version}"
+        )
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import export_cj_static_actor as shared
     bpy.ops.wm.open_mainfile(filepath=str(blend_path))
@@ -433,6 +439,8 @@ def main():
     report = {
         "format": "cj64-rig-transfer-preview-v1",
         "status": "FAST64_EXPORTED_EXPERIMENTAL_NOT_VISUALLY_OR_IN_GAME_VALIDATED",
+        "fast64_addon": addon_name,
+        "fast64_version": list(addon_version),
         "source_armature": source_arm_name,
         "target_armature": target_arm.name,
         "source_mesh": source_mesh_name,
