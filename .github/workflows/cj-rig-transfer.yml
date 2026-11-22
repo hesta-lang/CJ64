@@ -118,12 +118,12 @@ jobs:
         with:
           name: CJ64-rigged-actor
           path: |
-            \${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Test.zip
-            \${{ runner.temp }}/cj-rig-output/CJ64-CJ-Rig-Transfer.blend
-            \${{ runner.temp }}/cj-rig-output/cj64_rig_transfer_report.json
-            \${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Rest-Preview.png
-            \${{ runner.temp }}/cj-rig-output/cj64_sm64_animation_retarget_map.json
-            \${{ runner.temp }}/cj-rig-output/target_animation_node_order.json
+            ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Test.zip
+            ${{ runner.temp }}/cj-rig-output/CJ64-CJ-Rig-Transfer.blend
+            ${{ runner.temp }}/cj-rig-output/cj64_rig_transfer_report.json
+            ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Rest-Preview.png
+            ${{ runner.temp }}/cj-rig-output/cj64_sm64_animation_retarget_map.json
+            ${{ runner.temp }}/cj-rig-output/target_animation_node_order.json
           if-no-files-found: error
           retention-days: 14
           compression-level: 1
