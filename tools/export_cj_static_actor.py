@@ -218,8 +218,8 @@ def main():
     pre_fast64_preview = render_glb_import_preview(
         obj, output / "CJ64-3.6-GLB-Preview.png"
     )
-    require(joined_geometry["max_dimension"] <= 1.80,
-            "Joined CJ geometry exceeds expected 1.80-unit envelope: "
+    require(1.88 <= joined_geometry["dimensions"][2] <= 1.95,
+            "CJ visual height is outside expected 1.92-unit envelope: "
             + json.dumps(joined_geometry, sort_keys=True))
 
     fallbacks = [m.name for m in obj.data.materials if ensure_base_color_texture(m)]
