@@ -239,6 +239,7 @@ def main():
     need((actor/"geo.inc.c").is_file() and (actor/"model.inc.c").is_file(),"Fast64 actor files missing")
     shutil.copy2(repo/"main.lua",moddir/"main.lua")
     shutil.copy2(repo/"character.lua",moddir/"character.lua")
+    (moddir/"rigged_actor.lua").write_text("CJ64 = CJ64 or {}\\nCJ64.riggedActor = true\\n",encoding="utf-8")
     (moddir/"README-INSTALL.txt").write_text(
       "CJ64 experimental rigged actor. Binary single-bone weights were transferred from the source CJ FBX to the official Mario/Fast64 armature. "
       "Height: 280 SM64 units. This is not yet visually or in-game validated. Native MarioState and physics remain unchanged.\\n",encoding="utf-8")
