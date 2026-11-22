@@ -212,6 +212,8 @@ def create_cropped_uv_image(source_image, source_material, island_id, uv_bounds,
                             island_report, max_texels=2048, padding=1):
     """Create a high-detail local image crop for one UV island."""
     width, height = int(source_image.size[0]), int(source_image.size[1])
+    require(width > 0 and height > 0,
+            f"Source atlas {source_image.name} has no decoded dimensions: {width}x{height}")
     umin, vmin, umax, vmax = uv_bounds
     x0 = max(0, int(math.floor(umin * width)) - padding)
     x1 = min(width, int(math.ceil(umax * width)) + padding)
@@ -451,13 +453,17 @@ def main():
             + json.dumps(joined_geometry, sort_keys=True))
 
     fallbacks = [m.name for m in obj.data.materials if ensure_base_color_texture(m)]
+
+    # Crop UV islands while GLTF material nodes still reference their original
+    # decoded image buffers. Fast64 conversion can detach the source image data.
+    texture_island_report = split_materials_into_tmem_uv_islands(obj, max_texels=2048)
+
     import fast64.fast64_internal.f3d_material_converter as converter
     converter.convertAllBSDFtoF3D([obj], True)
     unresolved = [m.name for m in obj.data.materials if m and not bool(getattr(m, "is_f3d", False))]
     require(not unresolved, f"Fast64 failed to convert: {unresolved}")
 
-    # Preserve atlas detail by cropping each UV island to its own TMEM-safe map.
-    texture_island_report = split_materials_into_tmem_uv_islands(obj, max_texels=2048)
+    # Cropped maps now have local UVs and dedicated materials.
     from fast64.fast64_internal.f3d.f3d_material import all_combiner_uses
     texture_settings = {}
     texture_budget = {}
