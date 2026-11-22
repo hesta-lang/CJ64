@@ -1,52 +1,64 @@
 # CJ to SM64CoopDX Mario retarget
 
-## Why this stage exists
+## Rig inspection
 
-The GTA ped.ifp tracks belong to the GTA pedestrian skeleton, while the CJ FBX
-has its own 58-bone rig and the SM64CoopDX character template uses a separate
-Mario Armature. Matching bone names from GTA to the CJ FBX is not sufficient to
-retarget a clip to Mario. Rest-pose matrices, parent hierarchy, bone roll,
-lengths and target vertex groups must be checked first.
+The source CJ FBX and the official SM64CoopDX Mario template were imported in
+Blender 4.5.16 LTS. Fast64-Coop was loaded before inspecting the Mario
+GeoLayout properties. The Mario armature contains 68 bones, but Fast64 exports
+exactly 20 animation nodes in a fixed traversal order. The CJ source armature
+contains 58 bones and its skinned mesh uses 57 weighted groups.
 
-The official Coop Deluxe character-template instructions recommend Blender
-3.6 LTS and Fast64, require CJ geometry to be parented to Mario's Armature with
-matching vertex groups, and state that the game animation path only supports
-bone rotations (limb translation/scale are not reproduced). The pipeline must
-therefore bake the GTA motions onto the Mario rig and keep root movement as
-SM64-compatible root translation only.
+The target hierarchy does not have a one-to-one equivalent for all GTA joints.
+Source spine and shoulder chains must be combined into the available Mario
+nodes. Fingers, toes and detailed face/breast tracks have no separate channels
+in the 20-node Fast64 animation hierarchy.
 
-## Current automated step
+## First-pass output
 
-The new GitHub Actions workflow downloads Blender 4.5.16 LTS and the official
-Mario Coop Model Template.blend. The source CJ FBX is ASCII FBX 6.1, so the
-workflow uses Blender 4.5's new C++/ufbx FBX importer (the older Python importer
-in Blender 3.6 rejects ASCII FBX). Blender 4.5's importer supports ASCII FBX and
-loads the original model without an intermediate Assimp conversion. The workflow
-then produces:
+The user-supplied `ped.ifp` was parsed locally: 294 clips were found, including
+the 11 selected candidates, with 4,731 source keyframes. The generated Lua
+module contains 11 calls to `smlua_anim_util_register_animation`, using the
+20-node Fast64 order.
 
-- cj_mario_rig_inspection.json: both armature hierarchies, rest matrices,
-  bone endpoints, weighted mesh groups, dimensions and texture references.
-- cj_mario_dual_rig_inspection.blend: editable project containing the official
-  Mario template and the CJ source rig together for inspection.
+Each registration has 63 channels: three zeroed root-translation channels and
+60 rotation channels. The index table contains 126 16-bit count/offset entries.
+Root motion is deliberately removed so GTA animation data cannot override
+SM64CoopDX player movement, physics or the original `marioObj`.
 
-The IFP is intentionally not copied into the public repository. The animation
-JSON generated from the user-provided IFP remains a local input and is not
-committed either.
+The Lua module and reports are delivered as a separate package. They are not
+committed to this repository because their values are extracted from
+copyrighted commercial game animation data. The original `ped.ifp` is not
+redistributed.
 
-## Retarget stages still required
+## Validation
 
-1. Review the real Mario and CJ bone reports and define a validated semantic
-   mapping; merge source joints only where the target skeleton has no equivalent.
-2. Transfer CJ mesh weights to Mario vertex groups while preserving the visible
-   proportions and bind pose.
-3. Retarget each source pose using source and target rest matrices, then bake
-   rotations at the SM64 animation frame rate. Do not copy GTA limb translations.
-4. Validate idle, walk, run, jump, fall, land and swim in Blender before export.
-5. Export the actor/animations with a compatible Fast64-Coop or Fast64-Gart
-   build and generate the SM64 animation values/index tables.
-6. Register the custom clips in Lua and test them in SM64CoopDX while retaining
-   the vanilla Mario animation fallback.
+The local structural validator passed all 11 registrations. It confirmed:
+- 63 channels per clip and 126 index shorts per clip.
+- Contiguous offsets with no unreferenced value entries.
+- All values and offsets fit unsigned 16-bit storage.
+- All three root translation channels contain a single zero sample.
+- The Lua tables match the generated report.
 
-No in-game-ready actor or custom SM64 animation tables are produced by the
-inspection-only job. This is deliberate: an invented bone map would distort the
-model and could cause broken animation in game.
+The repository's GitHub Actions validation workflow also passed after adding
+Python syntax checks and the existing automated test suite.
+
+## Not yet complete
+
+This is a first-pass mathematical retarget, **not a visually approved or
+in-game-tested release**. The animation data has not yet been reviewed as
+Blender Actions deforming the CJ mesh on Mario's Armature, exported through
+Fast64 inside Blender, or tested in SM64CoopDX. CJ's source vertex weights still
+need to be transferred to Mario's target vertex groups before a working DynOS
+actor can be exported.
+
+The selected `sprint_civi` clip is a generic civilian sprint candidate, not
+confirmed as CJ-exclusive. Finger, toe, facial and breast/belly animation is
+omitted in this pass. Keep vanilla Mario animations as the fallback.
+
+## Remaining work
+
+1. Visually review the retargeted clips and joint axes in Blender.
+2. Transfer CJ's mesh weights to the Mario Armature and export the DynOS actor.
+3. Export the clips with Fast64 and validate the baked SM64 animation arrays.
+4. Connect the registered clip names to the appropriate player action/state
+   hooks and test idle, walk, run, jump, fall, land and swim in-game.
