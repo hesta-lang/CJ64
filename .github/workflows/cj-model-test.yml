@@ -5,7 +5,8 @@ on:
   push:
     paths:
       - '.github/workflows/cj-model-test.yml'
-      - 'tools/export_cj_static_model_test.py.gz'
+      - 'tools/prepare_cj_static_glb.py.gz'
+      - 'tools/export_cj_static_actor.py.gz'
       - 'main.lua'
       - 'character.lua'
       - 'assets/cj/source/**'
@@ -16,7 +17,7 @@ permissions:
 jobs:
   export-model-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout CJ64
         uses: actions/checkout@v4
@@ -26,7 +27,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils
 
-      - name: Install Blender 4.5.16 LTS
+      - name: Install Blender 4.5.16 for ASCII FBX preparation
         shell: bash
         run: |
           set -euo pipefail
@@ -41,8 +42,38 @@ jobs:
           test -n "$expected"
           echo "$expected  blender-4.5.16-linux-x64.tar.xz" | sha256sum -c -
           tar -xf blender-4.5.16-linux-x64.tar.xz
-          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --version
+
+      - name: Bake CJ rest pose and export textured GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cj-model-test"
+          gzip -dc tools/prepare_cj_static_glb.py.gz > "$RUNNER_TEMP/prepare_cj_static_glb.py"
+          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
+            --python "$RUNNER_TEMP/prepare_cj_static_glb.py" -- \
+            assets/cj/source/CarlJohnson-GTASA.FBX \
+            "$GITHUB_WORKSPACE" \
+            "$RUNNER_TEMP/cj-model-test"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ-Static-Model.glb"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-model-preview.png"
+
+      - name: Install Blender 3.6.23 LTS for Fast64-Coop
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fL --retry 3 --retry-delay 2 \
+            https://mirror.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz \
+            -o blender-3.6.23-linux-x64.tar.xz
+          curl -fL --retry 3 \
+            https://mirror.blender.org/release/Blender3.6/blender-3.6.23.sha256 \
+            -o blender-3.6.23.sha256
+          expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
+          test -n "$expected"
+          echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
+          tar -xf blender-3.6.23-linux-x64.tar.xz
+          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --version
 
       - name: Download Fast64-Coop add-on
         run: |
@@ -50,17 +81,18 @@ jobs:
           test -s "$RUNNER_TEMP/fast64/__init__.py"
           echo "FAST64_ADDON_PATH=$RUNNER_TEMP/fast64" >> "$GITHUB_ENV"
 
-      - name: Export static CJ actor through Fast64
+      - name: Export static DynOS actor with Fast64-Coop
+        shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/cj-model-test"
-          gzip -dc tools/export_cj_static_model_test.py.gz > "$RUNNER_TEMP/export_cj_static_model_test.py"
-          blender --background --factory-startup \
-            --python "$RUNNER_TEMP/export_cj_static_model_test.py" -- \
-            assets/cj/source/CarlJohnson-GTASA.FBX \
+          set -euo pipefail
+          gzip -dc tools/export_cj_static_actor.py.gz > "$RUNNER_TEMP/export_cj_static_actor.py"
+          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --background --factory-startup \
+            --python "$RUNNER_TEMP/export_cj_static_actor.py" -- \
+            "$RUNNER_TEMP/cj-model-test/CJ-Static-Model.glb" \
             "$GITHUB_WORKSPACE" \
             "$RUNNER_TEMP/cj-model-test"
 
-      - name: Verify package contents
+      - name: Verify generated package
         shell: bash
         run: |
           set -euo pipefail
@@ -74,9 +106,10 @@ jobs:
           report = json.loads(Path(sys.argv[1]).read_text())
           assert report["model_name"] == "cj_geo"
           assert report["vertex_count"] > 0 and report["polygon_count"] > 0
-          assert any(item["path"].endswith("geo.inc.c") for item in report["actor_files"])
-          assert any(item["path"].endswith("model.inc.c") for item in report["actor_files"])
-          print("CJ model export report verified")
+          assert any(x["path"].endswith("geo.inc.c") for x in report["actor_files"])
+          assert any(x["path"].endswith("model.inc.c") for x in report["actor_files"])
+          assert any(x["path"].endswith(".png") for x in report["actor_files"])
+          print("CJ model test package verified")
           PY
 
       - name: Upload CJ model test package and preview
@@ -87,5 +120,6 @@ jobs:
             ${{ runner.temp }}/cj-model-test/CJ64-Model-Test.zip
             ${{ runner.temp }}/cj-model-test/CJ64-model-preview.png
             ${{ runner.temp }}/cj-model-test/cj_model_test_report.json
+            ${{ runner.temp }}/cj-model-test/CJ-Static-Model.glb
           if-no-files-found: error
           retention-days: 14
