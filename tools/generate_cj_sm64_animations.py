@@ -112,7 +112,7 @@ def mapped_target_rotation(target_node, source_quats, chain, bases):
 
 def emit_table(lua, name, flags, sample_count, values, index):
     lua.extend([
-        f'smlua_anim_util_register_animation("{name}", {flags}, 1, 0, 0, {sample_count},',
+        f'smlua_anim_util_register_animation("{name}", {flags}, 1, 0, 0, {sample_count - 1},',
         "    {",
     ])
     for start in range(0, len(values), 12):
