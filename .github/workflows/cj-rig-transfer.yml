@@ -83,7 +83,6 @@ jobs:
             "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-rig-inspection"
-          test -s "$RUNNER_TEMP/cj-rig-inspection/cj_mario_dual_rig_inspection.blend"
           python - "$RUNNER_TEMP/cj-rig-inspection/cj_mario_rig_inspection.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
@@ -103,7 +102,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/cj-rig-output"
           "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
             --python tools/prepare_cj_rig_transfer.py -- \
-            "$RUNNER_TEMP/cj-rig-inspection/cj_mario_dual_rig_inspection.blend" \
+            "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
+            assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-rig-output"
           test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test.zip"
           test -s "$RUNNER_TEMP/cj-rig-output/CJ64-CJ-Rig-Transfer.blend"
