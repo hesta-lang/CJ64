@@ -99,13 +99,15 @@ jobs:
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
           assert d["format"]=="cj64-cj-mario-rig-inspection-v3"
+          assert d["fast64_addon"]=="Fast64 Gart Edition"
+          assert d["fast64_version"]==[2,5,3]
           assert d["target_animation_node_count"]==20
           assert len(d["source_cj"]["armatures"])==1
           assert len(d["source_cj"]["meshes"])>=1
-          print("Inspected actual CJ and Mario/Fast64 rigs")
+          print("Inspected actual CJ and Mario/Fast64-Gart rigs")
           PY
 
-      - name: Transfer CJ skin and export the Fast64 actor
+      - name: Transfer CJ skin and export through Fast64-Gart
         shell: bash
         run: |
           set -euo pipefail
@@ -134,6 +136,8 @@ jobs:
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
           assert d["status"]=="EXPORTED_TEXTURE_PATHS_NORMALIZED_NOT_TESTED_IN_GAME"
+          assert d["fast64_addon"]=="Fast64 Gart Edition"
+          assert d["fast64_version"]==[2,5,3]
           assert d["source_vertices"]>1000
           assert d["weighted_vertices"]==d["source_vertices"]
           assert d["weight_influences_per_vertex"]==1
@@ -145,7 +149,7 @@ jobs:
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
           assert any(p["path"].endswith("geo.inc.c") for p in d["actor_files"])
           assert any(p["path"].endswith("model.inc.c") for p in d["actor_files"])
-          print("Fast64 exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
+          print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
           PY
 
       - name: Upload rigged CJ actor package and authoring scene
