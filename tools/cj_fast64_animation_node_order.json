@@ -1,0 +1,107 @@
+{
+  "format": "cj64-fast64-animation-node-order-v1",
+  "source": "coop-deluxe/fast64 convertAnimationData traversal, verified against the SM64CoopDX Mario character template",
+  "node_count": 20,
+  "nodes": [
+    {
+      "index": 0,
+      "name": "Body",
+      "parent": "Cap State Switch"
+    },
+    {
+      "index": 1,
+      "name": "Butt",
+      "parent": "Body"
+    },
+    {
+      "index": 2,
+      "name": "Torso",
+      "parent": "2 Torso Rotation"
+    },
+    {
+      "index": 3,
+      "name": "Head",
+      "parent": "Torso"
+    },
+    {
+      "index": 4,
+      "name": "Left Arm",
+      "parent": "Torso"
+    },
+    {
+      "index": 5,
+      "name": "Left Arm Color",
+      "parent": "Left Arm"
+    },
+    {
+      "index": 6,
+      "name": "Left Forearm",
+      "parent": "Left Arm Color"
+    },
+    {
+      "index": 7,
+      "name": "Left Hand",
+      "parent": "Left Hand Switch"
+    },
+    {
+      "index": 8,
+      "name": "Right Arm",
+      "parent": "Torso"
+    },
+    {
+      "index": 9,
+      "name": "Right Arm Color",
+      "parent": "Right Arm"
+    },
+    {
+      "index": 10,
+      "name": "Right Forearm",
+      "parent": "Right Arm Color"
+    },
+    {
+      "index": 11,
+      "name": "Right Hand",
+      "parent": "Right Hand Switch"
+    },
+    {
+      "index": 12,
+      "name": "Left Thigh",
+      "parent": "Butt"
+    },
+    {
+      "index": 13,
+      "name": "Left Thigh Color",
+      "parent": "Left Thigh"
+    },
+    {
+      "index": 14,
+      "name": "Left Leg",
+      "parent": "Left Thigh Color"
+    },
+    {
+      "index": 15,
+      "name": "Left Shoe",
+      "parent": "Left Leg"
+    },
+    {
+      "index": 16,
+      "name": "Right Thigh",
+      "parent": "Butt"
+    },
+    {
+      "index": 17,
+      "name": "Right Thigh Color",
+      "parent": "Right Thigh"
+    },
+    {
+      "index": 18,
+      "name": "Right Leg",
+      "parent": "Right Thigh Color"
+    },
+    {
+      "index": 19,
+      "name": "Right Shoe",
+      "parent": "Right Leg"
+    }
+  ]
+}
