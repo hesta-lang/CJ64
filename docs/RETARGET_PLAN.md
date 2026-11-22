@@ -17,10 +17,12 @@ SM64-compatible root translation only.
 
 ## Current automated step
 
-The new GitHub Actions workflow downloads Blender 3.6.23 LTS and the official
-Mario Coop Model Template.blend. The source CJ FBX is ASCII FBX 6.1, which the
-Blender 3.6 Python FBX importer rejects, so the workflow converts it to a skinned
-GLB with Assimp before Blender imports it. It then produces:
+The new GitHub Actions workflow downloads Blender 4.5.16 LTS and the official
+Mario Coop Model Template.blend. The source CJ FBX is ASCII FBX 6.1, so the
+workflow uses Blender 4.5's new C++/ufbx FBX importer (the older Python importer
+in Blender 3.6 rejects ASCII FBX). Blender 4.5's importer supports ASCII FBX and
+loads the original model without an intermediate Assimp conversion. The workflow
+then produces:
 
 - cj_mario_rig_inspection.json: both armature hierarchies, rest matrices,
   bone endpoints, weighted mesh groups, dimensions and texture references.
