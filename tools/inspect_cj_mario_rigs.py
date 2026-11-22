@@ -135,12 +135,6 @@ def main():
         raise SystemExit(
             f"Expected pinned Fast64-Gart 2.5.3, found {addon_name} {addon_version}"
         )
-    if not hasattr(bpy.ops.wm, "fbx_import"):
-        try:
-            bpy.ops.preferences.addon_enable(module="io_scene_fbx")
-        except Exception:
-            pass
-
     bpy.ops.wm.open_mainfile(filepath=str(template))
     bpy.context.view_layer.update()
     template_objects = list(bpy.context.scene.objects)
@@ -163,9 +157,12 @@ def main():
                 validate_meshes=True,
             )
         else:
-            bpy.ops.preferences.addon_enable(module="io_scene_fbx")
-            import io_scene_fbx
-            io_scene_fbx.register()
+            # Blender 3.6 uses the legacy FBX add-on operator. It may already
+            # be enabled by the runner, so do not call io_scene_fbx.register()
+            # manually after add-on enable (that registers ImportFBX twice).
+            if not any(addon.module == "io_scene_fbx"
+                       for addon in bpy.context.preferences.addons):
+                bpy.ops.preferences.addon_enable(module="io_scene_fbx")
             bpy.ops.import_scene.fbx(
                 filepath=str(fbx),
                 use_custom_props=True,
