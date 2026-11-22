@@ -82,12 +82,11 @@ jobs:
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-retarget-output"
 
-      - name: Upload rig report and editable inspection project
+      - name: Upload Fast64 animation node order report
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-Mario-rig-inspection
-          path: |
-            ${{ runner.temp }}/cj-retarget-output/cj_mario_rig_inspection.json
-            ${{ runner.temp }}/cj-retarget-output/cj_mario_dual_rig_inspection.blend
+          name: CJ64-Fast64-animation-node-order
+          path: ${{ runner.temp }}/cj-retarget-output/target_animation_node_order.json
           if-no-files-found: error
           retention-days: 14
+          compression-level: 1
