@@ -38,26 +38,31 @@ The reusable generator and non-keyframe retarget map are in
 `tools/cj64_sm64_animation_retarget_map.json`. The commercial IFP and
 derived per-frame Lua arrays remain outside the public repository.
 
-## First-pass rig transfer
+## Rig transfer and Fast64 export
 
-The rig-transfer workflow
-`.github/workflows/cj-rig-transfer.yml` uses the inspected dual-rig Blender
-artifact and `tools/prepare_cj_rig_transfer.py`.
+The current workflow `.github/workflows/cj-rig-transfer.yml` performs the
+full pipeline in Blender 3.6 with the official Coop Deluxe Fast64 add-on:
 
-The first successful transfer:
-- Keeps the CJ mesh and its original material/UV data.
-- Converts source coordinates into the Mario/Fast64 armature coordinate
-  system and scales the model to 280 SM64 units.
-- Repositions the Mario animation bones using corresponding CJ rest matrices.
-- Generates nearest-bone-segment weights for 15 deform groups.
-- Assigns weights to all 1,630 CJ vertices.
-- Reports evaluated mesh dimensions of approximately
-  `[2.800, 2.771, 0.576]` Blender units.
+1. Download the official Mario template and import the source CJ FBX.
+2. Inspect the real CJ and Mario rigs and preserve their rest matrices.
+3. Convert the CJ FBX Y-up coordinates to the Mario template X-up coordinates.
+4. Reposition the Mario/Fast64 animation bones from corresponding CJ source
+   rest matrices and scale the model to 280 SM64 units.
+5. Assign every CJ vertex to its nearest Mario deform-bone segment at exactly
+   weight 1.0. This avoids unsupported smooth multi-bone skinning.
+6. Split textures into TMEM-safe UV islands, convert materials, and export
+   the skinned `cj_geo` actor using Fast64's armature GeoLayout exporter.
+7. Generate a retarget map from the actual post-transfer bone rest rotations
+   and Fast64 animation-node traversal.
 
-The workflow artifact `CJ64-rig-transfer-preview` contains the editable
-`CJ64-CJ-Rig-Transfer.blend` and validation JSON. This is not yet a Fast64
-DynOS export and has not been tested in game. Nearest-segment weights are a
-first-pass approximation; inspect deformations before accepting the rig.
+The workflow artifact `CJ64-rigged-actor` is intended to contain the
+installable actor ZIP, editable Blender scene, rest-pose preview, validation
+report, and generated retarget map. The generated animation tables are not
+included because they are derived from the owner's commercial `ped.ifp`.
+
+The previous rig-transfer preview covered 1,630 vertices across 15 deform
+groups. The updated single-influence/Fast64 export path is a new build and
+must pass CI and visual inspection before being treated as complete.
 
 ## Remaining work
 
