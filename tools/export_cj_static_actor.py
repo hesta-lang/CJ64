@@ -2,6 +2,7 @@
 """Export the prepared static CJ GLB as an SM64CoopDX DynOS actor."""
 from __future__ import annotations
 import json, math, os, re, shutil, sys, zipfile
+from array import array
 from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
@@ -220,7 +221,11 @@ def create_cropped_uv_image(source_image, source_material, island_id, uv_bounds,
     crop_w, crop_h = x1 - x0, y1 - y0
 
     # Blender stores pixels row-major from the lower-left, the same origin as UVs.
-    source_pixels = list(source_image.pixels[:])
+    source_pixels = array("f", [0.0]) * (width * height * 4)
+    source_image.pixels.foreach_get(source_pixels)
+    require(len(source_pixels) == width * height * 4,
+            f"Source image pixel count mismatch for {source_image.name}: "
+            f"{len(source_pixels)} != {width * height * 4}")
     cropped_pixels = []
     for y in range(y0, y1):
         start = (y * width + x0) * 4
