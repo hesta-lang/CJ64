@@ -27,7 +27,7 @@ A push changing the model source, exporter, texture normalizer, or workflow also
 
 ## Character scale
 
-This test intentionally renders CJ at **1.50× Mario's visible reference height**. Using the 160-unit Mario reference and Fast64's 100 SM64-units-per-Blender-unit scale, CJ is exported at 240 SM64 units (2.40 Blender units). This is a gameplay/visual override to make CJ noticeably larger; it is not intended as a canonical GTA height measurement.
+This test intentionally renders CJ at **1.75× Mario's visible reference height**. Using the 160-unit Mario reference and Fast64's 100 SM64-units-per-Blender-unit scale, CJ is exported at 280 SM64 units (2.80 Blender units). This is a gameplay/visual override to make CJ noticeably larger; it is not intended as a canonical GTA height measurement.
 
 Only the visible mesh is scaled. CJ64 continues to use Mario's original `MarioState`, `marioObj`, hitboxes, collision and physics.
 
