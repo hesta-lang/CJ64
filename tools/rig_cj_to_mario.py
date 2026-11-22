@@ -86,6 +86,7 @@ def main():
     need(len(src_armatures)==1 and src_meshes,"Could not identify the single CJ source rig and mesh")
     src_arm=src_armatures[0]
     src_mesh=join_meshes(src_meshes,"CJ64_Source_Weights")
+    bake_world(src_mesh)
 
     bpy.ops.import_scene.gltf(filepath=str(glb))
     glb_meshes=[o for o in bpy.context.scene.objects if o.type=="MESH" and o!=src_mesh]
@@ -158,7 +159,41 @@ def main():
         active=[a for a in v.groups if a.weight>0.0001]
         need(len(active)==1 and abs(active[0].weight-1.0)<1e-5,f"Vertex {v.index} is not single-bone skinned")
 
-    # Preserve the template's bone metadata and export using its armature operator.
+    # Derive the exact Fast64 node order and rest rotations from this template.
+    from fast64_internal.utility import findStartBones
+    from fast64_internal.sm64.sm64_geolayout_bone import animatableBoneTypes
+    queue=findStartBones(mario)
+    nodes=[]
+    while queue:
+        name=queue.pop(0)
+        bone=mario.data.bones[name]
+        if bone.geo_cmd in animatableBoneTypes:
+            q=bone.matrix_local.to_3x3().to_quaternion()
+            nodes.append({"index":len(nodes),"name":bone.name,"parent":bone.parent.name if bone.parent else None,
+                          "rest_rotation_wxyz":[round(float(x),7) for x in (q.w,q.x,q.y,q.z)]})
+        queue=sorted(child.name for child in bone.children)+queue
+    expected=set(["Body","Butt","Torso","Head","Left Arm","Left Arm Color","Left Forearm","Left Hand",
+                  "Right Arm","Right Arm Color","Right Forearm","Right Hand","Left Thigh","Left Thigh Color",
+                  "Left Leg","Left Shoe","Right Thigh","Right Thigh Color","Right Leg","Right Shoe"])
+    need(len(nodes)==20 and {n["name"] for n in nodes}==expected,
+         "Fast64 animation nodes differ from the mapped 20-node schema: "+json.dumps([n["name"] for n in nodes]))
+    map_path=repo/"tools"/"cj64_sm64_animation_retarget_map.json"
+    retarget=json.loads(map_path.read_text(encoding="utf-8"))
+    retarget["target_node_order"]=[n["name"] for n in nodes]
+    retarget["target_rest_rotation_wxyz"]={n["name"]:n["rest_rotation_wxyz"] for n in nodes}
+    source_rest={}
+    for chain in retarget["target_source_chains"].values():
+        for bone_name in chain:
+            if bone_name in src_arm.data.bones:
+                q=src_arm.data.bones[bone_name].matrix_local.to_3x3().to_quaternion()
+                source_rest[bone_name]=[round(float(x),7) for x in (q.w,q.x,q.y,q.z)]
+    need(source_rest,"No source rest rotations found for mapped bones")
+    retarget["source_rest_rotation_wxyz"]=source_rest
+    align=(mario.matrix_world.inverted() @ src_arm.matrix_world).to_3x3().to_quaternion()
+    retarget["axis_alignment"]={"quaternion_xyzw":[round(float(align.x),8),round(float(align.y),8),
+                                                       round(float(align.z),8),round(float(align.w),8)],
+                               "description":"Computed from source FBX armature object transform into target Mario armature coordinates."}
+    (out/"cj64_sm64_animation_retarget_map.json").write_text(json.dumps(retarget,indent=2),encoding="utf-8")
     shared.split_materials_into_tmem_uv_islands(target,max_texels=2048)
     import fast64.fast64_internal.f3d_material_converter as converter
     converter.convertAllBSDFtoF3D([target],True)
@@ -205,12 +240,13 @@ def main():
       "rig_scale":float(rig_scale),"max_nearest_source_vertex_distance":max_distance,
       "weight_mode":"one influence per vertex, weight 1.0",
       "vertices_by_target_bone":counts,"total_vertices":len(target.data.vertices),
-      "target_deform_groups":sorted(TARGETS),
+      "target_deform_groups":sorted(TARGETS),"target_animation_nodes":nodes,
       "native_mario_state_preserved":True,
       "warnings":["Weight transfer uses nearest source vertex dominant bone.","Mario rig is uniformly scaled; joint proportions still need visual review.",
                   "Original GTA animation tables are not bundled in this public CI build.","Android/in-game test remains pending."]
     }
     (out/"cj64_rigged_actor_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+    (out/"target_animation_node_order.json").write_text(json.dumps({"node_count":len(nodes),"nodes":nodes},indent=2),encoding="utf-8")
     with zipfile.ZipFile(out/"CJ64-Rigged-Test.zip","w",zipfile.ZIP_DEFLATED,compresslevel=8) as z:
       for p in sorted(moddir.rglob("*")):
         if p.is_file(): z.write(p,p.relative_to(out))
