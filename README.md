@@ -28,14 +28,14 @@ Source credit: Carl Johnson (CJ), by Tsaphnat (Tsaphnat Mbuyi), Sketchfab, CC BY
 
 The owner supplied the original `ped.ifp` again. The ANP3 reader parsed 294 clips and the first retarget pass generated data for 13 selected clips (5,097 source keyframes): idle, walk start/walk, run, sprint candidate, run stop, jump, fall, landing, and swim.
 
-The public repository contains the reusable generator and inspected rig map:
+The public repository contains the reusable generator and rig-transfer workflow:
 - `tools/generate_cj_sm64_animations.py`
-- `tools/cj64_sm64_animation_retarget_map.json`
+- `tools/cj64_sm64_animation_retarget_map.json` (starter map; the workflow emits the current map from the retargeted armature)
 - `tools/prepare_cj_rig_transfer.py`
 
-The generated keyframe Lua module and original IFP are kept outside the public repository because they contain data derived from the commercial game's animation file. The Lua module is available separately to the project owner. It has structural validation only; it has not been visually checked or used in the game yet.
+The generated keyframe Lua module and original IFP are kept outside the public repository because they contain data derived from the commercial game's animation file. The current module must be regenerated with the retarget map emitted by the updated rig-transfer workflow; the earlier structural-only module is not the final in-game package.
 
-**The animations are not active in-game yet.** The current public `cj_geo` actor is still static. The rig-transfer Blender preview needs visual pose review, Fast64 export, and native action-state integration before CJ can animate in SM64CoopDX. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
+**The original animations are not active in-game yet.** The current verified `cj_geo` actor remains static. The new workflow attempts a binary-skinned Fast64 export and the Lua action controller is guarded, but the export must pass CI and visual/in-game testing before the animation module can be enabled. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
 
 ## Remote Blender bridge
 
