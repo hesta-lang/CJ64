@@ -65,10 +65,10 @@ def find_object(name, object_type):
     return obj
 
 
-def set_edit_bone_from_source(edit_bone, source_bone, source_to_target):
-    matrix = source_to_target @ source_bone.matrix_local
+def set_edit_bone_from_source(edit_bone, source_matrix, source_length, source_to_target):
+    matrix = source_to_target @ source_matrix
     edit_bone.matrix = matrix
-    edit_bone.length = max(0.001, source_bone.length * source_to_target.to_scale().x)
+    edit_bone.length = max(0.001, source_length * source_to_target.to_scale().x)
     edit_bone.use_connect = False
 
 
@@ -229,26 +229,48 @@ def main():
         "Right Shoe": "leg right ankle",
         "Right Shoe DL": "leg right ankle",
     }
-    # The inspection .blend can retain the imported FBX objects as selected.
-    # Deselect everything so Blender cannot enter multi-object armature edit mode
-    # and accidentally expose the source rig to edits while retargeting the copy.
-    bpy.ops.object.select_all(action="DESELECT")
+    # Snapshot source rest transforms before entering edit mode. Do not read
+    # another armature's RNA bones while Blender is editing the target armature:
+    # this avoids cross-datablock dependency evaluation in the background runner.
+    source_rest_bones = {}
+    for source_name in set(target_bone_sources.values()):
+        source_bone = source_arm.data.bones.get(source_name)
+        if source_bone is not None:
+            source_rest_bones[source_name] = (
+                source_bone.matrix_local.copy(),
+                float(source_bone.length),
+            )
+    checkpoint(f"source-rest-bones-cached-{len(source_rest_bones)}")
+
+    # Avoid a global selection operator after FBX import. Clear selection
+    # directly, then make the duplicated Mario armature the sole active object.
+    for obj in bpy.context.view_layer.objects:
+        if obj.select_get():
+            obj.select_set(False)
+    checkpoint("all-scene-objects-deselected")
     target_arm.select_set(True)
     bpy.context.view_layer.objects.active = target_arm
+    checkpoint("target-armature-made-active")
     bpy.ops.object.mode_set(mode="EDIT")
+    checkpoint("target-armature-entered-edit-mode")
+
     missing_target_bones = []
     missing_source_bones = []
     for target_name, source_name in target_bone_sources.items():
         edit_bone = target_arm.data.edit_bones.get(target_name)
-        source_bone = source_arm.data.bones.get(source_name)
+        source_rest = source_rest_bones.get(source_name)
         if edit_bone is None:
             missing_target_bones.append(target_name)
             continue
-        if source_bone is None:
+        if source_rest is None:
             missing_source_bones.append(source_name)
             continue
-        set_edit_bone_from_source(edit_bone, source_bone, source_to_target)
+        set_edit_bone_from_source(
+            edit_bone, source_rest[0], source_rest[1], source_to_target
+        )
+    checkpoint("target-bone-rest-transforms-applied")
     bpy.ops.object.mode_set(mode="OBJECT")
+    checkpoint("target-armature-returned-to-object-mode")
     require(not missing_target_bones,
             "Mario template is missing expected bones: " + ", ".join(missing_target_bones))
     require(not missing_source_bones,
