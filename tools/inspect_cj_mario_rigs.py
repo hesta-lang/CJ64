@@ -140,14 +140,23 @@ def main():
     if fbx.suffix.casefold() == ".glb":
         bpy.ops.import_scene.gltf(filepath=str(fbx))
     elif fbx.suffix.casefold() == ".fbx":
-        # Blender 4.5's experimental C++/ufbx importer supports ASCII FBX 6.1.
-        bpy.ops.wm.fbx_import(
-            filepath=str(fbx),
-            use_anim=False,
-            use_custom_props=True,
-            ignore_leaf_bones=False,
-            validate_meshes=True,
-        )
+        # Blender 4.5 uses the newer C++/ufbx importer; Blender 3.6 uses
+        # the bundled io_scene_fbx importer. Both produce the same named rig.
+        if hasattr(bpy.ops.wm, "fbx_import"):
+            bpy.ops.wm.fbx_import(
+                filepath=str(fbx),
+                use_anim=False,
+                use_custom_props=True,
+                ignore_leaf_bones=False,
+                validate_meshes=True,
+            )
+        else:
+            bpy.ops.import_scene.fbx(
+                filepath=str(fbx),
+                use_custom_props=True,
+                automatic_bone_orientation=False,
+                ignore_leaf_bones=False,
+            )
     else:
         raise SystemExit("CJ source must be a GLB or FBX file")
     bpy.context.view_layer.update()
