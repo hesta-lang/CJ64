@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export the prepared static CJ GLB as an SM64CoopDX DynOS actor."""
 from __future__ import annotations
-import json, os, shutil, sys, zipfile
+import json, os, re, shutil, sys, zipfile
 from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
@@ -125,6 +125,54 @@ def render_glb_import_preview(obj, output_path):
     }
 
 
+def largest_power_of_two_at_most(value):
+    value = max(1, int(value))
+    return 1 << (value.bit_length() - 1)
+
+
+def downscale_texture_to_tmem(image, max_texels=2048):
+    """Resize a texture to RGBA16 dimensions that fit in N64 TMEM.
+
+    Keep the original image aspect ratio and normalized UVs. With RGBA16,
+    2048 texels consume 4096 bytes, so no large-texture tile offsets are needed.
+    """
+    width, height = (int(image.size[0]), int(image.size[1]))
+    require(width > 0 and height > 0, f"Invalid image dimensions for {image.name}: {image.size}")
+
+    aspect = width / height
+    if aspect >= 1.0:
+        target_height = 32
+        target_width = largest_power_of_two_at_most(min(64, target_height * aspect))
+    else:
+        target_width = 32
+        target_height = largest_power_of_two_at_most(min(64, target_width / aspect))
+
+    while target_width * target_height > max_texels:
+        if target_width >= target_height:
+            target_width //= 2
+        else:
+            target_height //= 2
+
+    require(target_width * target_height <= max_texels,
+            f"Texture {image.name} exceeds TMEM budget after resize")
+    original_size = [width, height]
+    if (width, height) != (target_width, target_height):
+        image.scale(target_width, target_height)
+        image.update()
+        try:
+            image.pack()
+        except Exception:
+            pass
+
+    return {
+        "name": image.name,
+        "original_size": original_size,
+        "export_size": [int(image.size[0]), int(image.size[1])],
+        "rgba16_bytes": int(image.size[0]) * int(image.size[1]) * 2,
+        "downscaled": original_size != [int(image.size[0]), int(image.size[1])],
+    }
+
+
 def ensure_base_color_texture(material):
     """Keep image maps; give the one untextured source slot a solid color map."""
     if material is None:
@@ -230,6 +278,7 @@ def main():
 
     from fast64.fast64_internal.f3d.f3d_material import all_combiner_uses
     texture_settings = {}
+    texture_budget = {}
     for material in obj.data.materials:
         if material is None or not bool(getattr(material, "is_f3d", False)):
             continue
@@ -237,18 +286,31 @@ def main():
         uses = all_combiner_uses(f3d)
         if f3d.tex1.tex_set and not uses.get("Texture 1", False):
             f3d.tex1.tex_set = False
+        require(not (uses.get("Texture 0", False) and uses.get("Texture 1", False)),
+                f"{material.name} samples both texture slots; the static test needs one map per material")
+
+        # SM64CoopDX's PC renderer only accepts DPLoadTile origins at (0, 0).
+        # Fast64's large-texture path emits arbitrary non-zero tile origins, so
+        # bake each source map down to a TMEM-safe RGBA16 image instead.
+        image_info = None
+        if f3d.tex0.tex is not None and f3d.tex0.tex_set:
+            image_info = downscale_texture_to_tmem(f3d.tex0.tex, max_texels=2048)
+            texture_budget[material.name] = image_info
+        f3d.use_large_textures = False
+        f3d.large_edges = "Clamp"
         texture_settings[material.name] = {
             "tex0_size": list(f3d.tex0.tex.size) if f3d.tex0.tex else None,
             "tex0_enabled": bool(f3d.tex0.tex_set),
             "tex1_size": list(f3d.tex1.tex.size) if f3d.tex1.tex else None,
             "tex1_enabled": bool(f3d.tex1.tex_set),
             "combiner_uses_tex1": bool(uses.get("Texture 1", False)),
+            "large_textures_enabled": bool(f3d.use_large_textures),
+            "texture_budget": image_info,
         }
-        require(not (uses.get("Texture 0", False) and uses.get("Texture 1", False)),
-                f"{material.name} samples both texture slots; the first static test needs one map per material")
-        f3d.use_large_textures = True
-        f3d.large_edges = "Clamp"
-    print("CJ64 texture settings:", json.dumps(texture_settings, sort_keys=True))
+    tmem_preview = render_glb_import_preview(
+        obj, output / "CJ64-3.6-TMEM-Preview.png"
+    )
+    print("CJ64 TMEM-safe texture settings:", json.dumps(texture_settings, sort_keys=True))
 
     output.mkdir(parents=True, exist_ok=True)
     mod = output / "CJ64-Model-Test"
@@ -283,6 +345,18 @@ def main():
     required = ["geo.inc.c", "model.inc.c", "geo_header.h"]
     missing = [name for name in required if not (actor / name).is_file()]
     require(not missing, f"Fast64 did not produce: {missing}")
+
+    model_source = (actor / "model.inc.c").read_text(encoding="utf-8")
+    tile_origins = [
+        (int(s), int(t))
+        for s, t in re.findall(
+            r"gsDPLoadTile\\s*\\(\\s*\\d+\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)",
+            model_source,
+        )
+    ]
+    invalid_tile_origins = [(s, t) for s, t in tile_origins if s != 0 or t != 0]
+    require(not invalid_tile_origins,
+            f"Unsupported non-zero gsDPLoadTile origins remain: {invalid_tile_origins[:12]}")
     shutil.copy2(repo_root / "main.lua", mod / "main.lua")
     shutil.copy2(repo_root / "character.lua", mod / "character.lua")
     (mod / "README-INSTALL.txt").write_text("""CJ64 — static model visibility test
@@ -339,6 +413,8 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "material_names": [m.name if m else None for m in obj.data.materials],
         "generated_solid_fallback_materials": fallbacks,
         "texture_settings": texture_settings,
+        "texture_tmem_budget": texture_budget,
+        "tmem_safe_blender_preview": tmem_preview,
         "blender_scene": scene_diagnostics,
         "actor_files": actor_files,
         "warnings": ["Static rest-pose model; it does not follow Mario's limb animations.",
