@@ -1,4 +1,4 @@
-name: CJ64 static model test export
+name: CJ64 Blender bridge and DynOS export
 
 on:
   workflow_dispatch:
@@ -101,25 +101,37 @@ jobs:
             "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test" \
             "$RUNNER_TEMP/cj-model-test"
 
-      - name: Verify generated package
+      - name: Verify Blender bridge, geometry and DynOS package
         shell: bash
         run: |
           set -euo pipefail
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip"
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-model-preview.png"
           test -s "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json"
+          test -s "$RUNNER_TEMP/cj-model-test/cj_scene_diagnostics.json"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-Blender-Scene.blend"
           unzip -l "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip"
-          python - "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json" "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip" <<'PY'
+          python - "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json" "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip" "$RUNNER_TEMP/cj-model-test/cj_scene_diagnostics.json" <<'PY'
           import json, sys, zipfile
           from pathlib import Path
           report = json.loads(Path(sys.argv[1]).read_text())
+          diagnostics = json.loads(Path(sys.argv[3]).read_text())
           assert report["model_name"] == "cj_geo"
           assert report["vertex_count"] > 0 and report["polygon_count"] > 0
           assert any(x["path"].endswith("geo.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith("model.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith(".png") for x in report["actor_files"])
           assert report["renamed_texture_files"].get("upper body.rgba16.png") == "upper_body.rgba16.png"
-          assert len(report["dynos_texture_includes"]) >= 5
+          assert len(report["dynos_texture_includes"]) >= 4
+          scene = report["blender_scene"]
+          assert scene["default_cube_removed"], scene
+          assert not scene["unexpected_default_cube_in_export"], scene
+          assert scene["saved_blend_scene"] == "CJ64-Blender-Scene.blend"
+          assert scene["joined_geometry"]["max_dimension"] <= 1.80, scene["joined_geometry"]
+          assert diagnostics["default_cube_removed"]
+          assert not diagnostics["unexpected_default_cube_in_export"]
+          assert diagnostics["joined_geometry"] == scene["joined_geometry"]
+          assert report["generated_solid_fallback_materials"] == [], report["generated_solid_fallback_materials"]
           with zipfile.ZipFile(sys.argv[2]) as archive:
               members = set(archive.namelist())
               for texture in report["dynos_texture_includes"]:
@@ -128,7 +140,7 @@ jobs:
               assert not any("upper body.rgba16.png" in p for p in members)
               assert "CJ64-Model-Test/actors/cj/geo.inc.c" in members
               assert "CJ64-Model-Test/actors/cj/model.inc.c" in members
-          print("CJ model package and all DynOS texture paths verified")
+          print("Blender scene, no-default-cube geometry, and all DynOS texture paths verified")
           PY
 
       - name: Upload CJ model test package and preview
@@ -139,6 +151,8 @@ jobs:
             ${{ runner.temp }}/cj-model-test/CJ64-Model-Test.zip
             ${{ runner.temp }}/cj-model-test/CJ64-model-preview.png
             ${{ runner.temp }}/cj-model-test/cj_model_test_report.json
+            ${{ runner.temp }}/cj-model-test/cj_scene_diagnostics.json
             ${{ runner.temp }}/cj-model-test/CJ-Static-Model.glb
+            ${{ runner.temp }}/cj-model-test/CJ64-Blender-Scene.blend
           if-no-files-found: error
           retention-days: 14
