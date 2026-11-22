@@ -302,6 +302,8 @@ def split_materials_into_tmem_uv_islands(obj, max_texels=2048):
         if material_index >= len(mesh.materials):
             continue
         source_material = mesh.materials[material_index]
+        if source_material is None:
+            continue
         source_image = material_base_image(source_material)
         if source_image is None:
             continue
