@@ -12,6 +12,35 @@ def require(ok, message):
         raise RuntimeError(message)
 
 
+def mesh_summary(obj):
+    """Return numeric bounds for a mesh after its object transform is applied."""
+    coords = [tuple(float(c) for c in vertex.co) for vertex in obj.data.vertices]
+    require(bool(coords), f"Mesh {obj.name} has no vertices")
+    minimum = [min(point[i] for point in coords) for i in range(3)]
+    maximum = [max(point[i] for point in coords) for i in range(3)]
+    dimensions = [maximum[i] - minimum[i] for i in range(3)]
+    return {
+        "name": obj.name,
+        "vertices": len(obj.data.vertices),
+        "faces": len(obj.data.polygons),
+        "minimum": minimum,
+        "maximum": maximum,
+        "dimensions": dimensions,
+        "max_dimension": max(dimensions),
+    }
+
+
+def combined_mesh_bounds(meshes):
+    coords = [tuple(float(c) for c in vertex.co)
+              for obj in meshes for vertex in obj.data.vertices]
+    require(bool(coords), "Imported model has no mesh vertices")
+    minimum = [min(point[i] for point in coords) for i in range(3)]
+    maximum = [max(point[i] for point in coords) for i in range(3)]
+    dimensions = [maximum[i] - minimum[i] for i in range(3)]
+    return {"minimum": minimum, "maximum": maximum, "dimensions": dimensions,
+            "max_dimension": max(dimensions)}
+
+
 def ensure_base_color_texture(material):
     """Keep image maps; give the one untextured source slot a solid color map."""
     if material is None:
@@ -59,8 +88,17 @@ def main():
     except Exception:
         pass
     require(hasattr(bpy.ops.import_scene, "gltf"), "Blender glTF importer is unavailable")
+
+    # IMPORTANT: --factory-startup creates a default Cube, Camera and Light.
+    # The previous exporter accidentally joined that default Cube to CJ.
+    # It exported as a 2x2x2 gray box and obscured the lower half of the model.
+    startup_objects = [obj.name for obj in bpy.data.objects]
+    for startup_obj in list(bpy.data.objects):
+        bpy.data.objects.remove(startup_obj, do_unlink=True)
+
     bpy.ops.import_scene.gltf(filepath=str(glb))
-    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    imported_objects = list(bpy.context.scene.objects)
+    meshes = [o for o in imported_objects if o.type == "MESH"]
     require(meshes, "Prepared GLB contains no mesh")
     for obj in meshes:
         world = obj.matrix_world.copy()
@@ -70,6 +108,12 @@ def main():
         obj.parent = None
         for modifier in list(obj.modifiers):
             obj.modifiers.remove(modifier)
+
+    imported_mesh_diagnostics = [mesh_summary(obj) for obj in meshes]
+    source_bounds = combined_mesh_bounds(meshes)
+    require(source_bounds["max_dimension"] <= 1.80,
+            "Unexpected oversized geometry in prepared GLB: "
+            + json.dumps(source_bounds, sort_keys=True))
     bpy.ops.object.select_all(action="DESELECT")
     for obj in meshes:
         obj.select_set(True)
@@ -78,6 +122,10 @@ def main():
         bpy.ops.object.join()
     obj = bpy.context.view_layer.objects.active
     obj.name = "CJ_Static_Model_Test"
+    joined_geometry = mesh_summary(obj)
+    require(joined_geometry["max_dimension"] <= 1.80,
+            "Joined CJ geometry exceeds expected 1.80-unit envelope: "
+            + json.dumps(joined_geometry, sort_keys=True))
 
     fallbacks = [m.name for m in obj.data.materials if ensure_base_color_texture(m)]
     import fast64.fast64_internal.f3d_material_converter as converter
@@ -159,9 +207,32 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
     (actor / "README.md").write_text("Static CJ actor test. Runtime symbol: cj_geo. No skinning or custom animation yet.\n", encoding="utf-8")
     actor_files = [{"path": str(p.relative_to(mod)), "size": p.stat().st_size}
                    for p in sorted(actor.rglob("*")) if p.is_file()]
+    blender_scene_path = output / "CJ64-Blender-Scene.blend"
+    bpy.ops.wm.save_as_mainfile(filepath=str(blender_scene_path))
+
+    scene_diagnostics = {
+        "bridge": "GitHub Actions -> Blender Python API -> Fast64-Coop -> DynOS",
+        "blender_version": bpy.app.version_string,
+        "factory_startup_objects_removed": startup_objects,
+        "default_cube_removed": "Cube" in startup_objects,
+        "imported_object_names": [o.name for o in imported_objects],
+        "imported_mesh_count": len(meshes),
+        "imported_meshes": imported_mesh_diagnostics,
+        "source_bounds": source_bounds,
+        "joined_geometry": joined_geometry,
+        "saved_blend_scene": blender_scene_path.name,
+        "unexpected_default_cube_in_export": any(
+            abs(joined_geometry["minimum"][axis] + 100.0) < 0.01
+            and abs(joined_geometry["maximum"][axis] - 100.0) < 0.01
+            for axis in range(3)
+        ),
+    }
+    (output / "cj_scene_diagnostics.json").write_text(
+        json.dumps(scene_diagnostics, indent=2), encoding="utf-8")
+
     report = {
-        "format": "cj64-static-model-test-v1",
-        "status": "EXPORTED_NOT_YET_TESTED_IN_GAME",
+        "format": "cj64-static-model-test-v2",
+        "status": "EXPORTED_WITH_BLENDER_DIAGNOSTICS_NOT_TESTED_IN_GAME",
         "model_name": "cj_geo",
         "animation_mode": "STATIC_REST_POSE",
         "keeps_native_mario_object": True,
@@ -171,6 +242,7 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "material_names": [m.name if m else None for m in obj.data.materials],
         "generated_solid_fallback_materials": fallbacks,
         "texture_settings": texture_settings,
+        "blender_scene": scene_diagnostics,
         "actor_files": actor_files,
         "warnings": ["Static rest-pose model; it does not follow Mario's limb animations.",
                      "The package still requires an in-game test on the user's SM64CoopDX installation."]
