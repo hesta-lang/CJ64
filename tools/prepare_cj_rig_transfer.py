@@ -477,8 +477,11 @@ def main():
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     # Render a rest-pose preview with the Mario template's X-up orientation.
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE"
-    scene.eevee.taa_render_samples = 32
+    if bpy.app.version >= (4, 2, 0):
+        scene.render.engine = "BLENDER_EEVEE_NEXT"
+    else:
+        scene.render.engine = "BLENDER_EEVEE"
+        scene.eevee.taa_render_samples = 32
     scene.render.resolution_x = 900
     scene.render.resolution_y = 900
     scene.render.resolution_percentage = 100
