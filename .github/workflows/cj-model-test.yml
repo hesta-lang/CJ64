@@ -134,14 +134,14 @@ jobs:
           assert scene["default_cube_removed"], scene
           assert not scene["unexpected_default_cube_in_export"], scene
           assert scene["saved_blend_scene"] == "CJ64-Blender-Scene.blend"
-          assert 2.155 <= scene["joined_geometry"]["dimensions"][2] <= 2.165, scene["joined_geometry"]
-          assert abs(scene["visual_scale_factor"] - 1.35) < 1e-6
+          assert 2.395 <= scene["joined_geometry"]["dimensions"][2] <= 2.405, scene["joined_geometry"]
+          assert abs(scene["visual_scale_factor"] - 1.50) < 1e-6
           scale = scene["scale_calculation"]
           assert scale["mario_reference_height_units"] == 160.0
-          assert scale["cj_visual_scale_ratio"] == 1.35
+          assert scale["cj_visual_scale_ratio"] == 1.50
           assert scale["sm64_units_per_blender_unit"] == 100.0
-          assert scale["cj_target_height_units"] == 216.0
-          assert abs(scale["cj_to_mario_height_ratio"] - 1.35) < 1e-6
+          assert scale["cj_target_height_units"] == 240.0
+          assert abs(scale["cj_to_mario_height_ratio"] - 1.50) < 1e-6
           assert scale["scale_is_visual_override"] is True
           assert scene["pre_fast64_blender_preview"]["path"] == "CJ64-3.6-GLB-Preview.png"
           assert len(scene["pre_fast64_blender_preview"]["mesh_materials"]) == 4
@@ -156,8 +156,8 @@ jobs:
           assert diagnostics["default_cube_removed"]
           assert not diagnostics["unexpected_default_cube_in_export"]
           assert diagnostics["joined_geometry"] == scene["joined_geometry"]
-          assert abs(diagnostics["visual_scale_factor"] - 1.35) < 1e-6
-          assert diagnostics["scale_calculation"]["cj_target_height_units"] == 216.0
+          assert abs(diagnostics["visual_scale_factor"] - 1.50) < 1e-6
+          assert diagnostics["scale_calculation"]["cj_target_height_units"] == 240.0
           assert report["generated_solid_fallback_materials"] == [], report["generated_solid_fallback_materials"]
           with zipfile.ZipFile(sys.argv[2]) as archive:
               members = set(archive.namelist())
