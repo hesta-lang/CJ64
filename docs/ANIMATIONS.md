@@ -42,7 +42,9 @@ The reproducible generator is
 `ped.ifp` and writes a Lua module plus a JSON report. Example:
 
 ```sh
-python3 tools/generate_cj_sm64_animations.py ped.ifp --output CJ64-GTA-SA-Animations.lua
+python3 tools/generate_cj_sm64_animations.py ped.ifp \\
+  --map cj64_sm64_animation_retarget_map.json \\
+  --output cj64_gta_animations.lua
 ```
 
 Root translation is fixed to zero so these clips do not control native
@@ -52,9 +54,10 @@ a role until the character replacement state explicitly reports
 
 ## CJ skin transfer preview
 
-A first-pass rig transfer was generated from the inspected dual-rig Blender
+The earlier rig-transfer preview was generated from the inspected dual-rig Blender
 scene by `tools/prepare_cj_rig_transfer.py` and
-`.github/workflows/cj-rig-transfer.yml`.
+`.github/workflows/cj-rig-transfer.yml`. The workflow has since been expanded
+to run inspection and export in Blender 3.6 as one reproducible pipeline.
 
 The transfer:
 - Copies the CJ mesh and retains its source textures/UVs.
@@ -66,11 +69,7 @@ The transfer:
 - Covers all 1,630 vertices with 15 deform groups.
 - Preserves an evaluated height of 2.8 Blender units (280 SM64 units).
 
-The successful workflow artifact is named `CJ64-rig-transfer-preview`.
-It contains an editable `CJ64-CJ-Rig-Transfer.blend`, a JSON report, and a rendered rest-pose preview (`CJ64-Rigged-Rest-Preview.png`).
-This is a first-pass skinned Blender scene only; it has not yet been exported
-through Fast64 or tested in SM64CoopDX. The weighting algorithm and rest pose
-still require visual inspection before the actor is considered animation-ready.
+The previous preview artifact was named `CJ64-rig-transfer-preview` and contained an editable Blender scene, report, and rest-pose render. The updated workflow now attempts to export a DynOS actor as `CJ64-rigged-actor`, using one bone per vertex at weight 1.0. This newer build must pass CI and visual inspection; it has not been tested in SM64CoopDX or Android yet.
 
 ## Integration boundary
 
