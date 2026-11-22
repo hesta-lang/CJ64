@@ -76,6 +76,8 @@ def main():
     source_mesh_name = source_mesh.name
 
     # Duplicate the template armature so the inspection source remains untouched.
+    source_mesh_name = source_mesh.name
+
     target_arm = mario_arm.copy()
     target_arm.data = mario_arm.data.copy()
     target_arm.name = "CJ64_Mario_Armature"
