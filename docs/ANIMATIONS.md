@@ -95,24 +95,32 @@ output is distributed separately to the owner; neither it nor the commercial
 IFP is committed here.
 
 
-## Rigging and runtime controller work
 
-The repository now includes an experimental rigged-actor pipeline:
-`tools/rig_cj_to_mario.py` imports the official Mario template, transfers the
-dominant source FBX weight to exactly one Mario deform group per vertex
-(weight 1.0), applies the 280-unit visual scale, and exports through
-`bpy.ops.object.sm64_export_geolayout_armature`. The workflow derives the
-20-node order and rest rotations from the actual Fast64 template rather than
-trusting a hand-written node list.
+## Runtime controller and exported actor
 
-The runtime controller in `character.lua` selects GTA roles for idle, walk,
-run, sprint candidate, jump, fall, landing, and swimming. It tracks each
-player independently and only runs when both marker files are present:
-`rigged_actor.lua` and the private `cj64_gta_animations.lua` module.
-The public repository does not contain the private keyframe arrays.
+`main.lua` now loads two optional modules: `rigged_actor.lua` and the
+private `cj64_gta_animations.lua`. `character.lua` contains the action-state
+controller for idle, walk, run, sprint candidate, jump, fall, landing, and
+swimming. It tracks each player separately and changes animation only when
+the selected role changes.
 
-**Current state:** the rigging workflow and controller are committed, but the
-experimental actor has not yet passed its Blender/Fast64 CI build, pose review,
-or SM64CoopDX/Android test. The previous static actor remains the only
-verified install package. SM64 skinning requires one bone per vertex; smooth
-multi-bone weights are not used in this pipeline.
+The controller is guarded: the static actor cannot activate the animation
+tables. Both the rigged actor marker and private animation module must be
+present. The rig-transfer workflow generates the current rest-basis map from
+the actual exported armature; use that map with
+`tools/generate_cj_sm64_animations.py`:
+
+```sh
+python3 tools/generate_cj_sm64_animations.py ped.ifp \
+  --map cj64_sm64_animation_retarget_map.json \
+  --output cj64_gta_animations.lua
+```
+
+Place the generated `cj64_gta_animations.lua` in the mod root alongside the
+rigged actor package. Neither the original IFP nor the derived keyframe arrays
+are committed to the public repository.
+
+The controller and Fast64 export pipeline are committed, but they are not
+yet considered working in-game until the new workflow passes, the rest and
+animated poses are visually inspected, and the actor is tested in
+SM64CoopDX on Android.
