@@ -61,6 +61,7 @@ jobs:
           "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background             --python tools/prepare_cj_rig_transfer.py --             "$RUNNER_TEMP/rig-inspection/cj_mario_dual_rig_inspection.blend"             "$RUNNER_TEMP/cj-rig-transfer"
           test -s "$RUNNER_TEMP/cj-rig-transfer/CJ64-CJ-Rig-Transfer.blend"
           test -s "$RUNNER_TEMP/cj-rig-transfer/cj64_rig_transfer_report.json"
+          test -s "$RUNNER_TEMP/cj-rig-transfer/CJ64-Rigged-Rest-Preview.png"
 
       - name: Validate rig transfer
         run: |
@@ -83,5 +84,6 @@ jobs:
           path: |
             ${{ runner.temp }}/cj-rig-transfer/CJ64-CJ-Rig-Transfer.blend
             ${{ runner.temp }}/cj-rig-transfer/cj64_rig_transfer_report.json
+            ${{ runner.temp }}/cj-rig-transfer/CJ64-Rigged-Rest-Preview.png
           if-no-files-found: error
           retention-days: 14
