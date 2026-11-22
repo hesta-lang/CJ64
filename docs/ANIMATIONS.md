@@ -1,53 +1,51 @@
-# CJ64 animation plan
+# CJ original animations: extraction and integration route
 
-## Current phase: native Mario animations
+## Source package
 
-The first playable CJ model will use the **default SM64CoopDX Mario animations**. CJ64 does not need GTA San Andreas animation files for this phase.
+The original GTA: San Andreas pedestrian/player clips are stored in the game's `anim/ped.ifp` package. The CJ model upload contains the FBX rig and four textures. The user subsequently supplied `ped.ifp` separately for local extraction; that copyrighted game-data file is not committed to CJ64.
 
-The Lua replacement keeps the engine's original `MarioState` and `marioObj` and does not register or select custom animation clips. The model must be exported on the native Mario Armature with compatible vertex groups and weights so that the existing player animation system can deform it.
+A public animation index lists the `ped.ifp` names, including `IDLE_stance`, `WALK_player`, `run_player`, `JUMP_launch`, `JUMP_glide`, `JUMP_land`, `FALL_fall`, `FALL_glide`, `FALL_land`, and `Swim_Tread`. `sprint_civi` is included only as a candidate because it is a generic civilian sprint, not a clip verified as CJ-exclusive.
 
-This is a temporary baseline, not a claim that CJ's original GTA movements have been recreated. The first in-game checks should cover idle, walking, running, jumping, falling and landing. Swimming and other special actions should also be checked once the basic rig works.
+Do not download or commit a random copy of `ped.ifp` from a mirror. It is game data. For extraction, supply `ped.ifp` from your own legally obtained GTA: San Andreas installation. CJ64 does not bundle it.
 
-## Why the FBX needs retargeting
+## Extract clips to an interchange file
 
-The supplied `CarlJohnson-GTASA.FBX` has 58 bones and skin clusters. Its GTA skeleton does not automatically match the SM64CoopDX Mario Armature. The mesh weights need to be reassigned and tested against Mario's armature before the actor is exported. See [MODEL_IMPORT.md](MODEL_IMPORT.md).
+Python 3 is required. From the repository root:
 
-The official [SM64CoopDX character template](https://github.com/coop-deluxe/character-template) documents the Mario Armature, vertex-group assignment and GeoLayout export process.
+```sh
+python tools/extract_cj_animations.py /path/to/anim/ped.ifp --list
+python tools/extract_cj_animations.py /path/to/anim/ped.ifp --output cj_original_animations.json
+```
 
-## Later phase: original GTA animations
+The first command lists all clips and their track counts. The second extracts only the clips in `tools/cj_animation_manifest.json`. The supplied file was parsed successfully: 294 total clips, all 11 manifest candidates found, 4,731 keyframes extracted. The JSON is an intermediate representation (bone IDs, names, quaternion tracks, times, and translations), **not a file the game can load**. Keep the resulting JSON private/local; do not commit or publish animation data extracted from the commercial game.
 
-The original GTA: San Andreas player/pedestrian clips are associated with `anim/ped.ifp`. The uploaded CJ model package did not contain an IFP file or animation clips. The IFP is not included in CJ64 and is not needed for the current approach.
+## Why a direct IFP load does not work
 
-When a legitimate source copy is available:
+GTA IFP clips use the GTA pedestrian skeleton and HAnim bone IDs. SM64CoopDX does not load GTA IFP packages. Its supported custom-animation path uses the SM64 animation layout (`values` and `index`) and `smlua_anim_util_register_animation(...)`.
 
-1. Inspect the IFP and confirm which player clips are present.
-2. Extract the selected tracks with `tools/extract_cj_animations.py`.
-3. Apply tracks to the FBX skeleton by GTA bone ID and verify quaternion order, handedness, axes and translation direction.
-4. Retarget and bake the clips onto the native Mario Armature.
-5. Convert the baked actions to SM64/DynOS animation data.
-6. Add/select the custom clips without changing MarioState, movement, collision or camera.
+The uploaded CJ FBX contains 58 bones; the GTA SA ped IFP tracks use a smaller set of named/numbered pedestrian joints. The checked-in `tools/cj_fbx_bone_map.json` maps the selected IFP joints onto the corresponding CJ FBX joints. Leading spaces in GTA bone names are meaningful to this parser and are preserved. Structural validation maps 29/32 tracks for the 32-track clips (the three unmatched tracks are the breast/belly tracks with no matching FBX deform joints) and 26/26 tracks for the 26-track clips. This is only the first mapping stage; it is not yet a retarget to Mario's armature.
 
-SM64CoopDX does not load GTA IFP files directly. Its custom Lua route uses SM64 animation arrays (`values` and `index`) through `smlua_anim_util_register_animation(...)`; the clips must be converted first.
+## Required conversion stages
 
-## Tooling retained for future conversion
+1. Read `ped.ifp` and select original player clips. **Complete:** 294 clips parsed; all 11 selected clips extracted to a local interchange JSON (not committed).
+2. Apply the source tracks to the corresponding CJ FBX bones using the supplied map. `tools/import_cj_ifp_actions_blender.py` now creates editable first-stage Blender Actions on the imported source rig. The quaternion/local-axis convention still requires visual validation in Blender.
+3. Retarget and bake those actions onto the **SM64CoopDX Mario Armature**. The mesh must have vertex groups assigned to that armature; extra GTA facial bones/finger segments with no SM64 equivalent must be static or omitted in the first pass.
+4. Export the CJ geometry as a DynOS actor and export/bake each animation using Fast64's SM64 animation exporter.
+5. Register custom Lua clips using `smlua_anim_util_register_animation`, then select them from the Mario update hook with `smlua_anim_util_set_animation`. Do not use a GTA IFP reader at runtime.
+6. Test idle, walking, running, jumping, falling, landing, and swimming in SM64CoopDX. Validate multiplayer/player-index behaviour and make sure model replacement still uses the original `marioObj`.
 
-- `tools/ifp_reader.py` — ANP3 parser.
-- `tools/extract_cj_animations.py` — selected-track extraction to interchange JSON.
-- `tools/cj_animation_manifest.json` — candidate clip names to verify against the source file.
-- `tools/cj_fbx_bone_map.json` — first-stage GTA IFP joint to FBX joint mapping; not a final retarget map.
-- `tests/test_ifp_reader.py` — synthetic parser tests only.
+The official character-template guide describes Mario-armature vertex groups and GeoLayout export, plus two custom animation routes: DynOS replacement of existing animations or custom Lua registration. The Lua path can add clips without replacing vanilla animations, but requires correctly exported `values` and `index` tables.
 
-Do not redistribute a dump of GTA's commercial animation files in this repository.
+## Current status
 
-## Status
+- [x] Uploaded FBX and textures inspected; FBX has 58 bones and skin clusters.
+- [x] IFP ANP3 reader added with bounds checks and synthetic regression tests.
+- [x] Candidate clip manifest and first-stage FBX joint map added.
+- [x] User-supplied `ped.ifp` received and parsed locally (294 clips; 11 selected candidates; none missing).
+- [x] Corrected IFP-to-FBX bone map using the actual leading-space track names in the uploaded file.
+- [x] Added a Blender 3.6 action-import script for source-rig preview; syntax checked, not run inside Blender here.
+- [ ] Visually validate the candidate clips and source rig pose in Blender.
+- [ ] Retarget/bake onto Mario Armature and export a DynOS actor.
+- [ ] Generate/register SM64 custom animation tables and runtime-test on SM64CoopDX.
 
-- [x] Inspect the uploaded FBX (58 bones and skin clusters).
-- [x] Establish native Mario animations as the temporary baseline.
-- [x] Keep the original player entity and physics architecture.
-- [ ] Adapt CJ's weights to the Mario Armature.
-- [ ] Export the `cj_geo` DynOS actor.
-- [ ] Test idle, walk, run, jump, fall, landing and special actions in-game.
-- [ ] Later, obtain and verify original animation source data.
-- [ ] Later, retarget and integrate selected original CJ clips.
-
-CJ's model is not yet playable in-game; the current repository contains the replacement framework and conversion tooling, not the exported actor.
+No claim is made that CJ's model or original animations are playable in-game yet.
