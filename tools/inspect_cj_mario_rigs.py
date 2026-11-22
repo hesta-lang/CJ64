@@ -2,7 +2,9 @@
 """Inspect the official SM64CoopDX Mario template and uploaded CJ FBX in Blender.
 
 Prerequisite for retargeting. This deliberately does not guess bone matches.
-It writes a rig report and a combined inspection .blend.
+It writes a rig report and the actual Fast64 animation-node order. The
+transfer script reimports the source into the original Mario template in a
+single Blender process rather than reopening this intermediate scene.
 """
 from __future__ import annotations
 import json
@@ -263,8 +265,6 @@ def main():
         "node_count": len(target_animation_nodes),
         "nodes": target_animation_nodes,
     }, indent=2), encoding="utf-8")
-    blend_path = out / "cj_mario_dual_rig_inspection.blend"
-    bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
     compact_bones = lambda rig: [
         {
             "armature": armature["name"],
@@ -279,7 +279,6 @@ def main():
     ]
     print(json.dumps({
         "report": str(report_path),
-        "blend": str(blend_path),
         "target_armatures": [(a["name"], a["bone_count"]) for a in template_report["armatures"]],
         "source_armatures": [(a["name"], a["bone_count"]) for a in source_report["armatures"]],
         "target_bones": compact_bones(template_report),
