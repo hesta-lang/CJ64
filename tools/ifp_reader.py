@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Dependency-free reader for GTA:SA ANP3 IFP animation packages.
-
-Reads an IFP supplied by the user. It does not redistribute game assets and
-does not retarget the tracks to SM64CoopDX.
-"""
+"""Dependency-free reader for GTA:SA ANP3 IFP animation packages."""
 from __future__ import annotations
 from dataclasses import dataclass
 import math
@@ -46,8 +42,8 @@ class IFPFile:
     animations: tuple[Animation, ...]
 
     def find(self, name: str) -> Animation | None:
-        key = name.casefold()
-        return next((clip for clip in self.animations if clip.name.casefold() == key), None)
+        wanted = name.casefold()
+        return next((clip for clip in self.animations if clip.name.casefold() == wanted), None)
 
 
 class _Reader:
@@ -69,7 +65,8 @@ class _Reader:
         return struct.unpack("<h", self.read(2))[0]
 
     def fixed_string(self, count: int) -> str:
-        return self.read(count).split(b"\\0", 1)[0].decode("latin-1").strip()
+        # Preserve initial spaces: GTA IFP bone names use them in some tracks.
+        return self.read(count).split(b"\x00", 1)[0].decode("latin-1").rstrip()
 
 
 def _normalise(q: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
@@ -82,9 +79,8 @@ def _normalise(q: tuple[float, float, float, float]) -> tuple[float, float, floa
 def parse_ifp(data: bytes, max_animations: int = 4096,
               max_bones: int = 256, max_frames: int = 100000) -> IFPFile:
     r = _Reader(data)
-    magic = r.read(4)
-    if magic != b"ANP3":
-        raise IFPError(f"Unsupported IFP magic {magic!r}; expected ANP3")
+    if r.read(4) != b"ANP3":
+        raise IFPError("Unsupported IFP header; expected ANP3")
     _declared_size = r.u32()
     package = r.fixed_string(24)
     count = r.u32()
@@ -109,17 +105,17 @@ def parse_ifp(data: bytes, max_animations: int = 4096,
                 raise IFPError(f"Unreasonable frame count in {name!r}/{bone_name!r}")
             frames = []
             for _ in range(frame_count):
-                qx, qy, qz, qw, time = (r.i16() for _ in range(5))
-                q = _normalise((qx / 4096.0, qy / 4096.0, qz / 4096.0, qw / 4096.0))
+                qx, qy, qz, qw, raw_time = (r.i16() for _ in range(5))
+                quaternion = _normalise((qx / 4096.0, qy / 4096.0, qz / 4096.0, qw / 4096.0))
                 raw_pos = pos = None
                 if kind == 4:
                     raw_pos = (r.i16(), r.i16(), r.i16())
                     pos = tuple(v / 1024.0 for v in raw_pos)
-                frames.append(Keyframe(time / 60.0, q, pos, raw_pos))
+                frames.append(Keyframe(raw_time / 60.0, quaternion, pos, raw_pos))
             tracks.append(BoneTrack(bone_name, bone_id, kind, tuple(frames)))
         clips.append(Animation(name, tuple(tracks)))
 
-    # Accept zero-padding added by archive tools; reject non-zero trailing data.
+    # Archive tools may pad packages with zeroes; reject non-zero trailing data.
     if any(r.data[r.pos:]):
         raise IFPError(f"Unexpected non-padding data at byte {r.pos}")
     return IFPFile(package, tuple(clips))
