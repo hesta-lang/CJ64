@@ -145,9 +145,10 @@ def main():
     if fbx.suffix.casefold() == ".glb":
         bpy.ops.import_scene.gltf(filepath=str(fbx))
     elif fbx.suffix.casefold() == ".fbx":
-        # Blender 4.5 uses the newer C++/ufbx importer; Blender 3.6 uses
-        # the bundled io_scene_fbx importer. Both produce the same named rig.
-        if hasattr(bpy.ops.wm, "fbx_import"):
+        # The Blender operator namespace dynamically exposes unknown names,
+        # so hasattr(bpy.ops.wm, "fbx_import") is not a valid capability check.
+        # Blender 3.6 uses the legacy add-on operator; 4.5 uses the built-in ufbx operator.
+        if bpy.app.version >= (4, 4, 0):
             bpy.ops.wm.fbx_import(
                 filepath=str(fbx),
                 use_anim=False,
@@ -156,6 +157,9 @@ def main():
                 validate_meshes=True,
             )
         else:
+            bpy.ops.preferences.addon_enable(module="io_scene_fbx")
+            import io_scene_fbx
+            io_scene_fbx.register()
             bpy.ops.import_scene.fbx(
                 filepath=str(fbx),
                 use_custom_props=True,
