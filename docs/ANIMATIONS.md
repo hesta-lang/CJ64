@@ -34,7 +34,8 @@ three fixed-zero root translation channels and three rotation channels for
 each of the 20 Fast64 nodes. Each index table has 126 entries. Samples are
 generated at 30 FPS, quaternion tracks are interpolated with slerp, converted
 to 16-bit SM64 Euler angles, and mapped using the inspected source/target rest
-rotations in `tools/cj64_sm64_animation_retarget_map.json`.
+rotations in `tools/cj64_sm64_animation_retarget_map.json`. Loop end indices
+are zero-based and point to the final sampled frame.
 
 The reproducible generator is
 `tools/generate_cj_sm64_animations.py`. It takes a user-supplied local
@@ -49,28 +50,46 @@ SM64CoopDX player movement or physics. The Lua module also refuses to apply
 a role until the character replacement state explicitly reports
 `animationReady = true`.
 
+## CJ skin transfer preview
+
+A first-pass rig transfer was generated from the inspected dual-rig Blender
+scene by `tools/prepare_cj_rig_transfer.py` and
+`.github/workflows/cj-rig-transfer.yml`.
+
+The transfer:
+- Copies the CJ mesh and retains its source textures/UVs.
+- Converts the source FBX Y-up rest space to the Mario template X-up space.
+- Repositions the Mario/Fast64 animation bones using the corresponding CJ
+  source rest matrices.
+- Generates deterministic nearest-bone-segment weights for the Mario deform
+  bones instead of collapsing multiple GTA joints into one bind matrix.
+- Covers all 1,630 vertices with 15 deform groups.
+- Preserves an evaluated height of 2.8 Blender units (280 SM64 units).
+
+The successful workflow artifact is named `CJ64-rig-transfer-preview`.
+It contains an editable `CJ64-CJ-Rig-Transfer.blend` and a JSON report.
+This is a first-pass skinned Blender scene only; it has not yet been exported
+through Fast64 or tested in SM64CoopDX. The weighting algorithm and rest pose
+still require visual inspection before the actor is considered animation-ready.
+
 ## Integration boundary
 
-**The generated tables are not active in CJ64 yet.** The current exported
-`cj_geo` DynOS actor is a static mesh. It does not contain the compatible
-20-node animated GeoLayout hierarchy or the corresponding transferred skin
-weights. Registering and selecting the tables against this static mesh cannot
-visibly animate CJ.
+**The generated tables are not active in CJ64 yet.** The public `cj_geo`
+DynOS actor remains a static mesh. The new rigged Blender preview is separate
+from that actor and has not yet been exported as the final animated GeoLayout.
 
-Before enabling the module, the project must:
-1. Transfer the CJ mesh weights to the Mario/Fast64 deform bones while
-   preserving the 280-SM64-unit visual height and texture/TMEM fixes.
-2. Inspect the retargeted idle, walk, run, jump, fall, land, and swim poses in
-   Blender; correct rest-basis or axis errors found in those previews.
-3. Export the skinned `cj_geo` actor with the 20-node hierarchy using
-   Coop Deluxe Fast64.
-4. Load the private animation Lua module and connect each role to the matching
+Remaining work:
+1. Visually inspect idle, walk, run, jump, fall, land, and swim poses; correct
+   any weighting, rest-basis, or axis errors.
+2. Export the skinned `cj_geo` actor with the 20-node hierarchy using Coop
+   Deluxe Fast64.
+3. Load the private animation Lua module and connect each role to the matching
    native Mario action/animation state, retaining a safe fallback.
-5. Test in SM64CoopDX, including the Android build.
+4. Test in SM64CoopDX, including the Android build.
 
 The current Lua output passed structural checks (13 registrations, 63
 channels and 126 index entries per clip, all channel offsets within the
-values array). It has **not** been visually approved in Blender, tested by
-Fast64 export with a skinned CJ model, or tested inside SM64CoopDX on Android.
-The private Lua output is distributed separately to the owner; neither it nor
-the commercial IFP is committed here.
+values array). It has not been visually approved, Fast64-exported with the
+rigged CJ scene, or tested inside SM64CoopDX on Android. The private Lua
+output is distributed separately to the owner; neither it nor the commercial
+IFP is committed here.
