@@ -129,8 +129,15 @@ jobs:
           assert scene["default_cube_removed"], scene
           assert not scene["unexpected_default_cube_in_export"], scene
           assert scene["saved_blend_scene"] == "CJ64-Blender-Scene.blend"
-          assert 1.88 <= scene["joined_geometry"]["dimensions"][2] <= 1.95, scene["joined_geometry"]
-          assert abs(scene["visual_scale_factor"] - 1.20) < 1e-6
+          assert 1.795 <= scene["joined_geometry"]["dimensions"][2] <= 1.805, scene["joined_geometry"]
+          assert abs(scene["visual_scale_factor"] - 1.125) < 1e-6
+          scale = scene["scale_calculation"]
+          assert scale["mario_reference_height_units"] == 160.0
+          assert scale["cj_reference_height_m"] == 1.80
+          assert scale["sm64_units_per_blender_unit"] == 100.0
+          assert scale["cj_target_height_units"] == 180.0
+          assert abs(scale["cj_to_mario_height_ratio"] - 1.125) < 1e-6
+          assert scale["authoritative_cj_height"] is False
           assert scene["pre_fast64_blender_preview"]["path"] == "CJ64-3.6-GLB-Preview.png"
           assert len(scene["pre_fast64_blender_preview"]["mesh_materials"]) == 4
           assert report["tmem_safe_blender_preview"]["path"] == "CJ64-3.6-TMEM-Preview.png"
@@ -144,7 +151,8 @@ jobs:
           assert diagnostics["default_cube_removed"]
           assert not diagnostics["unexpected_default_cube_in_export"]
           assert diagnostics["joined_geometry"] == scene["joined_geometry"]
-          assert abs(diagnostics["visual_scale_factor"] - 1.20) < 1e-6
+          assert abs(diagnostics["visual_scale_factor"] - 1.125) < 1e-6
+          assert diagnostics["scale_calculation"]["cj_target_height_units"] == 180.0
           assert report["generated_solid_fallback_materials"] == [], report["generated_solid_fallback_materials"]
           with zipfile.ZipFile(sys.argv[2]) as archive:
               members = set(archive.namelist())
