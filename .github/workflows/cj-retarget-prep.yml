@@ -65,6 +65,14 @@ jobs:
           test "$(stat -c %s "$RUNNER_TEMP/cj-retarget-input/Mario Coop Model Template.blend")" -gt 10000000
           test -s assets/cj/source/CarlJohnson-GTASA.FBX
 
+      - name: Download Fast64-Coop add-on source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/coop-deluxe/fast64.git "$RUNNER_TEMP/fast64"
+          test -s "$RUNNER_TEMP/fast64/__init__.py"
+          echo "FAST64_ADDON_PATH=$RUNNER_TEMP/fast64" >> "$GITHUB_ENV"
+
       - name: Inspect both rigs and preserve source data
         run: |
           mkdir -p "$RUNNER_TEMP/cj-retarget-output"
