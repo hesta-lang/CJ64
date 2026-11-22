@@ -42,8 +42,8 @@ The reproducible generator is
 `ped.ifp` and writes a Lua module plus a JSON report. Example:
 
 ```sh
-python3 tools/generate_cj_sm64_animations.py ped.ifp \\
-  --map cj64_sm64_animation_retarget_map.json \\
+python3 tools/generate_cj_sm64_animations.py ped.ifp \
+  --map cj64_sm64_animation_retarget_map.json \
   --output cj64_gta_animations.lua
 ```
 
