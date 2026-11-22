@@ -2,6 +2,8 @@
 
 **Carl Johnson character replacement for SM64CoopDX.**
 
+The current visual model target is 280 SM64 units (1.75× the 160-unit Mario reference). Only the mesh is enlarged; native Mario physics and collision remain unchanged.
+
 ## 0.1.0-alpha — replacement framework and asset pipeline
 
 CJ64 replaces only Mario's visible model while keeping the engine's native player entity and behaviour.
@@ -30,7 +32,7 @@ Source credit: Carl Johnson (CJ), by Tsaphnat (Tsaphnat Mbuyi), Sketchfab, CC BY
 
 The original GTA: San Andreas clips may be added later if their source animation file becomes available. CJ64 includes an ANP3 reader, a candidate clip manifest and a first-stage FBX bone map for that future work.
 
-The IFP file is not included, and it is **not required for the current native-animation approach**. Custom clips would still need to be retargeted and baked onto the Mario Armature before being converted to SM64/DynOS animation data. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
+The IFP file is not included in the repository. The current retarget notes report structural validation of candidate clips, but the animation keyframes must be supplied again as a local `ped.ifp` input to regenerate and bake original GTA clips. Do not commit the commercial source file. Custom clips would still need to be retargeted and baked onto the Mario Armature before being converted to SM64/DynOS animation data. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
 
 ## Remote Blender bridge
 
