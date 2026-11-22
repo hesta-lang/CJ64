@@ -67,7 +67,7 @@ The transfer:
 - Preserves an evaluated height of 2.8 Blender units (280 SM64 units).
 
 The successful workflow artifact is named `CJ64-rig-transfer-preview`.
-It contains an editable `CJ64-CJ-Rig-Transfer.blend` and a JSON report.
+It contains an editable `CJ64-CJ-Rig-Transfer.blend`, a JSON report, and a rendered rest-pose preview (`CJ64-Rigged-Rest-Preview.png`).
 This is a first-pass skinned Blender scene only; it has not yet been exported
 through Fast64 or tested in SM64CoopDX. The weighting algorithm and rest pose
 still require visual inspection before the actor is considered animation-ready.
