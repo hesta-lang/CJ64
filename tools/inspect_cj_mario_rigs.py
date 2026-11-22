@@ -129,6 +129,11 @@ def main():
     sys.path.insert(0, str(fast64_dir))
     import fast64  # type: ignore
     fast64.register()
+    if not hasattr(bpy.ops.wm, "fbx_import"):
+        try:
+            bpy.ops.preferences.addon_enable(module="io_scene_fbx")
+        except Exception:
+            pass
 
     bpy.ops.wm.open_mainfile(filepath=str(template))
     bpy.context.view_layer.update()
