@@ -5,9 +5,9 @@
 The source CJ FBX and official SM64CoopDX Mario template were inspected with
 Blender and Coop Deluxe Fast64. The CJ source armature contains 58 bones. The
 Mario template armature contains 68 bones, while Fast64 exports exactly 20
-animatable GeoLayout nodes in its own traversal order. Their order and
-inspected rest rotations are stored in
-`tools/cj64_sm64_animation_retarget_map.json`.
+animatable GeoLayout nodes in its own traversal order. The rig-transfer
+workflow writes their current order and post-retarget rest rotations into the
+`CJ64-rigged-actor` artifact; the checked-in JSON is only a starter map.
 
 The target has fewer animation joints than the GTA ped skeleton. Spine and
 neck chains are combined for the first pass; source clavicle/upper-arm/
@@ -33,9 +33,10 @@ Root translation is deliberately suppressed so these clips cannot take
 over native player movement or physics. The generator uses zero-based final
 frame indices for each clip.
 
-The reusable generator and non-keyframe retarget map are in
+The reusable generator and starter map are in
 `tools/generate_cj_sm64_animations.py` and
-`tools/cj64_sm64_animation_retarget_map.json`. The commercial IFP and
+`tools/cj64_sm64_animation_retarget_map.json`. The generator must be run with
+the current map emitted by the rig-transfer artifact. The commercial IFP and
 derived per-frame Lua arrays remain outside the public repository.
 
 ## Rig transfer and Fast64 export
@@ -48,8 +49,10 @@ full pipeline in Blender 3.6 with the official Coop Deluxe Fast64 add-on:
 3. Convert the CJ FBX Y-up coordinates to the Mario template X-up coordinates.
 4. Reposition the Mario/Fast64 animation bones from corresponding CJ source
    rest matrices and scale the model to 280 SM64 units.
-5. Assign every CJ vertex to its nearest Mario deform-bone segment at exactly
-   weight 1.0. This avoids unsupported smooth multi-bone skinning.
+5. Collapse each original FBX vertex's mapped source weights to its strongest
+   Mario deform group at exactly weight 1.0; use nearest-bone fallback only
+   where the source has no mapped weight. This avoids unsupported smooth
+   multi-bone skinning while retaining the source's dominant influence.
 6. Split textures into TMEM-safe UV islands, convert materials, and export
    the skinned `cj_geo` actor using Fast64's armature GeoLayout exporter.
 7. Generate a retarget map from the actual post-transfer bone rest rotations
