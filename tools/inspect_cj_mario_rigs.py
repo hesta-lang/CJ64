@@ -121,12 +121,17 @@ def main():
     if not template_report["armatures"]:
         raise SystemExit("The official Mario template contains no Armature object")
 
-    bpy.ops.import_scene.fbx(
-        filepath=str(fbx),
-        use_anim=False,
-        automatic_bone_orientation=False,
-        use_image_search=True,
-    )
+    if fbx.suffix.casefold() == ".glb":
+        bpy.ops.import_scene.gltf(filepath=str(fbx))
+    elif fbx.suffix.casefold() == ".fbx":
+        bpy.ops.import_scene.fbx(
+            filepath=str(fbx),
+            use_anim=False,
+            automatic_bone_orientation=False,
+            use_image_search=True,
+        )
+    else:
+        raise SystemExit("CJ source must be a converted GLB or binary FBX")
     bpy.context.view_layer.update()
     original_names = {obj.name for obj in template_objects}
     imported_objects = [obj for obj in bpy.context.scene.objects if obj.name not in original_names]
@@ -143,7 +148,7 @@ def main():
         "format": "cj64-cj-mario-rig-inspection-v1",
         "blender_version": bpy.app.version_string,
         "template_file": template.name,
-        "source_fbx": fbx.name,
+        "source_model_import": fbx.name,
         "target_template": template_report,
         "source_cj": source_report,
         "retarget_status": "NOT_STARTED",
