@@ -4,7 +4,7 @@ from __future__ import annotations
 import json, os, shutil, sys, zipfile
 from pathlib import Path
 import bpy
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 
 def require(ok, message):
@@ -114,11 +114,11 @@ def render_glb_import_preview(obj, output_path):
         "mesh_materials": [
             {
                 "name": material.name if material else None,
-                "image_textures": [
-                    node.image.name
-                    for node in material.node_tree.nodes
-                    if material and material.use_nodes and node.type == "TEX_IMAGE" and node.image
-                ] if material and material.use_nodes else [],
+                "image_textures": (
+                    [node.image.name for node in material.node_tree.nodes
+                     if node.type == "TEX_IMAGE" and node.image]
+                    if material and material.use_nodes else []
+                ),
             }
             for material in obj.data.materials
         ],
