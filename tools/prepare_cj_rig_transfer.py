@@ -225,6 +225,9 @@ def main():
             f"Fast64 expected 20 animation nodes, found {len(animation_nodes)}")
     map_path = Path(__file__).resolve().parents[1] / "tools" / "cj64_sm64_animation_retarget_map.json"
     retarget_map = json.loads(map_path.read_text(encoding="utf-8"))
+    actual_node_names = {node["name"] for node in animation_nodes}
+    require(actual_node_names == set(retarget_map["target_source_chains"]),
+            "Fast64 node names do not match retarget chain map: " + str(sorted(actual_node_names)))
     retarget_map["target_node_order"] = [node["name"] for node in animation_nodes]
     retarget_map["target_rest_rotation_wxyz"] = {
         node["name"]: node["rest_rotation_wxyz"] for node in animation_nodes
