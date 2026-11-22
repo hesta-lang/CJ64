@@ -110,6 +110,7 @@ jobs:
           test -s "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json"
           test -s "$RUNNER_TEMP/cj-model-test/cj_scene_diagnostics.json"
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-Blender-Scene.blend"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-3.6-GLB-Preview.png"
           unzip -l "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip"
           python - "$RUNNER_TEMP/cj-model-test/cj_model_test_report.json" "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip" "$RUNNER_TEMP/cj-model-test/cj_scene_diagnostics.json" <<'PY'
           import json, sys, zipfile
@@ -127,10 +128,14 @@ jobs:
           assert scene["default_cube_removed"], scene
           assert not scene["unexpected_default_cube_in_export"], scene
           assert scene["saved_blend_scene"] == "CJ64-Blender-Scene.blend"
-          assert scene["joined_geometry"]["max_dimension"] <= 1.80, scene["joined_geometry"]
+          assert 1.88 <= scene["joined_geometry"]["dimensions"][2] <= 1.95, scene["joined_geometry"]
+          assert abs(scene["visual_scale_factor"] - 1.20) < 1e-6
+          assert scene["pre_fast64_blender_preview"]["path"] == "CJ64-3.6-GLB-Preview.png"
+          assert len(scene["pre_fast64_blender_preview"]["mesh_materials"]) == 4
           assert diagnostics["default_cube_removed"]
           assert not diagnostics["unexpected_default_cube_in_export"]
           assert diagnostics["joined_geometry"] == scene["joined_geometry"]
+          assert abs(diagnostics["visual_scale_factor"] - 1.20) < 1e-6
           assert report["generated_solid_fallback_materials"] == [], report["generated_solid_fallback_materials"]
           with zipfile.ZipFile(sys.argv[2]) as archive:
               members = set(archive.namelist())
@@ -150,6 +155,7 @@ jobs:
           path: |
             ${{ runner.temp }}/cj-model-test/CJ64-Model-Test.zip
             ${{ runner.temp }}/cj-model-test/CJ64-model-preview.png
+            ${{ runner.temp }}/cj-model-test/CJ64-3.6-GLB-Preview.png
             ${{ runner.temp }}/cj-model-test/cj_model_test_report.json
             ${{ runner.temp }}/cj-model-test/cj_scene_diagnostics.json
             ${{ runner.temp }}/cj-model-test/CJ-Static-Model.glb
