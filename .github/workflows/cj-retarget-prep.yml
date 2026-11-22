@@ -24,22 +24,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils
 
-      - name: Download Blender 3.6.23 LTS
+      - name: Install Blender
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          curl -fL --retry 3 --retry-delay 2 \
-            https://download.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz \
-            -o blender-3.6.23-linux-x64.tar.xz
-          curl -fL --retry 3 \
-            https://download.blender.org/release/Blender3.6/blender-3.6.23.sha256 \
-            -o blender-3.6.23.sha256
-          expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
-          test -n "$expected"
-          echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
-          tar -xf blender-3.6.23-linux-x64.tar.xz
-          echo "$RUNNER_TEMP/blender-3.6.23-linux-x64" >> "$GITHUB_PATH"
+          if curl -fL --retry 2 --retry-delay 2 \
+            https://mirror.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz \
+            -o blender-3.6.23-linux-x64.tar.xz; then
+            if curl -fL --retry 2 \
+              https://mirror.blender.org/release/Blender3.6/blender-3.6.23.sha256 \
+              -o blender-3.6.23.sha256; then
+              expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
+              test -n "$expected"
+              echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
+              tar -xf blender-3.6.23-linux-x64.tar.xz
+              echo "$RUNNER_TEMP/blender-3.6.23-linux-x64" >> "$GITHUB_PATH"
+            else
+              echo "Blender checksum unavailable; using Ubuntu Blender package for rig inspection."
+              sudo apt-get install -y blender
+            fi
+          else
+            echo "Blender mirror blocked the archive; using Ubuntu Blender package for rig inspection."
+            sudo apt-get install -y blender
+          fi
+          blender --version
 
       - name: Download official SM64CoopDX Mario template
         shell: bash
