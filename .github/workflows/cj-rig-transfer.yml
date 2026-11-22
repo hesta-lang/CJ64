@@ -8,6 +8,7 @@ on:
       - 'tools/inspect_cj_mario_rigs.py'
       - 'tools/prepare_cj_rig_transfer.py'
       - 'tools/export_cj_static_actor.py'
+      - 'tools/fix_cj_dynos_texture_paths.py'
       - 'tools/cj64_sm64_animation_retarget_map.json'
       - 'main.lua'
       - 'character.lua'
@@ -107,12 +108,19 @@ jobs:
           test -s "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json"
           test -s "$RUNNER_TEMP/cj-rig-output/target_animation_node_order.json"
 
+      - name: Normalize DynOS texture paths and rebuild rigged ZIP
+        run: |
+          python3 tools/fix_cj_dynos_texture_paths.py \
+            "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test" \
+            "$RUNNER_TEMP/cj-rig-output" \
+            CJ64-Rigged-Test.zip cj64_rig_transfer_report.json
+
       - name: Validate exported actor and single-bone skinning
         run: |
           python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
-          assert d["status"]=="FAST64_EXPORTED_EXPERIMENTAL_NOT_VISUALLY_OR_IN_GAME_VALIDATED"
+          assert d["status"]=="EXPORTED_TEXTURE_PATHS_NORMALIZED_NOT_TESTED_IN_GAME"
           assert d["source_vertices"]>1000
           assert d["weighted_vertices"]==d["source_vertices"]
           assert d["weight_influences_per_vertex"]==1
@@ -120,8 +128,8 @@ jobs:
           assert d["target_animation_node_count"]==20
           assert abs(d["target_height_sm64_units"]-280.0)<0.1
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
-          assert any(p.endswith("geo.inc.c") for p in d["actor_files"])
-          assert any(p.endswith("model.inc.c") for p in d["actor_files"])
+          assert any(p["path"].endswith("geo.inc.c") for p in d["actor_files"])
+          assert any(p["path"].endswith("model.inc.c") for p in d["actor_files"])
           print("Fast64 exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
           PY
 
