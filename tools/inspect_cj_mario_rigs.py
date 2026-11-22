@@ -157,11 +157,25 @@ def main():
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     blend_path = out / "cj_mario_dual_rig_inspection.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
+    compact_bones = lambda rig: [
+        {
+            "armature": armature["name"],
+            "name": bone["name"],
+            "parent": bone["parent"],
+            "head": bone["head_local"],
+            "tail": bone["tail_local"],
+            "rest_quaternion_wxyz": bone["rest_rotation_wxyz"],
+        }
+        for armature in rig["armatures"]
+        for bone in armature["bones"]
+    ]
     print(json.dumps({
         "report": str(report_path),
         "blend": str(blend_path),
         "target_armatures": [(a["name"], a["bone_count"]) for a in template_report["armatures"]],
         "source_armatures": [(a["name"], a["bone_count"]) for a in source_report["armatures"]],
+        "target_bones": compact_bones(template_report),
+        "source_bones": compact_bones(source_report),
     }, indent=2))
 
 
