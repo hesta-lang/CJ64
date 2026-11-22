@@ -15,7 +15,7 @@ in the 20-node Fast64 animation hierarchy.
 
 ## First-pass output
 
-The user-supplied `ped.ifp` was parsed locally: 294 clips were found, including
+A previously user-supplied `ped.ifp` was parsed locally: 294 clips were found, including
 the 11 selected candidates, with 4,731 source keyframes. The generated Lua
 module contains 11 calls to `smlua_anim_util_register_animation`, using the
 20-node Fast64 order.
