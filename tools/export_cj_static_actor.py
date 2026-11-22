@@ -230,7 +230,10 @@ def create_cropped_uv_image(source_image, source_material, island_id, uv_bounds,
         f"CJ64_{source_material.name}_uv{island_id:03d}",
         width=crop_w, height=crop_h, alpha=True
     )
-    image.pixels[:] = cropped_pixels
+    require(len(cropped_pixels) == crop_w * crop_h * 4,
+            f"UV crop pixel count mismatch for {image.name}: "
+            f"{len(cropped_pixels)} != {crop_w * crop_h * 4}")
+    image.pixels.foreach_set(cropped_pixels)
     image.update()
 
     target_w, target_h = tmem_safe_dimensions(crop_w, crop_h, max_texels)
