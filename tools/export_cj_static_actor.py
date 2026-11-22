@@ -133,17 +133,37 @@ def largest_power_of_two_at_most(value):
 
 
 def tmem_safe_dimensions(width, height, max_texels=2048):
-    """Power-of-two dimensions, preserving crop aspect, within 4 KiB RGBA16."""
+    """Return dimensions whose row-padded RGBA16 footprint fits N64 TMEM.
+
+    Fast64 pads each RGBA16 row to a 64-bit boundary (four texels). Therefore
+    TMEM cost is ceil(width / 4) * 4 * height, not width * height.
+    """
     width, height = max(1, int(width)), max(1, int(height))
-    scale = min(1.0, 64.0 / width, 64.0 / height,
-                (max_texels / float(width * height)) ** 0.5)
-    target_w = max(1, min(64, int(round(width * scale))))
+    scale = min(
+        1.0,
+        64.0 / float(width),
+        64.0 / float(height),
+        (max_texels / float(max(4, ((width + 3) // 4) * 4) * height)) ** 0.5,
+    )
+    target_w = max(4, min(64, int(width * scale) // 4 * 4))
     target_h = max(1, min(64, int(round(height * scale))))
-    while target_w * target_h > max_texels:
-        if target_w / width >= target_h / height:
-            target_w -= 1
-        else:
+
+    def padded_texels(w, h):
+        return ((w + 3) // 4 * 4) * h
+
+    while padded_texels(target_w, target_h) > max_texels:
+        width_error = abs((target_w - 4) / float(width) - target_h / float(height))
+        height_error = abs(target_w / float(width) - (target_h - 1) / float(height))
+        if target_w > 4 and (target_h == 1 or width_error < height_error):
+            target_w -= 4
+        elif target_h > 1:
             target_h -= 1
+        elif target_w > 4:
+            target_w -= 4
+        else:
+            raise RuntimeError(
+                f"Unable to fit {width}x{height} texture into {max_texels} RGBA16 TMEM texels"
+            )
     return target_w, target_h
 
 
@@ -249,6 +269,7 @@ def create_cropped_uv_image(source_image, source_material, island_id, uv_bounds,
         image.update()
     image.pack()
 
+    padded_tmem_texels = ((target_w + 3) // 4 * 4) * target_h
     island_report.append({
         "source_material": source_material.name,
         "source_image": source_image.name,
@@ -257,7 +278,8 @@ def create_cropped_uv_image(source_image, source_material, island_id, uv_bounds,
         "source_crop": [x0, y0, x1, y1],
         "crop_size": [crop_w, crop_h],
         "export_size": [target_w, target_h],
-        "rgba16_bytes": target_w * target_h * 2,
+        "row_padded_tmem_texels": padded_tmem_texels,
+        "rgba16_bytes": padded_tmem_texels * 2,
         "uv_bounds": [umin, vmin, umax, vmax],
     })
     return image, (x0, y0, crop_w, crop_h)
@@ -481,9 +503,12 @@ def main():
         image_info = None
         if f3d.tex0.tex is not None and f3d.tex0.tex_set:
             w, h = int(f3d.tex0.tex.size[0]), int(f3d.tex0.tex.size[1])
+            padded_texels = ((w + 3) // 4 * 4) * h
             image_info = {"name": f3d.tex0.tex.name, "export_size": [w, h],
-                          "rgba16_bytes": w * h * 2}
-            require(w * h <= 2048, f"{material.name} image exceeds TMEM: {w}x{h}")
+                          "row_padded_tmem_texels": padded_texels,
+                          "rgba16_bytes": padded_texels * 2}
+            require(padded_texels <= 2048,
+                    f"{material.name} image exceeds padded TMEM: {w}x{h} -> {padded_texels} texels")
             texture_budget[material.name] = image_info
         texture_settings[material.name] = {
             "tex0_size": list(f3d.tex0.tex.size) if f3d.tex0.tex else None,
