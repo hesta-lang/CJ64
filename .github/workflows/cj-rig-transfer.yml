@@ -57,7 +57,7 @@ jobs:
           cp -a "$RUNNER_TEMP/blender-addons-3.6/io_scene_fbx" "$addon_dir/"
           test -s "$addon_dir/io_scene_fbx/__init__.py"
 
-      - name: Download official Mario template and Fast64-Coop
+      - name: Download Mario template and pinned Fast64-Gart
         shell: bash
         run: |
           set -euo pipefail
@@ -67,9 +67,22 @@ jobs:
             -o "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend"
           test "$(stat -c %s "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend")" -gt 10000000
           test -s assets/cj/source/CarlJohnson-GTASA.FBX
-          git clone --depth 1 https://github.com/coop-deluxe/fast64.git "$RUNNER_TEMP/fast64"
+
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/ManIsCat2/Fast64-Gart.git "$RUNNER_TEMP/fast64"
+          git -C "$RUNNER_TEMP/fast64" fetch --depth 1 origin \
+            9384477f2ccdc8b6e05a96b52241f98808feb90b
+          git -C "$RUNNER_TEMP/fast64" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/fast64" rev-parse HEAD)" = \
+            "9384477f2ccdc8b6e05a96b52241f98808feb90b"
           test -s "$RUNNER_TEMP/fast64/__init__.py"
+          grep -q 'Fast64 Gart Edition' "$RUNNER_TEMP/fast64/__init__.py"
+          grep -q 'def is_bone_animatable' \
+            "$RUNNER_TEMP/fast64/fast64_internal/sm64/sm64_geolayout_utility.py"
+          grep -q 'class SM64_ExportGeolayoutArmature' \
+            "$RUNNER_TEMP/fast64/fast64_internal/sm64/sm64_geolayout_writer.py"
           echo "FAST64_ADDON_PATH=$RUNNER_TEMP/fast64" >> "$GITHUB_ENV"
+          echo "Fast64-Gart commit: $(git -C "$RUNNER_TEMP/fast64" rev-parse HEAD)"
 
       - name: Inspect CJ and Mario rigs with Blender 3.6
         shell: bash
