@@ -207,6 +207,7 @@ def main():
     if len(argv) != 3:
         raise SystemExit("usage: export_cj_static_actor.py <prepared.glb> <repo_root> <output_dir>")
     glb, repo_root, output = [Path(v).resolve() for v in argv]
+    output.mkdir(parents=True, exist_ok=True)
     require(glb.is_file(), f"Prepared GLB missing: {glb}")
     require((repo_root / "main.lua").is_file(), "Repository is missing main.lua")
 
@@ -350,7 +351,7 @@ def main():
     tile_origins = [
         (int(s), int(t))
         for s, t in re.findall(
-            r"gsDPLoadTile\\s*\\(\\s*\\d+\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)",
+            r"gsDPLoadTile\s*\(\s*\d+\s*,\s*(-?\d+)\s*,\s*(-?\d+)",
             model_source,
         )
     ]
