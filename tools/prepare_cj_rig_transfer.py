@@ -8,7 +8,10 @@ visually approved.
 from __future__ import annotations
 import json
 import math
+import os
+import shutil
 import sys
+import zipfile
 from pathlib import Path
 
 import bpy
@@ -41,6 +44,16 @@ def main():
     blend_path, output_dir = Path(argv[0]).resolve(), Path(argv[1]).resolve()
     require(blend_path.is_file(), f"Rig inspection blend missing: {blend_path}")
     output_dir.mkdir(parents=True, exist_ok=True)
+    fast64_path = os.environ.get("FAST64_ADDON_PATH")
+    require(fast64_path, "FAST64_ADDON_PATH is required for DynOS export")
+    fast64_dir = Path(fast64_path).resolve()
+    require((fast64_dir / "__init__.py").is_file(), f"Fast64-Coop add-on missing: {fast64_dir}")
+    sys.path.insert(0, str(fast64_dir.parent))
+    sys.path.insert(0, str(fast64_dir))
+    import fast64
+    fast64.register()
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import export_cj_static_actor as shared
     bpy.ops.wm.open_mainfile(filepath=str(blend_path))
 
     source_arm = find_object("CJ_SRC__Armature", "ARMATURE")
