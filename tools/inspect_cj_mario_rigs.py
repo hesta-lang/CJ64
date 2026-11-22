@@ -231,6 +231,12 @@ def main():
     }
     report_path = out / "cj_mario_rig_inspection.json"
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    node_order_path = out / "target_animation_node_order.json"
+    node_order_path.write_text(json.dumps({
+        "format": "cj64-fast64-animation-node-order-v1",
+        "node_count": len(target_animation_nodes),
+        "nodes": target_animation_nodes,
+    }, indent=2), encoding="utf-8")
     blend_path = out / "cj_mario_dual_rig_inspection.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
     compact_bones = lambda rig: [
