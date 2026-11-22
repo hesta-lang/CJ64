@@ -70,10 +70,15 @@ def set_edit_bone_from_source(edit_bone, source_bone, source_to_target):
 
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    if len(argv) != 2:
-        raise SystemExit("usage: prepare_cj_rig_transfer.py <inspection.blend> <output_dir>")
-    blend_path, output_dir = Path(argv[0]).resolve(), Path(argv[1]).resolve()
-    require(blend_path.is_file(), f"Rig inspection blend missing: {blend_path}")
+    if len(argv) != 3:
+        raise SystemExit(
+            "usage: prepare_cj_rig_transfer.py <mario_template.blend> <cj.fbx> <output_dir>"
+        )
+    template_path, source_fbx, output_dir = (
+        Path(value).resolve() for value in argv
+    )
+    require(template_path.is_file(), f"Mario template blend missing: {template_path}")
+    require(source_fbx.is_file(), f"CJ source FBX missing: {source_fbx}")
     output_dir.mkdir(parents=True, exist_ok=True)
     fast64_path = os.environ.get("FAST64_ADDON_PATH")
     require(fast64_path, "FAST64_ADDON_PATH is required for DynOS export")
@@ -91,11 +96,48 @@ def main():
         )
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import export_cj_static_actor as shared
-    bpy.ops.wm.open_mainfile(filepath=str(blend_path))
+
+    # Open the original Mario template and import CJ in this same Blender
+    # process. Do not reopen the intermediate inspection .blend: it contains
+    # template-linked material libraries and auxiliary armature modifiers
+    # which caused Blender 4.5 to segfault when reloading that saved scene.
+    bpy.ops.wm.open_mainfile(filepath=str(template_path))
+    bpy.context.view_layer.update()
+    template_objects = list(bpy.context.scene.objects)
+    mario_arm = find_object("Mario", "ARMATURE")
+
+    if source_fbx.suffix.casefold() != ".fbx":
+        raise SystemExit("The current CJ rig-transfer pipeline requires an FBX source")
+    if bpy.app.version >= (4, 4, 0):
+        bpy.ops.wm.fbx_import(
+            filepath=str(source_fbx),
+            use_anim=False,
+            use_custom_props=True,
+            ignore_leaf_bones=False,
+            validate_meshes=True,
+        )
+    else:
+        if not any(addon.module == "io_scene_fbx"
+                   for addon in bpy.context.preferences.addons):
+            bpy.ops.preferences.addon_enable(module="io_scene_fbx")
+        bpy.ops.import_scene.fbx(
+            filepath=str(source_fbx),
+            use_custom_props=True,
+            automatic_bone_orientation=False,
+            ignore_leaf_bones=False,
+        )
+    bpy.context.view_layer.update()
+    template_names = {obj.name for obj in template_objects}
+    imported_objects = [
+        obj for obj in bpy.context.scene.objects if obj.name not in template_names
+    ]
+    for obj in imported_objects:
+        obj.name = "CJ_SRC__" + obj.name
+        if obj.type == "ARMATURE":
+            obj.data.name = "CJ_SRC__" + obj.data.name
 
     source_arm = find_object("CJ_SRC__Armature", "ARMATURE")
     source_mesh = find_object("CJ_SRC__Object001", "MESH")
-    mario_arm = find_object("Mario", "ARMATURE")
     require(source_mesh.find_armature() == source_arm,
             "CJ source mesh is not bound to CJ_SRC__Armature")
 
