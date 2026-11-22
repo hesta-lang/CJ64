@@ -158,7 +158,7 @@ jobs:
               tile_origins = [
                   (int(s), int(t))
                   for s, t in re.findall(
-                      r"gsDPLoadTile\\s*\\(\\s*\\d+\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)",
+                      r"gsDPLoadTile\s*\(\s*\d+\s*,\s*(-?\d+)\s*,\s*(-?\d+)",
                       model_source,
                   )
               ]
