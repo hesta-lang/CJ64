@@ -181,6 +181,29 @@ def main():
     target_bone_collections = []
     mario_armature_obj = next(obj for obj in bpy.context.scene.objects
                               if obj.type == "ARMATURE" and obj.name == "Mario")
+
+    # Use Fast64's own traversal; this is the authoritative order used when
+    # generating the SM64 animation index/value arrays.
+    from fast64_internal.sm64.animation.utility import get_anim_owners
+    animation_owners = get_anim_owners(mario_armature_obj)
+    target_animation_nodes = []
+    for index, pose_bone in enumerate(animation_owners):
+        bone = pose_bone.bone
+        target_animation_nodes.append({
+            "index": index,
+            "name": pose_bone.name,
+            "parent": bone.parent.name if bone.parent else None,
+            "geo_cmd": getattr(bone, "geo_cmd", None),
+            "use_deform": bool(bone.use_deform),
+            "rest_matrix": matrix4(bone.matrix_local),
+            "rest_rotation_wxyz": quat(bone.matrix_local.to_3x3().to_quaternion()),
+        })
+    if len(target_animation_nodes) != 20:
+        raise SystemExit(
+            "Expected the inspected Mario template to export 20 animation bones; "
+            f"Fast64 returned {len(target_animation_nodes)}: "
+            f"{[item['name'] for item in target_animation_nodes]}"
+        )
     for collection in getattr(mario_armature_obj.data, "collections", []):
         target_bone_collections.append({
             "name": collection.name,
@@ -196,6 +219,8 @@ def main():
         "target_template": template_report,
         "source_cj": source_report,
         "target_bone_collections": target_bone_collections,
+        "target_animation_nodes": target_animation_nodes,
+        "target_animation_node_count": len(target_animation_nodes),
         "template_actions": actions_report,
         "retarget_status": "NOT_STARTED",
         "warnings": [
