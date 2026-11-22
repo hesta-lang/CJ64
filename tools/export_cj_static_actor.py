@@ -51,7 +51,8 @@ def render_glb_import_preview(obj, output_path, view="front"):
     original_y = scene.render.resolution_y
     original_percentage = scene.render.resolution_percentage
 
-    target = (0.0, 0.0, 0.94)
+    target = (float(obj.location.x), float(obj.location.y),
+              float(obj.location.z + obj.dimensions.z * 0.52))
     camera_data = bpy.data.cameras.new("CJ64_Diagnostic_Camera")
     camera = bpy.data.objects.new("CJ64_Diagnostic_Camera", camera_data)
     scene.collection.objects.link(camera)
@@ -133,14 +134,16 @@ def largest_power_of_two_at_most(value):
 def tmem_safe_dimensions(width, height, max_texels=2048):
     """Power-of-two dimensions, preserving crop aspect, within 4 KiB RGBA16."""
     width, height = max(1, int(width)), max(1, int(height))
-    target_w = largest_power_of_two_at_most(min(64, width))
-    target_h = largest_power_of_two_at_most(min(64, height))
+    scale = min(1.0, 64.0 / width, 64.0 / height,
+                (max_texels / float(width * height)) ** 0.5)
+    target_w = max(1, min(64, int(round(width * scale))))
+    target_h = max(1, min(64, int(round(height * scale))))
     while target_w * target_h > max_texels:
-        if target_w >= target_h:
-            target_w //= 2
+        if target_w / width >= target_h / height:
+            target_w -= 1
         else:
-            target_h //= 2
-    return max(1, target_w), max(1, target_h)
+            target_h -= 1
+    return target_w, target_h
 
 
 def material_base_image(material):
@@ -270,6 +273,7 @@ def split_materials_into_tmem_uv_islands(obj, max_texels=2048):
         source_image = material_base_image(source_material)
         if source_image is None:
             continue
+        width, height = int(source_image.size[0]), int(source_image.size[1])
 
         islands = face_uv_islands(mesh, material_index, uv_layer)
         for island_number, face_ids in enumerate(islands):
