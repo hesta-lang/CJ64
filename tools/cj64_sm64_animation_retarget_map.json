@@ -42,7 +42,8 @@
     ],
     "Torso": [
       "spine lower",
-      "spine middle"
+      "spine middle",
+      "spine upper"
     ],
     "Head": [
       "head neck lower",
@@ -374,8 +375,9 @@
     ]
   },
   "notes": [
-    "First-pass rest-basis retarget, not a substitute for visual pose inspection.",
-    "Auxiliary fingers, toes, jaw, brows, breasts and belly have no independent channel in the 20-node target order.",
-    "Source root translation is omitted to leave player movement and physics with MarioState."
+    "Target node order and target rest rotations are regenerated from the official Mario/Fast64 template during the rigged actor workflow.",
+    "Source bone rest rotations and source-to-target armature axis alignment are regenerated from the imported CJ FBX and template transforms.",
+    "Source root translation is omitted from gameplay animation tables so MarioState remains authoritative.",
+    "This first-pass binary skinning assigns each mesh vertex to one target deform bone at weight 1.0, as required by SM64's skinning model."
   ]
 }
