@@ -79,7 +79,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/cj-rig-inspection"
           "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
-            --python tools/inspect_cj_mario_rigs.py -- \
+            --python-exit-code 1 --python tools/inspect_cj_mario_rigs.py -- \
             "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-rig-inspection"
@@ -101,7 +101,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/cj-rig-output"
           "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
-            --python tools/prepare_cj_rig_transfer.py -- \
+            --python-exit-code 1 --python tools/prepare_cj_rig_transfer.py -- \
             "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-rig-output"
