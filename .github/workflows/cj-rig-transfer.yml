@@ -116,6 +116,7 @@ jobs:
           assert d["source_vertices"]>1000
           assert d["weighted_vertices"]==d["source_vertices"]
           assert d["weight_influences_per_vertex"]==1
+          assert d["invalid_weight_vertices"]==0
           assert d["target_animation_node_count"]==20
           assert abs(d["target_height_sm64_units"]-280.0)<0.1
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
