@@ -72,7 +72,7 @@ def main():
     source_to_target = scale @ source_to_target_unscaled
     mesh_to_target = scale @ mesh_to_target_unscaled
 
-    # Duplicate the template armature so the inspection source remains untouched.
+    source_arm_name = source_arm.name\n    source_mesh_name = source_mesh.name\n\n    # Duplicate the template armature so the inspection source remains untouched.
     target_arm = mario_arm.copy()
     target_arm.data = mario_arm.data.copy()
     target_arm.name = "CJ64_Mario_Armature"
@@ -177,20 +177,6 @@ def main():
     target_arm.matrix_world = Matrix.Identity(4)
     rigged_mesh.parent = target_arm
 
-    # Hide source and template meshes; keep source rig visible only for inspection.
-    source_mesh.hide_render = True
-    source_mesh.hide_viewport = True
-    source_arm.hide_render = True
-    source_arm.hide_viewport = True
-    for obj in bpy.context.scene.objects:
-        if obj.type == "MESH" and obj.name != rigged_mesh.name:
-            obj.hide_render = True
-            obj.hide_viewport = True
-    rigged_mesh.hide_render = False
-    rigged_mesh.hide_viewport = False
-    target_arm.hide_render = False
-    target_arm.hide_viewport = False
-
     bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     evaluated = rigged_mesh.evaluated_get(depsgraph)
@@ -211,9 +197,9 @@ def main():
     report = {
         "format": "cj64-rig-transfer-preview-v1",
         "status": "RIGGED_PREVIEW_NOT_FAST64_EXPORTED_OR_IN_GAME_TESTED",
-        "source_armature": source_arm.name,
+        "source_armature": source_arm_name,
         "target_armature": target_arm.name,
-        "source_mesh": source_mesh.name,
+        "source_mesh": source_mesh_name,
         "rigged_mesh": rigged_mesh.name,
         "source_vertices": len(rigged_mesh.data.vertices),
         "source_faces": len(rigged_mesh.data.polygons),
@@ -228,7 +214,7 @@ def main():
         "weighted_vertices": weighted_vertices,
         "bounds_after_armature_evaluation": bounds,
         "notes": [
-            "First rig-transfer pass; source groups were merged into Mario template deform groups.",
+            "First rig-transfer pass; Blender automatic heat weights were generated against the transferred Mario/Fast64 deform bones.",
             "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
             "Inspect all major poses before Fast64 export; no runtime animation is enabled by this workflow.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
