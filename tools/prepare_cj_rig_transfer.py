@@ -72,7 +72,10 @@ def main():
     source_to_target = scale @ source_to_target_unscaled
     mesh_to_target = scale @ mesh_to_target_unscaled
 
-    source_arm_name = source_arm.name\n    source_mesh_name = source_mesh.name\n\n    # Duplicate the template armature so the inspection source remains untouched.
+    source_arm_name = source_arm.name
+    source_mesh_name = source_mesh.name
+
+    # Duplicate the template armature so the inspection source remains untouched.
     target_arm = mario_arm.copy()
     target_arm.data = mario_arm.data.copy()
     target_arm.name = "CJ64_Mario_Armature"
