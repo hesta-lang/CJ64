@@ -1,11 +1,16 @@
 {
   "source": "GTA San Andreas anim/ped.ifp",
-  "purpose": "Candidate original player clips. Names are not SM64 animation IDs.",
+  "purpose": "Candidate original player clips. Names are source animation labels, not SM64 animation IDs.",
   "clips": [
     {
       "name": "IDLE_stance",
       "role": "idle",
       "loop": true
+    },
+    {
+      "name": "WALK_start",
+      "role": "walk_start",
+      "loop": false
     },
     {
       "name": "WALK_player",
@@ -21,7 +26,12 @@
       "name": "sprint_civi",
       "role": "sprint_candidate",
       "loop": true,
-      "note": "Generic civilian sprint; not yet verified as CJ-exclusive."
+      "note": "Generic civilian sprint; confirm this is the intended CJ sprint before mapping."
+    },
+    {
+      "name": "Run_stop",
+      "role": "run_stop",
+      "loop": false
     },
     {
       "name": "JUMP_launch",
