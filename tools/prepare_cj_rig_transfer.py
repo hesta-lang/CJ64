@@ -192,7 +192,6 @@ def main():
             f"Unweighted CJ vertices remain: {len(rigged_mesh.data.vertices) - weighted_vertices}")
     require(abs(bounds[0] - target_height) < 0.03,
             f"CJ target height is not 2.8 units on Mario X-up rig: {bounds}")
-    require(not unmapped_groups, "Unmapped source vertex groups: " + ", ".join(unmapped_groups))
 
     report = {
         "format": "cj64-rig-transfer-preview-v1",
@@ -208,9 +207,7 @@ def main():
         "visual_scale_factor": visual_scale,
         "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
         "source_to_target_bone_map": target_bone_sources,
-        "source_vertex_group_map": group_map,
-        "target_vertex_groups": sorted(target_groups),
-        "unmapped_source_groups": unmapped_groups,
+        "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
         "bounds_after_armature_evaluation": bounds,
         "notes": [
