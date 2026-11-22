@@ -313,9 +313,23 @@ def split_materials_into_tmem_uv_islands(obj, max_texels=2048):
             generated += 1
 
     require(generated > 0, "No textured UV islands were split")
+
+    # Remove unused original atlas slots; otherwise Fast64 would still see the
+    # full 128/256px source images and could attempt an oversized texture load.
+    used_indices = sorted({poly.material_index for poly in mesh.polygons})
+    old_materials = list(mesh.materials)
+    new_index = {old_index: new_index for new_index, old_index in enumerate(used_indices)}
+    for index in range(len(mesh.materials) - 1, -1, -1):
+        mesh.materials.pop(index=index)
+    for old_index in used_indices:
+        mesh.materials.append(old_materials[old_index])
+    for poly in mesh.polygons:
+        poly.material_index = new_index[poly.material_index]
+
     return {
         "original_material_count": original_material_count,
         "generated_material_count": generated,
+        "final_material_slot_count": len(mesh.materials),
         "island_count": len(island_report),
         "islands": island_report,
     }
