@@ -271,6 +271,68 @@ def main():
     target_arm.matrix_world = Matrix.Identity(4)
     rigged_mesh.parent = target_arm
 
+    # Prepare TMEM-safe textures and convert materials for Fast64.
+    fallback_materials = [
+        material.name for material in rigged_mesh.data.materials
+        if shared.ensure_base_color_texture(material)
+    ]
+    texture_islands = shared.split_materials_into_tmem_uv_islands(
+        rigged_mesh, max_texels=2048
+    )
+    import fast64.fast64_internal.f3d_material_converter as converter
+    converter.convertAllBSDFtoF3D([rigged_mesh], True)
+    unresolved_materials = [
+        material.name for material in rigged_mesh.data.materials
+        if material and not bool(getattr(material, "is_f3d", False))
+    ]
+    require(not unresolved_materials,
+            "Fast64 material conversion failed: " + ", ".join(unresolved_materials))
+
+    # Export the actual skinned actor with the official armature GeoLayout operator.
+    mod_dir = output_dir / "CJ64-Rigged-Test"
+    actor_root = mod_dir / "actors"
+    actor_root.mkdir(parents=True, exist_ok=True)
+    scene = bpy.context.scene
+    scene.gameEditorMode = "SM64"
+    scene.fast64.sm64.exportType = "C"
+    scene.saveTextures = True
+    scene.geoSeparateTextureDef = False
+    scene.geoCustomExport = True
+    scene.geoExportPath = str(actor_root)
+    scene.geoTexDir = "actors/cj/"
+    scene.geoName = "cj"
+    scene.geoStructName = "cj_geo"
+    scene.geoGroupName = "group0"
+    scene.geoExportHeaderType = "Actor"
+    scene.geoDeleteOldGeo = True
+    scene.exportInlineF3D = False
+    scene.blenderToSM64Scale = 100.0
+    bpy.ops.object.select_all(action="DESELECT")
+    target_arm.select_set(True)
+    bpy.context.view_layer.objects.active = target_arm
+    if bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    export_result = bpy.ops.object.sm64_export_geolayout_armature()
+    require("FINISHED" in export_result,
+            f"Fast64 armature export did not finish: {export_result}")
+    actor_dir = actor_root / "cj"
+    require((actor_dir / "geo.inc.c").is_file() and
+            (actor_dir / "model.inc.c").is_file(),
+            "Fast64 did not create the CJ DynOS actor files")
+    repo_root = Path(__file__).resolve().parents[1]
+    shutil.copy2(repo_root / "main.lua", mod_dir / "main.lua")
+    shutil.copy2(repo_root / "character.lua", mod_dir / "character.lua")
+    (mod_dir / "rigged_actor.lua").write_text(
+        "CJ64 = CJ64 or {}\\nCJ64.riggedActor = true\\n", encoding="utf-8"
+    )
+    (mod_dir / "README-INSTALL.txt").write_text(
+        "CJ64 experimental skinned actor. It uses the Mario/Fast64 armature, "
+        "one deform bone per vertex at weight 1.0, and a 280 SM64-unit model. "
+        "The private cj64_gta_animations.lua module is not included. "
+        "Test the actor in SM64CoopDX before treating this as a release.\\n",
+        encoding="utf-8"
+    )
+
     bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     evaluated = rigged_mesh.evaluated_get(depsgraph)
