@@ -256,9 +256,19 @@ def main():
     obj = bpy.context.view_layer.objects.active
     obj.name = "CJ_Static_Model_Test"
 
-    # Increase visual height relative to vanilla Mario, without touching MarioState,
-    # marioObj scale at runtime, collision/hitboxes, or any gameplay physics.
-    visual_scale_factor = 1.20
+    # Match CJ's estimated GTA:SA height to SM64's measured Mario scale.
+    # Mario's normal reference hitbox/model height is 160 SM64 units.
+    # The CJ estimate used here is 1.80 m (5 ft 11 in); Rockstar has not
+    # published an authoritative height, so this is an explicit working estimate.
+    # Fast64's scale below converts 1 Blender unit to 100 SM64 units.
+    mario_reference_height_units = 160.0
+    cj_reference_height_m = 1.80
+    blender_to_sm64_scale = 100.0
+    cj_target_height_units = cj_reference_height_m * blender_to_sm64_scale
+    cj_target_height_blender_units = cj_target_height_units / blender_to_sm64_scale
+    source_height_blender_units = source_bounds["dimensions"][2]
+    require(source_height_blender_units > 0.0, "CJ source model has zero height")
+    visual_scale_factor = cj_target_height_blender_units / source_height_blender_units
     for vertex in obj.data.vertices:
         vertex.co *= visual_scale_factor
     obj.data.update()
@@ -267,8 +277,8 @@ def main():
     pre_fast64_preview = render_glb_import_preview(
         obj, output / "CJ64-3.6-GLB-Preview.png"
     )
-    require(1.88 <= joined_geometry["dimensions"][2] <= 1.95,
-            "CJ visual height is outside expected 1.92-unit envelope: "
+    require(abs(joined_geometry["dimensions"][2] - cj_target_height_blender_units) < 0.005,
+            "CJ visual height does not match the 1.80 m / 180-unit target: "
             + json.dumps(joined_geometry, sort_keys=True))
 
     fallbacks = [m.name for m in obj.data.materials if ensure_base_color_texture(m)]
@@ -331,7 +341,7 @@ def main():
     scene.geoExportHeaderType = "Actor"
     scene.geoDeleteOldGeo = True
     scene.exportInlineF3D = False
-    scene.blenderToSM64Scale = 100.0
+    scene.blenderToSM64Scale = blender_to_sm64_scale
     obj.geo_cmd_static = "Optimal"
     obj.draw_layer_static = "1"
     obj.use_render_area = False
@@ -391,6 +401,16 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "source_bounds": source_bounds,
         "joined_geometry": joined_geometry,
         "visual_scale_factor": visual_scale_factor,
+        "scale_calculation": {
+            "mario_reference_height_units": mario_reference_height_units,
+            "cj_reference_height_m": cj_reference_height_m,
+            "sm64_units_per_blender_unit": blender_to_sm64_scale,
+            "cj_target_height_units": cj_target_height_units,
+            "source_height_blender_units": source_height_blender_units,
+            "target_height_blender_units": cj_target_height_blender_units,
+            "cj_to_mario_height_ratio": cj_target_height_units / mario_reference_height_units,
+            "authoritative_cj_height": False,
+        },
         "pre_fast64_blender_preview": pre_fast64_preview,
         "saved_blend_scene": blender_scene_path.name,
         "unexpected_default_cube_in_export": any(
@@ -407,6 +427,13 @@ https://sketchfab.com/3d-models/carl-johnson-cj-647f5417720344cb8c2079edd48704ac
         "status": "EXPORTED_WITH_BLENDER_DIAGNOSTICS_NOT_TESTED_IN_GAME",
         "model_name": "cj_geo",
         "animation_mode": "STATIC_REST_POSE",
+        "character_height_reference": {
+            "cj_estimated_height_m": cj_reference_height_m,
+            "mario_reference_height_units": mario_reference_height_units,
+            "cj_target_height_units": cj_target_height_units,
+            "cj_to_mario_ratio": cj_target_height_units / mario_reference_height_units,
+            "authoritative_cj_height": False,
+        },
         "keeps_native_mario_object": True,
         "keeps_native_mariostate_physics_collision_camera": True,
         "vertex_count": len(obj.data.vertices),
