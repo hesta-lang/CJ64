@@ -57,7 +57,7 @@ a role until the character replacement state explicitly reports
 The earlier rig-transfer preview was generated from the inspected dual-rig Blender
 scene by `tools/prepare_cj_rig_transfer.py` and
 `.github/workflows/cj-rig-transfer.yml`. The workflow has since been expanded
-to run inspection and export in Blender 3.6 as one reproducible pipeline.
+to run inspection and export in Blender 4.5.16 as one reproducible pipeline.
 
 The transfer:
 - Copies the CJ mesh and retains its source textures/UVs.
