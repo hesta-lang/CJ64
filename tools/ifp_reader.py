@@ -110,7 +110,7 @@ def parse_ifp(data: bytes, max_animations: int = 4096,
                 raw_pos = pos = None
                 if kind == 4:
                     raw_pos = (r.i16(), r.i16(), r.i16())
-                    pos = tuple(v / 1024.0 for v in raw_pos)
+                    pos = tuple(v / 4096.0 for v in raw_pos)
                 frames.append(Keyframe(raw_time / 60.0, quaternion, pos, raw_pos))
             tracks.append(BoneTrack(bone_name, bone_id, kind, tuple(frames)))
         clips.append(Animation(name, tuple(tracks)))
