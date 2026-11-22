@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Transfer the CJ FBX skin to the inspected SM64CoopDX Mario/Fast64 armature.
 
-This is a rig-transfer preview stage only. It deliberately does not export or
-enable an in-game actor until the resulting pose and Fast64 hierarchy are
-visually approved.
+This builds an experimental Fast64 DynOS actor from the CJ-to-Mario rig transfer.
+The output still requires visual pose review and in-game validation before release.
 """
 from __future__ import annotations
 import json
@@ -323,13 +322,13 @@ def main():
     shutil.copy2(repo_root / "main.lua", mod_dir / "main.lua")
     shutil.copy2(repo_root / "character.lua", mod_dir / "character.lua")
     (mod_dir / "rigged_actor.lua").write_text(
-        "CJ64 = CJ64 or {}\\nCJ64.riggedActor = true\\n", encoding="utf-8"
+        "CJ64 = CJ64 or {}\nCJ64.riggedActor = true\n", encoding="utf-8"
     )
     (mod_dir / "README-INSTALL.txt").write_text(
         "CJ64 experimental skinned actor. It uses the Mario/Fast64 armature, "
         "one deform bone per vertex at weight 1.0, and a 280 SM64-unit model. "
         "The private cj64_gta_animations.lua module is not included. "
-        "Test the actor in SM64CoopDX before treating this as a release.\\n",
+        "Test the actor in SM64CoopDX before treating this as a release.\n",
         encoding="utf-8"
     )
 
