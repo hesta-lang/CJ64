@@ -126,6 +126,7 @@ def main():
     if not (fast64_dir / "__init__.py").is_file():
         raise SystemExit(f"Fast64-Coop add-on source not found: {fast64_dir}")
     sys.path.insert(0, str(fast64_dir.parent))
+    sys.path.insert(0, str(fast64_dir))
     import fast64  # type: ignore
     fast64.register()
 
