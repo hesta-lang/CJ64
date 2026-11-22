@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Extract candidate player clips from a user-provided GTA:SA ped.ifp.
-
-The output is an interchange JSON, not a game-ready SM64CoopDX animation.
-"""
+"""Extract candidate player clips from a user-provided GTA:SA ped.ifp."""
 from __future__ import annotations
 import argparse
 import json
@@ -26,7 +23,7 @@ def main() -> int:
 
     if args.list:
         for clip in package.animations:
-            print(f"{clip.name}\\t{len(clip.bones)} bones\\t{clip.duration:.3f}s")
+            print(f"{clip.name}\t{len(clip.bones)} bones\t{clip.duration:.3f}s")
         return 0
 
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -37,10 +34,14 @@ def main() -> int:
             missing.append(requested["name"])
             continue
         selected.append({
-            "name": clip.name, "role": requested["role"], "loop": requested["loop"],
+            "name": clip.name,
+            "role": requested["role"],
+            "loop": requested["loop"],
             "duration_seconds": clip.duration,
             "bones": [{
-                "name": track.name, "bone_id": track.bone_id, "keyframe_type": track.keyframe_type,
+                "name": track.name,
+                "bone_id": track.bone_id,
+                "keyframe_type": track.keyframe_type,
                 "frames": [{
                     "time_seconds": frame.time_seconds,
                     "rotation_xyzw": list(frame.rotation_xyzw),
@@ -53,7 +54,7 @@ def main() -> int:
         "format": "cj64-gta-ifp-interchange-v1",
         "source_file": args.ifp.name,
         "source_package": package.package_name,
-        "warning": "Intermediate data only. Retarget and bake to the Mario Armature before use in the game.",
+        "warning": "Intermediate only. Retarget and bake to the Mario Armature before using in the game.",
         "animations": selected,
         "missing_clips": missing
     }
