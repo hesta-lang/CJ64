@@ -64,34 +64,32 @@ The transfer:
 - Converts the source FBX Y-up rest space to the Mario template X-up space.
 - Repositions the Mario/Fast64 animation bones using the corresponding CJ
   source rest matrices.
-- Generates deterministic nearest-bone-segment weights for the Mario deform
-  bones instead of collapsing multiple GTA joints into one bind matrix.
-- Covers all 1,630 vertices with 15 deform groups.
+- Collapses each original FBX vertex's mapped source weights to its strongest
+  Mario deform group, assigning exactly one bone at weight 1.0.
+- Uses nearest-bone-segment assignment only as a fallback for unmapped source vertices.
 - Preserves an evaluated height of 2.8 Blender units (280 SM64 units).
 
-The previous preview artifact was named `CJ64-rig-transfer-preview` and contained an editable Blender scene, report, and rest-pose render. The updated workflow now attempts to export a DynOS actor as `CJ64-rigged-actor`, using one bone per vertex at weight 1.0. This newer build must pass CI and visual inspection; it has not been tested in SM64CoopDX or Android yet.
+The previous preview artifact was named `CJ64-rig-transfer-preview` and contained an editable Blender scene, report, and rest-pose render. The updated workflow exports a DynOS actor as `CJ64-rigged-actor`, using one bone per vertex at weight 1.0. This newer build must pass CI and visual inspection; it has not been tested in SM64CoopDX or Android yet.
 
 ## Integration boundary
 
-**The generated tables are not active in CJ64 yet.** The public `cj_geo`
-DynOS actor remains a static mesh. The new rigged Blender preview is separate
-from that actor and has not yet been exported as the final animated GeoLayout.
+**The generated tables are not active in CJ64 yet.** The last verified public
+`cj_geo` package remains a static mesh. The updated workflow now attempts to
+produce a separate rigged Fast64 actor; that new export is not yet a verified
+release.
 
 Remaining work:
 1. Visually inspect idle, walk, run, jump, fall, land, and swim poses; correct
    any weighting, rest-basis, or axis errors.
-2. Export the skinned `cj_geo` actor with the 20-node hierarchy using Coop
-   Deluxe Fast64.
+2. Verify the new Fast64 export and correct any CI, texture, or GeoLayout errors.
 3. Load the private animation Lua module and connect each role to the matching
    native Mario action/animation state, retaining a safe fallback.
 4. Test in SM64CoopDX, including the Android build.
 
-The current Lua output passed structural checks (13 registrations, 63
-channels and 126 index entries per clip, all channel offsets within the
-values array). It has not been visually approved, Fast64-exported with the
-rigged CJ scene, or tested inside SM64CoopDX on Android. The private Lua
-output is distributed separately to the owner; neither it nor the commercial
-IFP is committed here.
+The earlier Lua output passed structural checks (13 registrations, 63
+channels and 126 index entries per clip), but it used the preliminary rig map.
+It must be regenerated with the map emitted by the updated rig-transfer
+workflow. The private Lua output and commercial IFP are not committed here.
 
 
 
