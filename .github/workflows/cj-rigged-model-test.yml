@@ -8,6 +8,9 @@ on:
       - 'tools/rig_cj_to_mario.py'
       - 'tools/export_cj_static_actor.py'
       - 'tools/prepare_cj_static_glb.py.gz'
+      - 'tools/cj64_sm64_animation_retarget_map.json'
+      - 'main.lua'
+      - 'character.lua'
       - 'assets/cj/source/**'
 
 permissions:
@@ -22,8 +25,8 @@ jobs:
       - name: Install Blender runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils
-      - name: Install Blender 4.5.16 for model preparation
+          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils lua5.4
+      - name: Validate Lua entry points\n        run: |\n          luac5.4 -p main.lua character.lua\n\n      - name: Install Blender 4.5.16 for model preparation
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
