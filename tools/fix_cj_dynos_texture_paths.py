@@ -38,7 +38,7 @@ def main() -> None:
     # Rename PNGs with whitespace. The texture payload itself is unchanged.
     renamed: dict[str, str] = {}
     for path in sorted(actor_dir.glob("*.png")):
-        safe_name = re.sub(r"\\s+", "_", path.name)
+        safe_name = re.sub(r"\s+", "_", path.name)
         if safe_name == path.name:
             continue
         target = path.with_name(safe_name)
@@ -48,11 +48,11 @@ def main() -> None:
 
     # Update DynOS include paths but preserve C symbol names.
     source = model_file.read_text(encoding="utf-8")
-    include_pattern = re.compile(r'(?m)(#include\\s+")([^"\\r\\n]+)(\\.inc\\.c")')
+    include_pattern = re.compile(r'(?m)(#include\s+")([^"\r\n]+)(\.inc\.c")')
     includes: list[str] = []
 
     def rewrite(match: re.Match[str]) -> str:
-        normalized_path = re.sub(r"\\s+", "_", match.group(2))
+        normalized_path = re.sub(r"\s+", "_", match.group(2))
         includes.append(normalized_path)
         return match.group(1) + normalized_path + match.group(3)
 
