@@ -22,7 +22,7 @@ jobs:
       - name: Install Blender runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils assimp-utils
+          sudo apt-get install -y libx11-6 libxext6 libxi6 libxrender1 libxxf86vm1 libxkbcommon0 libsm6 libice6 libgl1 libegl1 xz-utils
 
       - name: Install Blender
         shell: bash
@@ -30,16 +30,16 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP"
           if curl -fL --retry 2 --retry-delay 2 \
-            https://mirror.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz \
-            -o blender-3.6.23-linux-x64.tar.xz; then
+            https://mirror.blender.org/release/Blender4.5/blender-4.5.16-linux-x64.tar.xz \
+            -o blender-4.5.16-linux-x64.tar.xz; then
             if curl -fL --retry 2 \
-              https://mirror.blender.org/release/Blender3.6/blender-3.6.23.sha256 \
-              -o blender-3.6.23.sha256; then
-              expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
+              https://mirror.blender.org/release/Blender4.5/blender-4.5.16.sha256 \
+              -o blender-4.5.16.sha256; then
+              expected="$(awk '$2 == "blender-4.5.16-linux-x64.tar.xz" {print $1}' blender-4.5.16.sha256)"
               test -n "$expected"
-              echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
-              tar -xf blender-3.6.23-linux-x64.tar.xz
-              echo "$RUNNER_TEMP/blender-3.6.23-linux-x64" >> "$GITHUB_PATH"
+              echo "$expected  blender-4.5.16-linux-x64.tar.xz" | sha256sum -c -
+              tar -xf blender-4.5.16-linux-x64.tar.xz
+              echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
             else
               echo "Blender checksum unavailable; using Ubuntu Blender package for rig inspection."
               sudo apt-get install -y blender
@@ -48,8 +48,8 @@ jobs:
             echo "Blender mirror blocked the archive; using Ubuntu Blender package for rig inspection."
             sudo apt-get install -y blender
           fi
-          if [ -x "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" ]; then
-            "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --version
+          if [ -x "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" ]; then
+            "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --version
           else
             blender --version
           fi
@@ -65,24 +65,13 @@ jobs:
           test "$(stat -c %s "$RUNNER_TEMP/cj-retarget-input/Mario Coop Model Template.blend")" -gt 10000000
           test -s assets/cj/source/CarlJohnson-GTASA.FBX
 
-      - name: Convert ASCII FBX to skinned GLB with Assimp
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/cj-retarget-input"
-          assimp info assets/cj/source/CarlJohnson-GTASA.FBX > "$RUNNER_TEMP/cj-retarget-input/assimp-source-report.txt"
-          assimp export assets/cj/source/CarlJohnson-GTASA.FBX \
-            "$RUNNER_TEMP/cj-retarget-input/CarlJohnson-GTASA.glb" -fglb2 -embtex
-          test -s "$RUNNER_TEMP/cj-retarget-input/CarlJohnson-GTASA.glb"
-          file "$RUNNER_TEMP/cj-retarget-input/CarlJohnson-GTASA.glb"
-
       - name: Inspect both rigs and preserve source data
         run: |
           mkdir -p "$RUNNER_TEMP/cj-retarget-output"
           blender --background --factory-startup \
             --python tools/inspect_cj_mario_rigs.py -- \
             "$RUNNER_TEMP/cj-retarget-input/Mario Coop Model Template.blend" \
-            "$RUNNER_TEMP/cj-retarget-input/CarlJohnson-GTASA.glb" \
+            assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-retarget-output"
 
       - name: Upload rig report and editable inspection project
@@ -92,7 +81,5 @@ jobs:
           path: |
             ${{ runner.temp }}/cj-retarget-output/cj_mario_rig_inspection.json
             ${{ runner.temp }}/cj-retarget-output/cj_mario_dual_rig_inspection.blend
-            ${{ runner.temp }}/cj-retarget-input/CarlJohnson-GTASA.glb
-            ${{ runner.temp }}/cj-retarget-input/assimp-source-report.txt
           if-no-files-found: error
           retention-days: 14
