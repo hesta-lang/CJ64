@@ -1,0 +1,62 @@
+{
+  "source": "GTA San Andreas anim/ped.ifp",
+  "purpose": "Candidate original player clips. Names are not SM64 animation IDs.",
+  "clips": [
+    {
+      "name": "IDLE_stance",
+      "role": "idle",
+      "loop": true
+    },
+    {
+      "name": "WALK_player",
+      "role": "walk",
+      "loop": true
+    },
+    {
+      "name": "run_player",
+      "role": "run",
+      "loop": true
+    },
+    {
+      "name": "sprint_civi",
+      "role": "sprint_candidate",
+      "loop": true,
+      "note": "Generic civilian sprint; not yet verified as CJ-exclusive."
+    },
+    {
+      "name": "JUMP_launch",
+      "role": "jump_start",
+      "loop": false
+    },
+    {
+      "name": "JUMP_glide",
+      "role": "jump_air",
+      "loop": true
+    },
+    {
+      "name": "JUMP_land",
+      "role": "jump_land",
+      "loop": false
+    },
+    {
+      "name": "FALL_fall",
+      "role": "fall",
+      "loop": true
+    },
+    {
+      "name": "FALL_glide",
+      "role": "fall_air",
+      "loop": true
+    },
+    {
+      "name": "FALL_land",
+      "role": "fall_land",
+      "loop": false
+    },
+    {
+      "name": "Swim_Tread",
+      "role": "swim_tread",
+      "loop": true
+    }
+  ]
+}
