@@ -74,6 +74,11 @@ def main():
     sys.path.insert(0,str(fast64.parent))
     import fast64 as fast64_addon
     fast64_addon.register()
+    try:
+        bpy.ops.preferences.addon_enable(module="io_scene_gltf2")
+    except Exception:
+        pass
+    need(hasattr(bpy.ops.import_scene, "gltf"), "Blender glTF importer is unavailable")
     bpy.ops.wm.open_mainfile(filepath=str(template))
     mario=bpy.data.objects.get("Mario")
     need(mario and mario.type=="ARMATURE","Mario armature missing in official template")
