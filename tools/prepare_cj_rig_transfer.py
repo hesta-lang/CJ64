@@ -159,8 +159,12 @@ def main():
         "Right Shoe": "leg right ankle",
         "Right Shoe DL": "leg right ankle",
     }
-    bpy.context.view_layer.objects.active = target_arm
+    # The inspection .blend can retain the imported FBX objects as selected.
+    # Deselect everything so Blender cannot enter multi-object armature edit mode
+    # and accidentally expose the source rig to edits while retargeting the copy.
+    bpy.ops.object.select_all(action="DESELECT")
     target_arm.select_set(True)
+    bpy.context.view_layer.objects.active = target_arm
     bpy.ops.object.mode_set(mode="EDIT")
     missing_target_bones = []
     missing_source_bones = []
