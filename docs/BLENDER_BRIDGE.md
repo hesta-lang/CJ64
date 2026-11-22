@@ -25,13 +25,17 @@ A push changing the model source, exporter, texture normalizer, or workflow also
 - The texture normalizer replaces spaces in texture filenames and include paths, then verifies every referenced PNG exists inside the install ZIP.
 - The Blender 3.6 scene is saved as `CJ64-Blender-Scene.blend`.
 
-## Character scale reference
+## Character scale
 
-The export targets an estimated CJ height of 1.80 m (5 ft 11 in). Rockstar has not published an authoritative height for Carl Johnson; 1.80 m is a community/reference estimate, not a confirmed canon measurement.
+This test intentionally renders CJ at **1.50× Mario's visible reference height**. Using the 160-unit Mario reference and Fast64's 100 SM64-units-per-Blender-unit scale, CJ is exported at 240 SM64 units (2.40 Blender units). This is a gameplay/visual override to make CJ noticeably larger; it is not intended as a canonical GTA height measurement.
 
-SM64's in-game scale reference is 160 units tall for Mario. The Fast64 export uses 100 SM64 units per Blender unit, so this build targets CJ at 180 SM64 units (1.80 Blender units), or 1.125× Mario's 160-unit reference. The scaling factor is calculated from the imported mesh's measured height instead of being hard-coded.
+Only the visible mesh is scaled. CJ64 continues to use Mario's original `MarioState`, `marioObj`, hitboxes, collision and physics.
 
-Only the visible mesh is rescaled. CJ64 continues to use Mario's original `MarioState`, `marioObj`, hitboxes, collision and physics.
+## Texture atlas handling
+
+The original FBX texture atlases are no longer shrunk wholesale to 32×32. Blender detects connected UV islands, crops each island from its source atlas, remaps its UV coordinates locally, and creates a small dedicated material texture. Every resulting RGBA16 texture is capped at 2048 texels / 4096 bytes, avoiding unsupported non-zero-origin large-texture loads in SM64CoopDX while retaining more detail in the shirt, skin, head, jeans and shoes.
+
+The pipeline also produces a back-facing Blender preview so the rear torso texture can be checked before installing the DynOS actor.
 
 ## Artifact contents
 
