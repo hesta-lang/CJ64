@@ -19,7 +19,7 @@ not stored in this public repository.
 
 ## First-pass SM64CoopDX retarget
 
-The official Coop Deluxe Fast64 traversal was inspected against the Mario
+The Fast64-Gart traversal was inspected against the Mario
 character template. It exports these 20 GeoLayout animation nodes, in order:
 
 `Body`, `Butt`, `Torso`, `Head`, `Left Arm`, `Left Arm Color`,
@@ -31,7 +31,7 @@ character template. It exports these 20 GeoLayout animation nodes, in order:
 The owner-provided IFP was converted to a private first-pass Lua module with
 13 calls to `smlua_anim_util_register_animation`. Each clip has 63 channels:
 three fixed-zero root translation channels and three rotation channels for
-each of the 20 Fast64 nodes. Each index table has 126 entries. Samples are
+each of the 20 Fast64-Gart nodes. Each index table has 126 entries. Samples are
 generated at 30 FPS, quaternion tracks are interpolated with slerp, converted
 to 16-bit SM64 Euler angles, and mapped using the inspected source/target rest
 rotations in `tools/cj64_sm64_animation_retarget_map.json`. Loop end indices
@@ -62,26 +62,26 @@ to run inspection and export in Blender 3.6 as one reproducible pipeline.
 The transfer:
 - Copies the CJ mesh and retains its source textures/UVs.
 - Converts the source FBX Y-up rest space to the Mario template X-up space.
-- Repositions the Mario/Fast64 animation bones using the corresponding CJ
+- Repositions the Mario/Fast64-Gart animation bones using the corresponding CJ
   source rest matrices.
 - Collapses each original FBX vertex's mapped source weights to its strongest
   Mario deform group, assigning exactly one bone at weight 1.0.
 - Uses nearest-bone-segment assignment only as a fallback for unmapped source vertices.
 - Preserves an evaluated height of 2.8 Blender units (280 SM64 units).
 
-The previous preview artifact was named `CJ64-rig-transfer-preview` and contained an editable Blender scene, report, and rest-pose render. The updated workflow exports a DynOS actor as `CJ64-rigged-actor`, using one bone per vertex at weight 1.0. This newer build must pass CI and visual inspection; it has not been tested in SM64CoopDX or Android yet.
+The previous preview artifact was named `CJ64-rig-transfer-preview` and contained an editable Blender scene, report, and rest-pose render. The updated Fast64-Gart workflow exports a DynOS actor as `CJ64-rigged-actor`, using one bone per vertex at weight 1.0. This newer build must pass CI and visual inspection; it has not been tested in SM64CoopDX or Android yet.
 
 ## Integration boundary
 
 **The generated tables are not active in CJ64 yet.** The last verified public
 `cj_geo` package remains a static mesh. The updated workflow now attempts to
-produce a separate rigged Fast64 actor; that new export is not yet a verified
+produce a separate rigged Fast64-Gart actor; that new export is not yet a verified
 release.
 
 Remaining work:
 1. Visually inspect idle, walk, run, jump, fall, land, and swim poses; correct
    any weighting, rest-basis, or axis errors.
-2. Verify the new Fast64 export and correct any CI, texture, or GeoLayout errors.
+2. Verify the new Fast64-Gart export and correct any CI, texture, or GeoLayout errors.
 3. Load the private animation Lua module and connect each role to the matching
    native Mario action/animation state, retaining a safe fallback.
 4. Test in SM64CoopDX, including the Android build.
@@ -117,7 +117,7 @@ Place the generated `cj64_gta_animations.lua` in the mod root alongside the
 rigged actor package. Neither the original IFP nor the derived keyframe arrays
 are committed to the public repository.
 
-The controller and Fast64 export pipeline are committed, but they are not
+The controller and Fast64-Gart export pipeline are committed, but they are not
 yet considered working in-game until the new workflow passes, the rest and
 animated poses are visually inspected, and the actor is tested in
 SM64CoopDX on Android.
