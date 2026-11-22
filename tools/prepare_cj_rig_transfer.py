@@ -176,13 +176,16 @@ def main():
             amount = max(0.0, min(1.0, (point - head).dot(axis_vec) / axis_len_sq))
             nearest = head + axis_vec * amount
             distances.append(((point - nearest).length, name))
-        nearest_bones = sorted(distances)[:3]
-        raw = [(name, 1.0 / ((distance + 0.05) ** 4))
-               for distance, name in nearest_bones]
-        total = sum(weight for _, weight in raw)
-        for name, weight in raw:
-            groups[name].add([vertex.index], weight / total, "REPLACE")
+        # Fast64/SM64 skinning uses a single deform-bone influence per
+        # vertex. Assign the closest deform segment at full weight instead
+        # of Blender-style smooth multi-bone weights.
+        distance, nearest_bone = min(distances)
+        groups[nearest_bone].add([vertex.index], 1.0, "REPLACE")
 
+    # The copied FBX object still references the source armature; remove that
+    # modifier before binding it to the retargeted Mario armature.
+    for old_modifier in list(rigged_mesh.modifiers):
+        rigged_mesh.modifiers.remove(old_modifier)
     arm_mod = rigged_mesh.modifiers.new("CJ64_Mario_Skin", "ARMATURE")
     arm_mod.object = target_arm
     arm_mod.use_vertex_groups = True
@@ -247,7 +250,7 @@ def main():
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     # Render a rest-pose preview with the Mario template's X-up orientation.
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.engine = "BLENDER_EEVEE"
     scene.eevee.taa_render_samples = 32
     scene.render.resolution_x = 900
     scene.render.resolution_y = 900
