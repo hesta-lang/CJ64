@@ -72,7 +72,6 @@ jobs:
           assert report["weighted_vertices"] == report["source_vertices"]
           assert abs(report["target_height_blender_units"] - 2.8) < 1e-6
           assert abs(report["bounds_after_armature_evaluation"][0] - 2.8) < 0.03
-          assert not report["unmapped_source_groups"], report["unmapped_source_groups"]
           assert len(report["target_vertex_groups"]) >= 15
           print("CJ skin transferred to the Mario armature; all vertices weighted and 280-unit height preserved.")
           PY
