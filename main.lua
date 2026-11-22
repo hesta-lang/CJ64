@@ -8,14 +8,14 @@ CJ64.animationTablesLoaded = CJ64.animationTablesLoaded == true
 
 -- A rigged actor marker is generated only in the experimental skinned package.
 local rigOk = pcall(require, "rigged_actor")
-if not rigOk then
+if not rigOk and CJ64.riggedActor ~= true then
     CJ64.riggedActor = false
 end
 
 -- This module is kept private because its keyframes are derived from the
 -- user's GTA San Andreas ped.ifp file.
 local animationOk = pcall(require, "cj64_gta_animations")
-if animationOk and type(CJ64_GTA_ANIMATIONS) == "table" then
+if type(CJ64_GTA_ANIMATIONS) == "table" then
     CJ64.animationTablesLoaded = true
 end
 
