@@ -33,29 +33,18 @@ jobs:
         run: |
           luac5.4 -p main.lua character.lua
 
-      - name: Install Blender 3.6.23
+      - name: Install Blender 4.5.16
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          curl -fL --retry 3 --retry-delay 2 https://mirror.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz -o blender-3.6.23-linux-x64.tar.xz
-          curl -fL --retry 3 https://mirror.blender.org/release/Blender3.6/blender-3.6.23.sha256 -o blender-3.6.23.sha256
-          expected="$(awk '$2 == "blender-3.6.23-linux-x64.tar.xz" {print $1}' blender-3.6.23.sha256)"
+          curl -fL --retry 3 --retry-delay 2 https://mirror.blender.org/release/Blender4.5/blender-4.5.16-linux-x64.tar.xz -o blender-4.5.16-linux-x64.tar.xz
+          curl -fL --retry 3 https://mirror.blender.org/release/Blender4.5/blender-4.5.16.sha256 -o blender-4.5.16.sha256
+          expected="$(awk '$2 == "blender-4.5.16-linux-x64.tar.xz" {print $1}' blender-4.5.16.sha256)"
           test -n "$expected"
-          echo "$expected  blender-3.6.23-linux-x64.tar.xz" | sha256sum -c -
-          tar -xf blender-3.6.23-linux-x64.tar.xz
-          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --version
-
-      - name: Install Blender 3.6 FBX importer
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP"
-          git clone --depth 1 --branch blender-v3.6-release https://github.com/blender/blender-addons.git blender-addons-3.6
-          addon_dir="$RUNNER_TEMP/blender-3.6.23-linux-x64/3.6/scripts/addons"
-          mkdir -p "$addon_dir"
-          cp -a "$RUNNER_TEMP/blender-addons-3.6/io_scene_fbx" "$addon_dir/"
-          test -s "$addon_dir/io_scene_fbx/__init__.py"
+          echo "$expected  blender-4.5.16-linux-x64.tar.xz" | sha256sum -c -
+          tar -xf blender-4.5.16-linux-x64.tar.xz
+          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --version
 
       - name: Download Mario template and pinned Fast64-Gart
         shell: bash
@@ -84,12 +73,12 @@ jobs:
           echo "FAST64_ADDON_PATH=$RUNNER_TEMP/fast64" >> "$GITHUB_ENV"
           echo "Fast64-Gart commit: $(git -C "$RUNNER_TEMP/fast64" rev-parse HEAD)"
 
-      - name: Inspect CJ and Mario rigs with Blender 3.6
+      - name: Inspect CJ and Mario rigs with Blender 4.5.16
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/cj-rig-inspection"
-          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --background --factory-startup \
+          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
             --python tools/inspect_cj_mario_rigs.py -- \
             "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
             assets/cj/source/CarlJohnson-GTASA.FBX \
@@ -112,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/cj-rig-output"
-          "$RUNNER_TEMP/blender-3.6.23-linux-x64/blender" --background --factory-startup \
+          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
             --python tools/prepare_cj_rig_transfer.py -- \
             "$RUNNER_TEMP/cj-rig-inspection/cj_mario_dual_rig_inspection.blend" \
             "$RUNNER_TEMP/cj-rig-output"
