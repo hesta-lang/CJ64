@@ -49,10 +49,10 @@ CJ64 can run Blender headlessly through GitHub Actions. It exports the current D
 - `tools/ifp_reader.py` — ANP3 parser for a user-provided `ped.ifp`.
 - `tools/extract_cj_animations.py` — extracts selected IFP tracks as intermediate JSON.
 - `tools/generate_cj_sm64_animations.py` — generates first-pass SM64CoopDX Lua animation tables from the owner-provided IFP and generated rig map.
-- `tools/prepare_cj_rig_transfer.py` — builds the editable first-pass CJ-to-Mario skin transfer.
+- `tools/prepare_cj_rig_transfer.py` — transfers the CJ rig to Mario, builds binary skin weights, and exports the Fast64 actor.
 - `tools/cj_animation_manifest.json` — selected original clip names and roles.
 - `tools/cj_fbx_bone_map.json` — first-stage IFP-to-source-FBX bone map.
-- `tools/cj64_sm64_animation_retarget_map.json` — inspected source/target rest-basis and Fast64 node map.
+- `tools/cj64_sm64_animation_retarget_map.json` — starter source/target map; the rig-transfer workflow emits the current rest-basis and Fast64 node map.
 - `tests/test_ifp_reader.py` — synthetic ANP3 parser regression tests.
 
 ## Install
@@ -63,4 +63,4 @@ Place the extracted `CJ64` folder inside the SM64CoopDX `mods` directory and ena
 
 CI checks Lua syntax/replacement tests and Python IFP parser tests using a synthetic ANP3 file. The animation generator passed structural checks. The previous rig-transfer preview verified 1,630 weighted vertices and a 280-unit evaluated mesh. The updated workflow now requires one influence per vertex and a Fast64 actor export; its new result has not yet been verified. Neither result proves Android runtime compatibility.
 
-**Current milestone:** the original animation tables have been generated and a first-pass skinned Blender actor has been prepared. Visual animation review, Fast64/DynOS export, Lua action integration, and in-game testing remain pending.
+**Current milestone:** the Lua action-state controller and Fast64 rigged-actor export path are implemented. The new export must pass CI and visual review; the private animation tables must be regenerated using its emitted retarget map. Android/in-game animation testing remains pending.
