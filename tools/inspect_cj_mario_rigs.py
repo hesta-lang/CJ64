@@ -183,61 +183,29 @@ def main():
     mario_armature_obj = next(obj for obj in bpy.context.scene.objects
                               if obj.type == "ARMATURE" and obj.name == "Mario")
 
-    # Use Fast64's own traversal; this is the authoritative order used when
-    # generating the SM64 animation index/value arrays.
-    from fast64_internal.sm64.animation.utility import get_anim_owners
-    animation_owners = get_anim_owners(mario_armature_obj)
+    # Match the Coop Deluxe Fast64 fork: traverse start bones and their
+    # alphabetically sorted children, exporting only animatable GeoLayout nodes.
+    from fast64_internal.utility import findStartBones
+    from fast64_internal.sm64.sm64_geolayout_bone import animatableBoneTypes
+    bones_to_process = findStartBones(mario_armature_obj)
     target_animation_nodes = []
-    for index, pose_bone in enumerate(animation_owners):
-        bone = pose_bone.bone
-        target_animation_nodes.append({
-            "index": index,
-            "name": pose_bone.name,
-            "parent": bone.parent.name if bone.parent else None,
-            "geo_cmd": getattr(bone, "geo_cmd", None),
-            "use_deform": bool(bone.use_deform),
-            "rest_matrix": matrix4(bone.matrix_local),
-            "rest_rotation_wxyz": quat(bone.matrix_local.to_3x3().to_quaternion()),
-        })
-    if len(target_animation_nodes) != 20:
-        raise SystemExit(
-            "Expected the inspected Mario template to export 20 animation bones; "
-            f"Fast64 returned {len(target_animation_nodes)}: "
-            f"{[item['name'] for item in target_animation_nodes]}"
-        )
-    for collection in getattr(mario_armature_obj.data, "collections", []):
-        target_bone_collections.append({
-            "name": collection.name,
-            "visible": bool(collection.is_visible),
-            "bones": [bone.name for bone in collection.bones],
-        })
-
-    report = {
-        "format": "cj64-cj-mario-rig-inspection-v2",
-        "blender_version": bpy.app.version_string,
-        "template_file": template.name,
-        "source_model_import": fbx.name,
-        "target_template": template_report,
-        "source_cj": source_report,
-        "target_bone_collections": target_bone_collections,
-        "target_animation_nodes": target_animation_nodes,
-        "target_animation_node_count": len(target_animation_nodes),
-        "template_actions": actions_report,
-        "retarget_status": "NOT_STARTED",
-        "warnings": [
-            "No automatic source-to-Mario mapping was applied.",
-            "Compare parent hierarchy, joint positions, rest rotations and mesh weights before retargeting.",
-            "SM64CoopDX animation export does not preserve arbitrary limb translation or scaling.",
-        ],
-    }
-    report_path = out / "cj_mario_rig_inspection.json"
-    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    node_order_path = out / "target_animation_node_order.json"
-    node_order_path.write_text(json.dumps({
-        "format": "cj64-fast64-animation-node-order-v1",
-        "node_count": len(target_animation_nodes),
-        "nodes": target_animation_nodes,
-    }, indent=2), encoding="utf-8")
+    while bones_to_process:
+        bone_name = bones_to_process[0]
+        bones_to_process = bones_to_process[1:]
+        bone = mario_armature_obj.data.bones[bone_name]
+        if bone.geo_cmd in animatableBoneTypes:
+            target_animation_nodes.append({
+                "index": len(target_animation_nodes),
+                "name": bone.name,
+                "parent": bone.parent.name if bone.parent else None,
+                "geo_cmd": getattr(bone, "geo_cmd", None),
+                "use_deform": bool(bone.use_deform),
+                "rest_matrix": matrix4(bone.matrix_local),
+                "rest_rotation_wxyz": quat(bone.matrix_local.to_3x3().to_quaternion()),
+            })
+        bones_to_process = sorted(child.name for child in bone.children) + bones_to_process
+    if not target_animation_nodes:
+        raise SystemExit("Fast64 found no animatable GeoLayout bones on the Mario armature.")
     blend_path = out / "cj_mario_dual_rig_inspection.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
     compact_bones = lambda rig: [
