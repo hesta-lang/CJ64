@@ -418,10 +418,10 @@ def main():
     obj = bpy.context.view_layer.objects.active
     obj.name = "CJ_Static_Model_Test"
 
-    # Deliberate visual gameplay scale: CJ is 1.35x the Mario reference height.
+    # Deliberate visual gameplay scale: CJ is 1.50x the Mario reference height.
     # This is an art/gameplay choice, not a claim about a canonical GTA character height.
     mario_reference_height_units = 160.0
-    cj_visual_scale_ratio = 1.35
+    cj_visual_scale_ratio = 1.50
     blender_to_sm64_scale = 100.0
     cj_target_height_units = mario_reference_height_units * cj_visual_scale_ratio
     cj_target_height_blender_units = cj_target_height_units / blender_to_sm64_scale
