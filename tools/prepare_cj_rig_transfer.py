@@ -275,19 +275,26 @@ def main():
             "Mario template is missing expected bones: " + ", ".join(missing_target_bones))
     require(not missing_source_bones,
             "CJ source armature is missing expected bones: " + ", ".join(missing_source_bones))
+    checkpoint("rest-pose-transfer-validated")
 
     # Preserve original FBX vertex-group assignments before creating the target groups.
     source_group_names = {
         group.index: group.name.strip().casefold()
         for group in source_mesh.vertex_groups
     }
+    checkpoint(f"source-vertex-groups-read-{len(source_group_names)}")
 
-    # Copy CJ mesh and bake its coordinate conversion/280-unit scale.
-    rigged_mesh = source_mesh.copy()
-    rigged_mesh.data = source_mesh.data.copy()
-    rigged_mesh.name = "CJ64_Rigged_Mesh"
-    rigged_mesh.data.name = "CJ64_Rigged_MeshData"
+    # Create a clean mesh object from copied mesh data instead of cloning the FBX
+    # object and its imported modifier stack. The original FBX armature modifier
+    # stays on the source object and is never attached to the new actor.
+    checkpoint("before-copying-source-mesh-data")
+    rigged_mesh_data = source_mesh.data.copy()
+    checkpoint("source-mesh-data-copied")
+    rigged_mesh_data.name = "CJ64_Rigged_MeshData"
+    rigged_mesh = bpy.data.objects.new("CJ64_Rigged_Mesh", rigged_mesh_data)
+    checkpoint("clean-rigged-mesh-object-created")
     bpy.context.scene.collection.objects.link(rigged_mesh)
+    checkpoint("clean-rigged-mesh-object-linked")
     for vertex in rigged_mesh.data.vertices:
         vertex.co = mesh_to_target @ vertex.co
     rigged_mesh.matrix_world = Matrix.Identity(4)
