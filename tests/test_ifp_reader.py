@@ -10,7 +10,7 @@ import ifp_reader
 
 def fixed(value, size):
     raw = value.encode("latin-1")[:size - 1]
-    return raw + b"\\0" * (size - len(raw))
+    return raw + b"\x00" * (size - len(raw))
 
 
 def sample_ifp():
@@ -26,12 +26,13 @@ def sample_ifp():
 
 
 class IFPReaderTests(unittest.TestCase):
-    def test_valid_clip_and_tracks(self):
+    def test_valid_clip_and_preserves_gta_bone_name_prefix(self):
         file = ifp_reader.parse_ifp(sample_ifp())
         self.assertEqual(file.package_name, "PED")
         clip = file.find("walk_PLAYER")
         self.assertIsNotNone(clip)
         self.assertEqual(len(clip.bones), 2)
+        self.assertEqual(clip.bones[0].name, " Pelvis")
         self.assertAlmostEqual(clip.duration, 1.0)
         self.assertAlmostEqual(clip.bones[0].frames[1].translation[1], 1.0)
         self.assertAlmostEqual(clip.bones[1].frames[0].time_seconds, 0.5)
