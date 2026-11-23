@@ -1,0 +1,27 @@
+{
+  "format": "cj64-cs-dynos-scale-report-v1",
+  "requested_root_scale": 0.39,
+  "actors": [
+    {
+      "file": "actors/cj/mario_geo.bin",
+      "geolayout": "cj_geo",
+      "geo_word_count": 263,
+      "animated_part_nodes": 20,
+      "old_scale": 0.2599945068359375,
+      "new_scale": 0.3899993896484375,
+      "multiplier": 1.5000293444450965,
+      "bytes": 180149
+    },
+    {
+      "file": "actors/cj/mario_wingcap_geo.bin",
+      "geolayout": "cj_wingcap_geo",
+      "geo_word_count": 42,
+      "animated_part_nodes": 0,
+      "old_scale": 0.25,
+      "new_scale": 0.3899993896484375,
+      "multiplier": 1.55999755859375,
+      "bytes": 23014
+    }
+  ],
+  "visual_size_validation": "NOT_DONE_IN_GAME"
+}
