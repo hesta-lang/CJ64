@@ -554,7 +554,41 @@ def main():
         checkpoint("safe-f3d-create-after-base-copy")
         material.name = "f3dlite_material"
         checkpoint("safe-f3d-create-after-material-rename")
-        converter.createScenePropertiesForMaterial(material)
+        node_tree = material.node_tree
+        checkpoint("safe-f3d-create-before-scene-properties-group-update")
+        converter.createOrUpdateSceneProperties()
+        checkpoint("safe-f3d-create-after-scene-properties-group-update")
+        scene_props = node_tree.nodes.new(type="ShaderNodeGroup")
+        checkpoint("safe-f3d-create-after-scene-properties-node")
+        scene_props.name = "SceneProperties"
+        scene_props.location = (-320, -23)
+        scene_props.node_tree = bpy.data.node_groups["SceneProperties"]
+        checkpoint("safe-f3d-create-after-scene-properties-node-tree")
+
+        scene_links = [
+            ("FogEnable", "FogEnable", 0),
+            ("FogColor", "FogColor", 0),
+            ("F3D_NearClip", "CalcFog", "F3D_NearClip"),
+            ("F3D_FarClip", "CalcFog", "F3D_FarClip"),
+            ("Blender_Game_Scale", "CalcFog", "Blender_Game_Scale"),
+            ("FogNear", "CalcFog", "FogNear"),
+            ("FogFar", "CalcFog", "FogFar"),
+            ("AmbientColor", "AmbientColor", 0),
+            ("Light0Color", "Light0Color", 0),
+            ("Light0Dir", "Light0Dir", 0),
+            ("Light0Size", "Light0Size", 0),
+            ("Light1Color", "Light1Color", 0),
+            ("Light1Dir", "Light1Dir", 0),
+            ("Light1Size", "Light1Size", 0),
+        ]
+        for output_name, target_node_name, input_name in scene_links:
+            target_input = (
+                node_tree.nodes[target_node_name].inputs[input_name]
+                if isinstance(input_name, str)
+                else node_tree.nodes[target_node_name].inputs[input_name]
+            )
+            node_tree.links.new(scene_props.outputs[output_name], target_input)
+            checkpoint(f"safe-f3d-create-scene-link-{output_name}")
         checkpoint("safe-f3d-create-after-scene-properties")
         if index is None:
             obj.data.materials.append(material)
