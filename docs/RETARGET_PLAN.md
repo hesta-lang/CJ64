@@ -7,7 +7,7 @@ Blender and Fast64-Gart. The CJ source armature contains 58 bones. The
 Mario template armature contains 68 bones, while Fast64-Gart exports exactly 20
 animatable GeoLayout nodes in its own traversal order. The rig-transfer
 workflow writes their current order and post-retarget rest rotations into the
-`CJ64-rigged-actor` artifact; the checked-in JSON is only a starter map.
+`CJ64-rigged-actor` artifact. The checked-in JSON is now the actual v2 map from successful run #71.
 
 The target has fewer animation joints than the GTA ped skeleton. Spine and
 neck chains are combined for the first pass; source clavicle/upper-arm/
@@ -42,7 +42,7 @@ derived per-frame Lua arrays remain outside the public repository.
 ## Rig transfer and Fast64 export
 
 The current workflow `.github/workflows/cj-rig-transfer.yml` performs the
-full pipeline in Blender 3.6 with Fast64-Gart 2.5.3, pinned to commit `9384477f2ccdc8b6e05a96b52241f98808feb90b`:
+full pipeline in Blender 4.5.16 with Fast64-Gart 2.5.3, pinned to commit `9384477f2ccdc8b6e05a96b52241f98808feb90b`:
 
 1. Download the official Mario template and import the source CJ FBX.
 2. Inspect the real CJ and Mario rigs and preserve their rest matrices.
@@ -58,14 +58,9 @@ full pipeline in Blender 3.6 with Fast64-Gart 2.5.3, pinned to commit `9384477f2
 7. Generate a retarget map from the actual post-transfer bone rest rotations
    and Fast64-Gart animation-node traversal through `is_bone_animatable()`. 
 
-The workflow artifact `CJ64-rigged-actor` is intended to contain the
-installable actor ZIP, editable Blender scene, rest-pose preview, validation
-report, and generated retarget map. The generated animation tables are not
-included because they are derived from the owner's commercial `ped.ifp`.
+Workflow [#71](https://github.com/hesta-lang/CJ64/actions/runs/45089345497) completed successfully and uploaded the `CJ64-rigged-actor` artifact: installable actor ZIP, editable Blender scene, rest-pose preview, validation report, actual retarget map, and node order. CI verified 1,630 vertices, one weight-1.0 deform influence per vertex, zero invalid/fallback weights, 20 animation nodes, and a 280-unit evaluated height. Export uses F3DEX2E with a 64-vertex load window (62 parent-buffer vertices after Fast64's reserved slots).
 
-The previous rig-transfer preview covered 1,630 vertices across 15 deform
-groups. The updated single-influence/Fast64-Gart export path is a new build and
-must pass CI and visual inspection before being treated as complete.
+The private animation Lua module was regenerated using the checked-in actual v2 map and is included in the experimental combined package, not in the public repository. It structurally contains 13 selected clips, each with 63 channels and 126 index entries. Neither the actor pose nor the animation playback has been visually or in-game validated.
 
 ## Remaining work
 
@@ -77,4 +72,4 @@ must pass CI and visual inspection before being treated as complete.
    or camera.
 5. Test idle, walk, run, jump, fall, land, and swim in SM64CoopDX on Android.
 
-The last verified static DynOS actor remains unchanged. The updated rigged actor workflow now attempts a Fast64-Gart export, but it must not be described as a working in-game animation integration until CI, visual pose review, and Android runtime tests succeed.
+The static DynOS actor remains the last in-game-verified model. The rigged actor and animation package are experimental: CI is green, but pose review and SM64CoopDX/Android runtime tests remain.
