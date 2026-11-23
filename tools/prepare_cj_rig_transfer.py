@@ -566,15 +566,6 @@ def main():
     # to Mario's rest pose. Keeping the vertex's original selected source bone
     # is important for groups such as jaw/fingers that share a target display
     # list but do not share the same source bind transform.
-    native_bind_transforms = {}
-    for target_name in groups:
-        target_rest = native_target_rest_bones[target_name]
-        source_name = target_bone_sources.get(target_name)
-        source_rest = source_rest_bones.get(source_name) if source_name else None
-        if source_rest is not None:
-            source_rest_target = source_to_target @ source_rest[0]
-            native_bind_transforms[target_name] = target_rest @ source_rest_target.inverted()
-
     corrected_coordinates = [0.0] * (vertex_count * 3)
     corrected_bind_vertices = 0
     for vertex_index, source_point in enumerate(source_points_target):
@@ -1129,6 +1120,21 @@ def main():
         "The target armature still contains orphaned mesh switch options",
     )
 
+    native_rest_max_error = 0.0
+    for bone_name, original_matrix in native_target_rest_bones.items():
+        current_bone = target_arm.data.bones.get(bone_name)
+        require(current_bone is not None,
+                f"Native Mario bone disappeared before export: {bone_name}")
+        current_matrix = current_bone.matrix_local
+        matrix_error = max(
+            abs(float(original_matrix[row][column] - current_matrix[row][column]))
+            for row in range(4) for column in range(4)
+        )
+        native_rest_max_error = max(native_rest_max_error, matrix_error)
+    require(native_rest_max_error < 1e-6,
+            f"Mario's native rest skeleton was modified: max matrix error {native_rest_max_error}")
+    checkpoint(f"native-mario-rest-skeleton-preserved-max-error-{native_rest_max_error:.2e}")
+
     bpy.ops.object.select_all(action="DESELECT")
     target_arm.select_set(True)
     bpy.context.view_layer.objects.active = target_arm
@@ -1228,6 +1234,11 @@ def main():
         "visual_scale_factor": visual_scale,
         "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
         "native_mario_rest_pose_preserved": True,
+        "native_mario_rest_matrix_max_error": native_rest_max_error,
+        "mesh_bind_pose_retarget": "per-vertex CJ source-bone bind frame to unchanged native Mario target-bone bind frame",
+        "bind_pose_retargeted_vertices": corrected_bind_vertices,
+        "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
+        "native_mario_rest_pose_preserved": True,
         "mesh_bind_pose_retarget": "per-vertex CJ source bone bind frame to native Mario target bone bind frame",
         "bind_pose_retargeted_vertices": corrected_bind_vertices,
         "source_to_target_bone_map": target_bone_sources,
@@ -1250,7 +1261,8 @@ def main():
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
             "Original FBX vertex weights are collapsed to one mapped Mario deform bone at weight 1.0; nearest-bone fallback is used only for unweighted/unmapped source vertices.",
-            "Mario helper hierarchy was retained and the corresponding source rest matrices were applied to animation bones.",
+            "The native Mario rest skeleton is preserved; CJ vertices are converted individually from their source bind-bone frame into the corresponding native Mario bind-bone frame.",
+            "The native Mario animation hierarchy is retained so stock Mario animations use their expected rest frame; GTA SA animation retargeting is a separate later step.",
             "The Fast64 DynOS actor is exported, but major poses and in-game rendering still require visual and runtime validation.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
         ]
