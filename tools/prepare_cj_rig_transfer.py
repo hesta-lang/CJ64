@@ -555,14 +555,42 @@ def main():
         material.name = "f3dlite_material"
         checkpoint("safe-f3d-create-after-material-rename")
         node_tree = material.node_tree
-        checkpoint("safe-f3d-create-before-scene-properties-group-update")
-        converter.createOrUpdateSceneProperties()
-        checkpoint("safe-f3d-create-after-scene-properties-group-update")
+        checkpoint("safe-f3d-create-before-isolated-scene-properties-group")
+        scene_group = bpy.data.node_groups.get("CJ64_SceneProperties")
+        if scene_group is None:
+            scene_group = bpy.data.node_groups.new(
+                "CJ64_SceneProperties", "ShaderNodeTree"
+            )
+            output_node = scene_group.nodes.new("NodeGroupOutput")
+            scene_output_specs = [
+                ("FogEnable", "NodeSocketFloat", 0.0),
+                ("FogColor", "NodeSocketColor", (0.0, 0.0, 0.0, 1.0)),
+                ("F3D_NearClip", "NodeSocketFloat", 0.1),
+                ("F3D_FarClip", "NodeSocketFloat", 1000.0),
+                ("Blender_Game_Scale", "NodeSocketFloat", 1.0),
+                ("FogNear", "NodeSocketFloat", 0.0),
+                ("FogFar", "NodeSocketFloat", 1000.0),
+                ("AmbientColor", "NodeSocketColor", (1.0, 1.0, 1.0, 1.0)),
+                ("Light0Color", "NodeSocketColor", (1.0, 1.0, 1.0, 1.0)),
+                ("Light0Dir", "NodeSocketVector", (0.0, 0.0, 1.0)),
+                ("Light0Size", "NodeSocketFloat", 1.0),
+                ("Light1Color", "NodeSocketColor", (1.0, 1.0, 1.0, 1.0)),
+                ("Light1Dir", "NodeSocketVector", (0.0, 0.0, 1.0)),
+                ("Light1Size", "NodeSocketFloat", 1.0),
+            ]
+            for socket_name, socket_type, default_value in scene_output_specs:
+                scene_group.interface.new_socket(
+                    name=socket_name, socket_type=socket_type, in_out="OUTPUT"
+                )
+                output_node.inputs[socket_name].default_value = default_value
+            scene_group["version"] = 2
+        checkpoint("safe-f3d-create-isolated-scene-properties-group-ready")
+
         scene_props = node_tree.nodes.new(type="ShaderNodeGroup")
         checkpoint("safe-f3d-create-after-scene-properties-node")
         scene_props.name = "SceneProperties"
         scene_props.location = (-320, -23)
-        scene_props.node_tree = bpy.data.node_groups["SceneProperties"]
+        scene_props.node_tree = scene_group
         checkpoint("safe-f3d-create-after-scene-properties-node-tree")
 
         scene_links = [
@@ -582,11 +610,7 @@ def main():
             ("Light1Size", "Light1Size", 0),
         ]
         for output_name, target_node_name, input_name in scene_links:
-            target_input = (
-                node_tree.nodes[target_node_name].inputs[input_name]
-                if isinstance(input_name, str)
-                else node_tree.nodes[target_node_name].inputs[input_name]
-            )
+            target_input = node_tree.nodes[target_node_name].inputs[input_name]
             node_tree.links.new(scene_props.outputs[output_name], target_input)
             checkpoint(f"safe-f3d-create-scene-link-{output_name}")
         checkpoint("safe-f3d-create-after-scene-properties")
