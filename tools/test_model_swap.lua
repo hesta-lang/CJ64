@@ -25,7 +25,7 @@ function dynos_pack_set_enabled(index, value)
     packEnabled = value
 end
 function smlua_model_util_get_id(name)
-    assert(name == "mario_geo")
+    assert(name == "cj_geo")
     return actorAvailable and packEnabled and 900 or E_MODEL_NONE
 end
 function obj_get_model_id_extended(obj) return obj.modelId or 1 end
