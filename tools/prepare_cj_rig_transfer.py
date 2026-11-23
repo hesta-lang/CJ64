@@ -671,6 +671,21 @@ def main():
                 direct_parent.matrix_local.to_3x3().to_quaternion()
                 if direct_parent is not None else None
             )
+            # The currently edited target armature carries CJ/FBX rest pivots.
+            # The installed Character Select actor instead keeps Mario's native
+            # bind frames. Preserve those frames separately for GTA animation
+            # retargeting so animation tables are solved for the actor that is
+            # actually installed in SM64CoopDX.
+            native_bone_matrix = native_target_rest_bones[bone.name]
+            native_bone_q = native_bone_matrix.to_3x3().to_quaternion()
+            native_parent_matrix = (
+                native_target_rest_bones[direct_parent.name]
+                if direct_parent is not None else None
+            )
+            native_parent_q = (
+                native_parent_matrix.to_3x3().to_quaternion()
+                if native_parent_matrix is not None else None
+            )
             animation_nodes.append({
                 "index": len(animation_nodes),
                 "name": bone.name,
@@ -682,6 +697,17 @@ def main():
                     [round(float(x), 7) for x in (
                         parent_rest.w, parent_rest.x, parent_rest.y, parent_rest.z
                     )] if parent_rest is not None else [1.0, 0.0, 0.0, 0.0]
+                ),
+                "native_mario_rest_rotation_wxyz": [
+                    round(float(x), 7) for x in (
+                        native_bone_q.w, native_bone_q.x, native_bone_q.y, native_bone_q.z
+                    )
+                ],
+                "native_mario_parent_rest_rotation_wxyz": (
+                    [round(float(x), 7) for x in (
+                        native_parent_q.w, native_parent_q.x,
+                        native_parent_q.y, native_parent_q.z
+                    )] if native_parent_q is not None else [1.0, 0.0, 0.0, 0.0]
                 ),
                 "geo_cmd": getattr(bone, "geo_cmd", None),
                 "use_deform": bool(bone.use_deform),
@@ -746,6 +772,13 @@ def main():
     retarget_map["target_parent_rest_rotation_wxyz"] = {
         node["name"]: node["parent_rest_rotation_wxyz"] for node in animation_nodes
     }
+    retarget_map["native_mario_rest_rotation_wxyz"] = {
+        node["name"]: node["native_mario_rest_rotation_wxyz"] for node in animation_nodes
+    }
+    retarget_map["native_mario_parent_rest_rotation_wxyz"] = {
+        node["name"]: node["native_mario_parent_rest_rotation_wxyz"] for node in animation_nodes
+    }
+    retarget_map["animation_target_profile"] = "native_mario_cs_actor"
     retarget_map["target_animation_node_metadata"] = animation_nodes
     align_q = source_to_target.to_3x3().to_quaternion()
     retarget_map["axis_alignment"] = {

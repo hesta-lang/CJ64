@@ -68,6 +68,28 @@ def from_wxyz(value):
     return qnorm((value[1], value[2], value[3], value[0]))
 
 
+def native_target_parent_rest_from_map(mapping, node_order):
+    """Read parent frames from the installed CS actor's native Mario rig.
+
+    The FBX/Fast64 export uses a different transferred bind pose. Reusing that
+    profile for the CS actor makes its native mesh interpret GTA rotations in
+    the wrong local frames.
+    """
+    if mapping.get("animation_target_profile") != "native_mario_cs_actor":
+        raise ValueError(
+            "Retarget map was not calibrated for the native Mario/CS actor bind pose"
+        )
+    raw = mapping.get("native_mario_parent_rest_rotation_wxyz")
+    if not isinstance(raw, dict) or set(raw) != set(node_order):
+        raise ValueError(
+            "Retarget map lacks native Mario parent-rest rotations for all 20 nodes"
+        )
+    result = {name: from_wxyz(raw[name]) for name in node_order}
+    if any(not all(math.isfinite(value) for value in quat) for quat in result.values()):
+        raise ValueError("Native Mario parent-rest map contains non-finite rotations")
+    return result
+
+
 def euler_xyz(q):
     x, y, z, w = qnorm(q)
     rx = math.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
@@ -171,10 +193,10 @@ def main():
     }
     source_parents = mapping.get("source_parent_by_bone")
     target_parent_nodes = mapping.get("target_parent_animation_node")
-    target_parent_rest = {
-        name: from_wxyz(value)
-        for name, value in mapping.get("target_parent_rest_rotation_wxyz", {}).items()
-    }
+    # IMPORTANT: the current in-game actor is the original Character Select
+    # binary. Its geometry is animated in Mario's native local joint frames,
+    # not in the FBX-transferred rest frame used by the experimental export.
+    target_parent_rest = native_target_parent_rest_from_map(mapping, node_order)
     if not isinstance(source_parents, dict) or not isinstance(target_parent_nodes, dict):
         raise SystemExit(
             "Retarget map lacks source_parent_by_bone or target_parent_animation_node; "
@@ -218,12 +240,19 @@ def main():
             continue
         track_by_source = {}
         dropped = []
+        unsupported = []
         for track in clip.bones:
             source_bone = source_map.get(wrap_track_name(track.name))
             if source_bone is None:
                 dropped.append(track.name.strip())
-            else:
-                track_by_source[source_bone] = track
+                continue
+            # Only the core 21-joint GTA body hierarchy can influence the
+            # installed 20-part Character Select actor. Extra facial, finger,
+            # toe, breast and belly joints must not be reported as transferred.
+            if source_bone not in source_parents:
+                unsupported.append(track.name.strip())
+                continue
+            track_by_source[source_bone] = track
         frame_count = max(2, int(math.ceil(clip.duration * args.fps - 1e-8)) + 1)
         times = [frame / args.fps for frame in range(frame_count)]
         if times[-1] < clip.duration - 1e-6:
@@ -294,6 +323,7 @@ def main():
             "sampled_frames": len(times), "channels": len(channels),
             "index_entries": len(index), "values_entries": len(values),
             "dropped_tracks": dropped,
+            "unsupported_non_core_tracks": unsupported,
         })
 
     if missing:
@@ -327,6 +357,8 @@ def main():
         "target_node_order": node_order,
         "axis_alignment": mapping["axis_alignment"],
         "root_translation": "zeroed",
+        "target_rest_profile": mapping["animation_target_profile"],
+        "target_parent_rest_source": "original Mario template rest matrices captured before FBX rig transfer",
         "mario_body_root_rotation": "fixed_identity; GTA IFP Normal/root track is not transferred to MarioState world root",
         "status": "STRUCTURAL_GENERATION_ONLY_NOT_VISUALLY_OR_IN_GAME_VALIDATED",
         "output_lua": args.output.name,

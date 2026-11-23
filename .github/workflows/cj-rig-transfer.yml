@@ -144,6 +144,15 @@ jobs:
           assert d["vertices_using_original_source_weights"]>0
           assert d["vertices_using_nearest_bone_fallback"]<=d["source_vertices"]*0.05
           assert d["target_animation_node_count"]==20
+          assert mapping["animation_target_profile"] == "native_mario_cs_actor"
+          target_nodes = set(mapping["target_node_order"])
+          assert len(target_nodes) == 20
+          assert set(mapping["native_mario_rest_rotation_wxyz"]) == target_nodes
+          assert set(mapping["native_mario_parent_rest_rotation_wxyz"]) == target_nodes
+          for name, quaternion in mapping["native_mario_parent_rest_rotation_wxyz"].items():
+              assert len(quaternion) == 4, (name, quaternion)
+              norm = sum(float(value) ** 2 for value in quaternion) ** 0.5
+              assert abs(norm - 1.0) < 1e-4, (name, quaternion, norm)
           assert d["shoulder_weight_targets"] == {
               "arm left shoulder 1": "Left Arm",
               "arm left shoulder 2": "Left Arm Color",

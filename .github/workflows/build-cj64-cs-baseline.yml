@@ -1,5 +1,5 @@
 # Rebuild the known-good Character Select rig package; never substitute the experimental FBX/Fast64 actor.
-name: Build CJ64 Character Select actor baseline
+name: Build CJ64 GTA animation preview package
 
 on:
   workflow_dispatch:
@@ -8,6 +8,8 @@ on:
       - "main.lua"
       - "character.lua"
       - "actors/cj/mario_geo.bin"
+      - "tools/animations/**"
+      - "tools/generate_cj_sm64_animations.py"
       - "tools/scale_cs_cj_actor.py"
       - "tools/normalize_cs_animation_tables.py"
       - "tools/inspect_cs_animation_node_order.py"
@@ -26,7 +28,58 @@ jobs:
       - name: Install Lua validator
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4
+          sudo apt-get install -y lua5.4 xz-utils
+
+      - name: Reconstruct native-CS GTA animation tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations.lua"
+          test -s "$RUNNER_TEMP/cj64_gta_animations.lua"
+          luac5.4 -p "$RUNNER_TEMP/cj64_gta_animations.lua"
+          python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" <<'PY'
+          import pathlib, re, sys
+          source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+          registration = re.compile(
+              r'smlua_anim_util_register_animation\(\s*"(?P<name>[^"]+)"\s*,\s*'
+              r'(?P<header>.*?)\s*,\s*\{\s*(?P<values>.*?)\s*\},\s*'
+              r'\{\s*(?P<indices>.*?)\s*\}\s*\)', re.S
+          )
+          expected = {
+              "cj64_anim_idle", "cj64_anim_walk_start", "cj64_anim_walk",
+              "cj64_anim_run", "cj64_anim_sprint_candidate", "cj64_anim_run_stop",
+              "cj64_anim_jump_start", "cj64_anim_jump_air", "cj64_anim_jump_land",
+              "cj64_anim_fall", "cj64_anim_fall_air", "cj64_anim_fall_land",
+              "cj64_anim_swim_tread",
+          }
+          found = list(registration.finditer(source))
+          names = [item.group("name") for item in found]
+          assert len(names) == 13 and set(names) == expected, names
+          for item in found:
+              name = item.group("name")
+              values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("values"))]
+              indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("indices"))]
+              assert len(indices) == 126, (name, len(indices))
+              assert len(values) > 0, name
+              for channel in range(63):
+                  count, offset = indices[channel * 2:channel * 2 + 2]
+                  assert count > 0 and offset + count <= len(values), (name, channel, count, offset)
+              for channel in range(3):
+                  count, offset = indices[channel * 2:channel * 2 + 2]
+                  assert count == 1 and values[offset] == 0, (name, channel)
+              declared_frames = int(item.group("header").split(",")[-1].strip(), 0) + 1
+              for node in range(20):
+                  counts = [indices[(3 + node * 3 + axis) * 2] for axis in range(3)]
+                  assert counts == [declared_frames] * 3, (name, node, counts, declared_frames)
+          idle = next(item for item in found if item.group("name") == "cj64_anim_idle")
+          idle_values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("values"))]
+          idle_indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("indices"))]
+          for channel in range(3, 63):
+              count, offset = idle_indices[channel * 2:channel * 2 + 2]
+              assert idle_values[offset] == 0, ("idle neutral calibration", channel, idle_values[offset])
+          assert "CJ64_GTA_ANIMATIONS.set_for_role" in source
+          print(f"Validated {len(names)} GTA SA clips, 20 nodes, 63 channels per clip and neutral idle frames.")
+          PY
 
       - name: Run animation calibration regression tests
         run: python3 -m unittest discover -s tests -v
@@ -65,7 +118,8 @@ jobs:
 
           main = pathlib.Path("main.lua").read_text(encoding="utf-8")
           character = pathlib.Path("character.lua").read_text(encoding="utf-8")
-          assert 'CJ64.useGTAAnimations = false' in main
+          assert 'CJ64.version = "0.2.0-alpha"' in main
+          assert 'CJ64.useGTAAnimations = true' in main
           assert 'CJ64.useGTAAnimations ~= true' in character
           assert 'require, "cj64_gta_animations"' in main
           assert 'if CJ64.useGTAAnimations == true then' in main
@@ -103,8 +157,8 @@ jobs:
               "registered_filename": "mario_geo.bin",
               "animated_part_nodes": animated_parts,
               "root_scale": root_scale,
-              "custom_gta_animations": "disabled_pending_rig_validation",
-              "status": "STRUCTURAL_BASELINE_PACKAGE_READY_NOT_RUNTIME_VALIDATED"
+              "custom_gta_animations": "enabled_native_mario_cs_rest_profile",
+              "status": "STRUCTURAL_PACKAGE_READY_REQUIRES_ANDROID_POSE_VALIDATION"
           }, indent=2))
           PY
 
@@ -112,35 +166,43 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          MOD="$RUNNER_TEMP/CJ64-CS-Baseline"
+          MOD="$RUNNER_TEMP/CJ64-GTA-Animations-Test"
           mkdir -p "$MOD/actors"
           cp main.lua character.lua "$MOD/"
+          cp "$RUNNER_TEMP/cj64_gta_animations.lua" "$MOD/cj64_gta_animations.lua"
           cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
           cat > "$MOD/README-INSTALL.txt" <<'EOF'
-          CJ64 CS BASELINE - 0.1.8-alpha
+          CJ64 GTA ANIMATIONS TEST - 0.2.0-alpha
 
           Install this folder under the SM64CoopDX mods/ directory.
           The installed path must be:
-            mods/CJ64-CS-Baseline/main.lua
-            mods/CJ64-CS-Baseline/character.lua
-            mods/CJ64-CS-Baseline/actors/mario_geo.bin
+            mods/CJ64-GTA-Animations-Test/main.lua
+            mods/CJ64-GTA-Animations-Test/character.lua
+            mods/CJ64-GTA-Animations-Test/cj64_gta_animations.lua
+            mods/CJ64-GTA-Animations-Test/actors/mario_geo.bin
 
-          This package embeds the PRE-RIGGED Character Select CJ DynOS actor from
-          actors/cj/mario_geo.bin. It preserves that actor's Mario-compatible
-          20-node hierarchy and disables the experimental GTA animation tables.
+          This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
+          actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
+          The rotations are calibrated against the original Mario/CS actor rest
+          frames. SM64CoopDX continues to own MarioState, root movement, heading,
+          collision, camera, actions and physics.
 
           IMPORTANT: Do NOT install CJ64-Rigged-Test.zip or CJ64-Install-Package.zip
-          from the experimental FBX/Fast64 rig-transfer workflow. That FBX actor uses
-          CJ source-rest pivots and is not compatible with native Mario animations.
+          from the experimental FBX/Fast64 rig-transfer workflow. Do not keep the
+          old CJ64-CS-Baseline installed at the same time.
 
-          Install this folder under mods/. Before testing, remove/disable
-          mods/CJ64-Rigged-Test and every older CJ64 copy that also registers
-          mario_geo. Keep only this CS baseline enabled. Do not install it as a
-          separate dynos/packs/CJ64 pack.
+          Install this folder under mods/. Before testing, remove/disable every
+          older CJ64 copy that also registers mario_geo. Keep only this package
+          enabled. Do not install it as a separate dynos/packs/CJ64 pack.
 
-          This remains an alpha diagnostic baseline. CI checks package structure,
-          Lua syntax, actor integrity and the source-binary identity; Android
-          rendering still needs an in-game check.
+          The CS actor has 20 animated parts, not the full GTA ped skeleton.
+          Face, finger, toe, belly and breast tracks cannot be animated separately.
+          sprint_civi is the generic civilian sprint candidate. Root translation
+          remains zero so the game's movement and physics stay native.
+
+          This is an alpha preview. CI checks Lua syntax, clip tables, actor
+          integrity and package contents. It cannot prove in-game pose quality;
+          test walk, run, sprint, jump, fall, landing and swimming on Android.
           EOF
 
           python3 - "$MOD" <<'PY'
@@ -149,11 +211,12 @@ jobs:
           import sys
           import hashlib
           source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path("CJ64-CS-Baseline-0.1.8-alpha.zip")
-          prefix = "mods/CJ64-CS-Baseline"
+          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.0-alpha.zip")
+          prefix = "mods/CJ64-GTA-Animations-Test"
           expected = {
               f"{prefix}/main.lua",
               f"{prefix}/character.lua",
+              f"{prefix}/cj64_gta_animations.lua",
               f"{prefix}/actors/mario_geo.bin",
               f"{prefix}/README-INSTALL.txt",
           }
@@ -165,6 +228,8 @@ jobs:
               assert archive.testzip() is None
               actual = set(archive.namelist())
               assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
+              animation_module = archive.read(f"{prefix}/cj64_gta_animations.lua").decode("utf-8")
+              assert animation_module.count("smlua_anim_util_register_animation(") == 13
               packed_actor = archive.read(f"{prefix}/actors/mario_geo.bin")
               source_actor = pathlib.Path("actors/cj/mario_geo.bin").read_bytes()
               assert packed_actor == source_actor, "Package does not contain the original CS actor binary"
@@ -178,7 +243,7 @@ jobs:
       - name: Upload baseline test package
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-CS-Baseline-0.1.8-alpha
-          path: CJ64-CS-Baseline-0.1.8-alpha.zip
+          name: CJ64-GTA-Animations-Test-0.2.0-alpha
+          path: CJ64-GTA-Animations-Test-0.2.0-alpha.zip
           if-no-files-found: error
           retention-days: 14
