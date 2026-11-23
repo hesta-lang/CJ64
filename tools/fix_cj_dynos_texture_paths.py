@@ -46,7 +46,7 @@ def main() -> None:
     # Normalize image names without changing the pixel data.
     renamed: dict[str, str] = {}
     for path in sorted(actor_dir.glob("*.png")):
-        safe_name = re.sub(r"\\s+", "_", path.name)
+        safe_name = re.sub(r"\s+", "_", path.name)
         if safe_name == path.name:
             continue
         target = path.with_name(safe_name)
@@ -93,7 +93,7 @@ def main() -> None:
     geo_source = geo_file.read_text(encoding="utf-8")
     geo_header = header_file.read_text(encoding="utf-8")
     require(
-        re.search(r"\\bGeoLayout\\s+" + re.escape(expected_geo_name) + r"\\s*\\[\\s*\\]", geo_source),
+        re.search(r"\bGeoLayout\s+" + re.escape(expected_geo_name) + r"\s*\[\s*\]", geo_source),
         f"Missing root GeoLayout {expected_geo_name} in geo.inc.c",
     )
     require(
@@ -101,7 +101,7 @@ def main() -> None:
         f"Missing root GeoLayout declaration {expected_geo_name} in geo_header.h",
     )
     require(
-        re.search(r"\\bGeoLayout\\s+cj_geo\\s*\\[", geo_source) is None,
+        re.search(r"\bGeoLayout\s+cj_geo\s*\[", geo_source) is None,
         "Generic cj_geo root still exists; DynOS name was not namespaced",
     )
 
