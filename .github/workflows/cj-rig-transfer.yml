@@ -124,7 +124,6 @@ jobs:
             "$RUNNER_TEMP/cj-rig-output" \
             cj64_rig_transfer_report.json
           test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Install-Package.zip"
-          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Dynos-Pack.zip"
           test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test.zip"
 
       - name: Validate exported actor and single-bone skinning
@@ -132,7 +131,9 @@ jobs:
           python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
-          assert d["status"]=="DYNOS_PACK_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
+          assert d["status"]=="MOD_EMBEDDED_DYNOS_ACTOR_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
+          assert d["actor_is_embedded_in_mod"] is True
+          assert d["dynos_actor_install_path"]=="mods/CJ64-Rigged-Test/actors"
           assert d["fast64_addon"]=="Fast64 Gart Edition"
           assert d["fast64_version"]==[2,5,3]
           assert d["source_vertices"]>1000
@@ -146,14 +147,15 @@ jobs:
           assert d["native_mario_rest_matrix_max_error"]<1e-6
           assert d["mesh_vertices_in_source_rest_pose"]==d["source_vertices"]
           assert d["dynos_geolayout_name"]=="mario_geo"
-          assert d["dynos_pack_name"]=="CJ64"
-          assert d["dynos_pack_install_path"]=="dynos/packs/CJ64"
-          assert d["dynos_pack_actor_folder"]=="Assets"
+          assert d["dynos_pack_name"] is None
+          assert d["dynos_pack_install_path"] is None
+          assert d["dynos_pack_actor_folder"] is None
           assert d["unsupported_custom_geo_commands_remaining"]==0
           assert abs(d["target_height_sm64_units"]-280.0)<0.1
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
           assert any(p["path"]=="Assets/geo.inc.c" for p in d["actor_files"])
           assert any(p["path"]=="Assets/model.inc.c" for p in d["actor_files"])
+          assert any(p["path"]=="Assets/geo_header.h" for p in d["actor_files"])
           print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
           PY
 
@@ -163,7 +165,6 @@ jobs:
           name: CJ64-rigged-actor
           path: |
             ${{ runner.temp }}/cj-rig-output/CJ64-Install-Package.zip
-            ${{ runner.temp }}/cj-rig-output/CJ64-Dynos-Pack.zip
             ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Test.zip
             ${{ runner.temp }}/cj-rig-output/CJ64-CJ-Rig-Transfer.blend
             ${{ runner.temp }}/cj-rig-output/cj64_rig_transfer_report.json
