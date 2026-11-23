@@ -234,7 +234,7 @@ def main() -> None:
         require(expected_geo_name in zipped_geo, "Install archive contains wrong DynOS root GeoLayout")
         require("CUSTOM_CMD" not in zipped_geo, "Install archive still contains unsupported CUSTOM_CMD placeholders")
         require(
-            re.search(r"GEO_SCALE\\s*\\(\\s*LAYER_FORCE\\s*,\\s*65536\\s*\\)", zipped_geo),
+            re.search(r"GEO_SCALE\s*\(\s*LAYER_FORCE\s*,\s*65536\s*\)", zipped_geo),
             "Install archive still has the stock 0.25 Mario root scale",
         )
 
