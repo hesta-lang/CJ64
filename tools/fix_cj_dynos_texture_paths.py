@@ -102,6 +102,25 @@ def main() -> None:
 
     geo_source = geo_file.read_text(encoding="utf-8")
     geo_header = header_file.read_text(encoding="utf-8")
+
+    # Fast64-Gart can emit empty CUSTOM_CMD() placeholders for custom GeoLayout
+    # commands that have no preset. SM64CoopDX's DynOS parser does not recognize
+    # this symbol and aborts actor generation with "Unknown geo symbol".
+    # These empty placeholders carry no GeoLayout arguments or geometry, so
+    # remove the standalone calls while preserving the surrounding node tree.
+    unsupported_custom_geo_commands_removed = len(
+        re.findall(r"(?m)^[ \\t]*CUSTOM_CMD\\s*\\(\\s*\\)\\s*;[ \\t]*(?:\\r?\\n|$)", geo_source)
+    )
+    geo_source = re.sub(
+        r"(?m)^[ \\t]*CUSTOM_CMD\\s*\\(\\s*\\)\\s*;[ \\t]*(?:\\r?\\n|$)",
+        "",
+        geo_source,
+    )
+    require(
+        "CUSTOM_CMD" not in geo_source,
+        "Unsupported CUSTOM_CMD placeholder remains in geo.inc.c",
+    )
+    geo_file.write_text(geo_source, encoding="utf-8")
     require(
         re.search(r"\bGeoLayout\s+" + re.escape(expected_geo_name) + r"\s*\[\s*\]", geo_source),
         f"Missing root GeoLayout {expected_geo_name} in geo.inc.c",
@@ -134,6 +153,8 @@ def main() -> None:
     report["dynos_pack_name"] = "CJ64"
     report["dynos_pack_install_path"] = "dynos/packs/CJ64"
     report["dynos_binary_generation"] = "SM64CoopDX DynOS_Gfx_Init generates CJ64/mario_geo.bin on startup"
+    report["unsupported_custom_geo_commands_removed"] = unsupported_custom_geo_commands_removed
+    report["unsupported_custom_geo_commands_remaining"] = geo_source.count("CUSTOM_CMD")
     report["renamed_texture_files"] = renamed
     report["dynos_texture_includes"] = checked
     report["dynos_palette_placeholders"] = palettes
@@ -191,6 +212,7 @@ def main() -> None:
         with zf.open("dynos/packs/CJ64/Assets/geo.inc.c") as fh:
             zipped_geo = fh.read().decode("utf-8")
         require(expected_geo_name in zipped_geo, "Install archive contains wrong DynOS root GeoLayout")
+        require("CUSTOM_CMD" not in zipped_geo, "Install archive still contains unsupported CUSTOM_CMD placeholders")
 
     print(json.dumps({
         "install_archive": str(install_archive),
@@ -200,6 +222,7 @@ def main() -> None:
         "dynos_pack": "CJ64",
         "texture_includes_verified": len(checked),
         "palette_placeholders_normalized": len(palettes),
+        "unsupported_custom_geo_commands_removed": unsupported_custom_geo_commands_removed,
         "renamed_texture_files": renamed,
         "install_archive_bytes": install_archive.stat().st_size,
         "status": report["status"],
