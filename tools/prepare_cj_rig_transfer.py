@@ -402,6 +402,9 @@ def main():
     groups = {bone.name: rigged_mesh.vertex_groups.new(name=bone.name)
               for bone in deform_bones}
     checkpoint(f"target-vertex-groups-created-{len(groups)}")
+    require(set(required_shoulder_deform_groups()).issubset(groups),
+            "Shoulder and upper-arm target skin groups were not created: "
+            + str(sorted(set(required_shoulder_deform_groups()) - set(groups))))
     segments = []
     for bone in deform_bones:
         source_name = target_bone_sources.get(bone.name)
