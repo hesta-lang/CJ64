@@ -6,15 +6,13 @@ import {
   sampleTrack,
   buildSourceGlobalDeltas,
   retargetGlobalDeltasToSM64,
-  buildSourceLocalBasis,
   buildTargetNodeSourceBone,
   buildClipTrackLookup,
   eulerXYZFromQuaternion,
   quantizeEulerSamples,
   sampleAngleChannels,
   fromWXYZ,
-  quaternionMultiply,
-  quaternionInverse,
+  composeRestAndPose,
   IDENTITY,
 } from './core.js';
 
@@ -205,14 +203,6 @@ function findAnimation(clipName) {
   return state.ifp.animations.find((clip) => clip.name.toLocaleLowerCase('en-US') === wanted) ?? null;
 }
 
-function buildSourcePoseLocal(trackLookup, timeSeconds) {
-  const pose = {};
-  for (const [boneName, track] of Object.entries(trackLookup)) {
-    if (track.frames.length) pose[boneName] = sampleTrack(track, timeSeconds);
-  }
-  return pose;
-}
-
 function buildTargetAngles(clip) {
   const duration = clip.duration;
   const frameCount = Math.max(2, Math.ceil(duration * FPS - 1e-8) + 1);
@@ -263,21 +253,19 @@ function prepareClip(clip) {
 
 function updatePose(timeSeconds) {
   if (!state.selectedClip || !state.mapping) return;
-  const pose = buildSourcePoseLocal(state.clipTrackLookup, timeSeconds);
-  const sourceDeltas = buildSourceGlobalDeltas(
-    state.sourceParents,
-    state.mapping.source_rest_rotation_wxyz,
-    pose,
-    state.mapping.source_root_bone || 'root ground',
-  );
-  const sourceBasis = buildSourceLocalBasis(state.mapping, sourceDeltas, state.sourceParents);
+  // Original GTA preview: mirror the repository's Blender IFP importer by
+  // applying each original ANP3 local quaternion to its mapped FBX bone.
+  // The bind/rest transform remains in place; the pose delta follows it.
   for (const bone of state.sourceBoneMap.values()) {
-    const boneName = bone.name;
-    const restLocal = state.sourceRestLocal[boneName];
-    const basis = sourceBasis[boneName];
-    if (!restLocal || !basis) continue;
-    const finalRotation = qObject(restLocal).multiply(qObject(basis));
-    bone.quaternion.copy(finalRotation).normalize();
+    const restLocal = state.sourceRestLocal[bone.name];
+    if (restLocal) bone.quaternion.copy(qObject(restLocal));
+  }
+  for (const [boneName, track] of Object.entries(state.clipTrackLookup)) {
+    if (boneName === 'root ground') continue; // player/world root is owned by MarioState in the port
+    const bone = state.sourceBoneMap.get(boneName.trim().toLocaleLowerCase('en-US'));
+    const restLocal = state.sourceRestLocal[bone?.name ?? ''];
+    if (!bone || !restLocal || !track.frames.length) continue;
+    bone.quaternion.copy(composeRestAndPose(restLocal, sampleTrack(track, timeSeconds))).normalize();
   }
 
   const framePosition = Math.max(0, Math.min(state.targetAngleChannels.frameCount - 1, timeSeconds * FPS));
@@ -288,7 +276,7 @@ function updatePose(timeSeconds) {
     if (!bone || !restLocal || !channels) continue;
     const [x, y, z] = sampleAngleChannels(channels, framePosition);
     const animationRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, 'XYZ'));
-    bone.quaternion.copy(animationRotation.multiply(qObject(restLocal))).normalize();
+    bone.quaternion.copy(composeRestAndPose(restLocal, qArray(animationRotation))).normalize();
   }
 }
 
