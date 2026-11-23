@@ -16,9 +16,7 @@ CJ64 is designed to replace only Mario's visible model while keeping the engine'
 
 ## Model and textures
 
-The source Carl Johnson FBX has a 58-bone rig and four texture maps. It is an authoring source, not a ready-to-load DynOS actor.
-
-The static DynOS actor remains the last verified model. The rig-transfer workflow now retargets the Mario/Fast64-Gart bones using CJ source rest matrices, assigns one deform bone per vertex (weight 1.0), converts textures for TMEM, and attempts a Fast64-Gart armature GeoLayout export at 280 SM64 units. The new exported actor still requires a passing CI build, visual review, and in-game test. See [docs/RETARGET_PLAN.md](docs/RETARGET_PLAN.md).
+The source Carl Johnson FBX has a 58-bone rig and four texture maps. The rig-transfer workflow now exports a separate experimental DynOS actor using the 20-node Mario/Fast64-Gart hierarchy. Workflow run [#71](https://github.com/hesta-lang/CJ64/actions/runs/45089345497) completed successfully: 1,630 vertices, exactly one weight-1.0 deform influence per vertex, zero invalid weights, zero fallback vertices, and a 280-unit evaluated height. The artifact includes the installable actor ZIP, editable Blender scene, rest-pose preview, report, and actual retarget map. This is a successful CI export, not yet a visually approved or in-game-tested model. See [docs/RETARGET_PLAN.md](docs/RETARGET_PLAN.md).
 
 The visual-size override remains 280 SM64 units. This is a project scale target, not a claim about CJ's canonical GTA height.
 
@@ -26,16 +24,16 @@ Source credit: Carl Johnson (CJ), by Tsaphnat (Tsaphnat Mbuyi), Sketchfab, CC BY
 
 ## Original GTA: San Andreas animations
 
-The owner supplied the original `ped.ifp` again. The ANP3 reader parsed 294 clips and the first retarget pass generated data for 13 selected clips (5,097 source keyframes): idle, walk start/walk, run, sprint candidate, run stop, jump, fall, landing, and swim.
+The supplied `ped.ifp` parses as ANP3 package `ped` with 294 clips. Using the actual 20-node rest map from workflow #71, I regenerated 13 selected clips containing 5,097 source keyframes: idle, walk start/walk, run, sprint candidate, run stop, jump, fall, landing, and swim. The generated Lua table is 170,984 bytes and samples at 30 FPS.
 
 The public repository contains the reusable generator and rig-transfer workflow:
 - `tools/generate_cj_sm64_animations.py`
-- `tools/cj64_sm64_animation_retarget_map.json` (starter map; the workflow emits the current map from the retargeted armature)
+- `tools/cj64_sm64_animation_retarget_map.json` (actual v2 rest map captured from successful workflow #71)
 - `tools/prepare_cj_rig_transfer.py`
 
-The generated keyframe Lua module and original IFP are kept outside the public repository because they contain data derived from the commercial game's animation file. The current module must be regenerated with the retarget map emitted by the updated rig-transfer workflow; the earlier structural-only module is not the final in-game package.
+The generated keyframe Lua module and original IFP are kept outside the public repository because they contain data derived from the commercial game's animation file. The experimental download bundle combines the rigged actor with the regenerated `cj64_gta_animations.lua`; it does not include `ped.ifp`.
 
-**The original animations are not active in-game yet.** The current verified `cj_geo` actor remains static. The new workflow uses a pinned Fast64-Gart 2.5.3 binary-skinned export and the Lua action controller is guarded, but the export must pass CI and visual/in-game testing before the animation module can be enabled. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
+**The original animations are not yet verified in-game.** The experimental bundle contains the CI-exported skinned actor and regenerated Lua tables. The controller only activates when both the rigged-actor marker and animation module are present; native MarioState, movement, collision, camera, and physics remain authoritative. The rest pose and animated poses still need visual review and SM64CoopDX testing. See [docs/ANIMATIONS.md](docs/ANIMATIONS.md).
 
 ## Remote Blender bridge
 
@@ -57,10 +55,10 @@ CJ64 can run Blender headlessly through GitHub Actions. It exports the current D
 
 ## Install
 
-Place the extracted `CJ64` folder inside the SM64CoopDX `mods` directory and enable it. It is a Lua mod, not an APK. The private animation Lua module is not part of the current static-model install package.
+Download the [experimental rigged + animated package](https://github.com/hesta-lang/CJ64/actions/runs/45089345497), extract it, place the `CJ64-Rigged-Test` folder in SM64CoopDX's `mods` directory, and enable it. It is a Lua mod, not an APK. Keep a copy of the current mod first: this package is experimental and has not yet been tested in-game.
 
 ## Validation and current status
 
-CI checks Lua syntax/replacement tests and Python IFP parser tests using a synthetic ANP3 file. The animation generator passed structural checks. The previous rig-transfer preview verified 1,630 weighted vertices and a 280-unit evaluated mesh. The updated workflow now requires one influence per vertex and a Fast64-Gart actor export; its new result has not yet been verified. Neither result proves Android runtime compatibility.
+CI run #71 passed the complete rigged export and actor validation. It verified 1,630/1,630 weighted vertices, one influence per vertex, no invalid/fallback weights, 280 SM64 units, and 20 animation nodes. The actual v2 retarget map is now checked in. The private animation module was regenerated against that map and passed Lua syntax/structural checks (13 clips, 63 channels and 126 index entries per clip). These checks do not prove that the poses look correct or that SM64CoopDX loads and plays them correctly.
 
-**Current milestone:** the Lua action-state controller and Fast64-Gart rigged-actor export path are implemented. The new export must pass CI and visual review; the private animation tables must be regenerated using its emitted retarget map. Android/in-game animation testing remains pending.
+**Current milestone:** CI export and first-pass animation-table generation are complete. Remaining validation is visual pose review, in-game testing, and Android testing. The sprint candidate `sprint_civi` is a generic civilian clip, not confirmed as CJ-exclusive.
