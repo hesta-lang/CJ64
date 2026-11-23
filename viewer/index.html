@@ -98,7 +98,7 @@
     <section class="notes-panel">
       <h2>Qué representa esta prueba</h2>
       <p><strong>GTA original:</strong> las rotaciones de ped.ifp se reconstruyen con la jerarquía real del FBX. <strong>SM64CoopDX:</strong> se aplica el mismo conversor de quaterniones, jerarquía y cuantización Euler de 16 bits que genera los canales Lua.</p>
-      <p>El canal raíz <code>Normal</code> y las traslaciones globales se excluyen de ambos modelos, porque el juego controla la posición y orientación mundial mediante MarioState. La vista no reemplaza la comprobación final del actor DynOS en el juego.</p>
+      <p>La vista GTA conserva la rotación original del canal <code>Normal</code> y las traslaciones locales type-4, como <code>Pelvis</code> en algunas animaciones; solo omite la traslación de raíz. La versión portada a SM64 suprime la rotación de <code>Normal</code> y todas las traslaciones, porque MarioState controla la posición y orientación mundial. La vista no reemplaza la comprobación final del actor DynOS en el juego.</p>
       <p>Arrastra con un dedo para girar cada modelo y pellizca para acercar. Puedes mover ambos visores por separado.</p>
     </section>
     <footer>Modelo y mapa generados por GitHub Actions · IFP procesado en el dispositivo · Three.js r187</footer>
