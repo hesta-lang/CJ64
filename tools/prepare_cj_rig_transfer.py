@@ -174,6 +174,10 @@ def main():
 
     mario_arm = find_object("Mario", "ARMATURE")
     checkpoint("mario-armature-found")
+    require(mario_arm.data.bones.get("Body") is not None,
+            "Mario template is missing the Body root bone")
+    mario_body_rest_matrix = mario_arm.data.bones["Body"].matrix_local.copy()
+    checkpoint("mario-native-body-root-rest-cached")
 
     target_arm = mario_arm.copy()
     target_arm.data = mario_arm.data.copy()
@@ -304,6 +308,61 @@ def main():
                 float(source_bone.length),
             )
     checkpoint(f"source-rest-bones-cached-{len(source_rest_bones)}")
+    require("root ground" in source_rest_bones,
+            "CJ source armature is missing its root ground bone")
+
+    # Normalize the imported CJ root frame to Mario's native Body rest frame.
+    # Without this correction the FBX root's rest rotation is copied verbatim
+    # into mario_geo; DynOS then combines it with Mario's player-space root
+    # transforms and the whole character can lie sideways in game. Apply only
+    # a rigid rotation/translation here (never scale), so the requested 280-unit
+    # model size and all per-bone dimensions remain unchanged.
+    source_root_target = source_to_target @ source_rest_bones["root ground"][0]
+    source_root_rotation = (
+        source_root_target.to_3x3().to_quaternion().to_matrix().to_4x4()
+    )
+    mario_root_rotation = (
+        mario_body_rest_matrix.to_3x3().to_quaternion().to_matrix().to_4x4()
+    )
+    root_rotation_correction = mario_root_rotation @ source_root_rotation.inverted()
+    root_translation_correction = (
+        mario_body_rest_matrix.translation - source_root_target.translation
+    )
+    root_correction = (
+        Matrix.Translation(root_translation_correction)
+        @ root_rotation_correction
+    )
+    source_to_target = root_correction @ source_to_target
+    mesh_to_target = root_correction @ mesh_to_target
+    aligned_source_root = source_to_target @ source_rest_bones["root ground"][0]
+    require(
+        (aligned_source_root.translation - mario_body_rest_matrix.translation).length < 1e-4,
+        "CJ root translation did not align with Mario's native Body root",
+    )
+    aligned_root_quat = aligned_source_root.to_3x3().to_quaternion()
+    mario_root_quat = mario_body_rest_matrix.to_3x3().to_quaternion()
+    require(
+        abs(abs(aligned_root_quat.dot(mario_root_quat)) - 1.0) < 1e-5,
+        "CJ root orientation did not align with Mario's native Body root",
+    )
+    root_alignment_report = {
+        "source_root_rotation_wxyz_before": [
+            round(float(x), 7) for x in
+            (source_root_target.to_3x3().to_quaternion().w,
+             source_root_target.to_3x3().to_quaternion().x,
+             source_root_target.to_3x3().to_quaternion().y,
+             source_root_target.to_3x3().to_quaternion().z)
+        ],
+        "mario_body_rotation_wxyz": [
+            round(float(x), 7) for x in
+            (mario_root_quat.w, mario_root_quat.x, mario_root_quat.y, mario_root_quat.z)
+        ],
+        "aligned_root_translation_error": (
+            aligned_source_root.translation - mario_body_rest_matrix.translation
+        ).length,
+        "aligned_root_rotation_dot": abs(aligned_root_quat.dot(mario_root_quat)),
+    }
+    checkpoint("cj-root-frame-aligned-to-native-mario-body")
 
     # Avoid a global selection operator after FBX import. Clear selection
     # directly, then make the duplicated Mario armature the sole active object.
@@ -1190,7 +1249,8 @@ def main():
         "target_height_blender_units": target_height,
         "target_height_sm64_units": target_height * 100.0,
         "visual_scale_factor": visual_scale,
-        "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
+        "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees), followed by rigid CJ-root to native Mario Body alignment",
+        "root_alignment": root_alignment_report,
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
