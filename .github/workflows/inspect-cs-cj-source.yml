@@ -1,0 +1,73 @@
+name: Inspect Character Select CJ source
+
+on:
+  push:
+    paths:
+      - 'actors/cj/**'
+      - '.github/workflows/inspect-cs-cj-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect original Character Select archive
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, zipfile
+          archive = pathlib.Path("actors/cj/[CS] Carl Johnson.zip")
+          if not archive.is_file():
+              raise SystemExit(f"Missing source archive: {archive}")
+          report = {
+              "archive": str(archive),
+              "size_bytes": archive.stat().st_size,
+              "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+              "entries": [],
+              "relevant_source_lines": [],
+          }
+          text_ext = {".lua", ".txt", ".json", ".xml", ".cfg", ".ini", ".md", ".yml", ".yaml"}
+          keywords = ("character", "dynos", "mario_geo", "mario", "model", "animation",
+                      "register", "hook", "pack", "geo", "skeleton", "texture")
+          with zipfile.ZipFile(archive) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f"Corrupt ZIP member: {bad}")
+              for item in z.infolist():
+                  name = item.filename
+                  row = {"path": name, "size": item.file_size, "compressed": item.compress_size}
+                  report["entries"].append(row)
+                  suffix = pathlib.PurePosixPath(name).suffix.lower()
+                  if suffix in text_ext and item.file_size <= 2_000_000:
+                      try:
+                          text = z.read(item).decode("utf-8", "replace")
+                      except Exception:
+                          continue
+                      for number, line in enumerate(text.splitlines(), 1):
+                          low = line.lower()
+                          if any(word in low for word in keywords):
+                              report["relevant_source_lines"].append({
+                                  "file": name, "line": number, "text": line[:500]
+                              })
+          pathlib.Path("cs-cj-source-report.json").write_text(
+              json.dumps(report, indent=2), encoding="utf-8"
+          )
+          print(json.dumps({
+              "archive": report["archive"],
+              "size_bytes": report["size_bytes"],
+              "sha256": report["sha256"],
+              "entry_count": len(report["entries"]),
+              "entries": report["entries"],
+              "relevant_source_line_count": len(report["relevant_source_lines"]),
+          }, indent=2))
+          PY
+      - name: Upload source inspection report
+        uses: actions/upload-artifact@v4
+        with:
+          name: CS-Carl-Johnson-source-inspection
+          path: cs-cj-source-report.json
+          if-no-files-found: error
