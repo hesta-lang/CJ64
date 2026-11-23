@@ -54,6 +54,49 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def ensure_f3d_color_attributes(mesh):
+    """Normalize Fast64 color attributes without invoking geometry.attribute_convert."""
+    for attribute_name in ("Col", "Alpha"):
+        attribute = mesh.attributes.get(attribute_name)
+        if attribute is not None and attribute.data_type == "FLOAT_COLOR" and attribute.domain == "CORNER":
+            continue
+
+        old_domain = attribute.domain if attribute is not None else None
+        old_values = []
+        if attribute is not None:
+            for element in attribute.data:
+                if hasattr(element, "color"):
+                    value = tuple(float(v) for v in element.color)
+                elif hasattr(element, "vector"):
+                    vector = tuple(float(v) for v in element.vector)
+                    value = vector[:3] + (1.0,)
+                elif hasattr(element, "value"):
+                    scalar = float(element.value)
+                    value = (scalar, scalar, scalar, 1.0)
+                else:
+                    value = (1.0, 1.0, 1.0, 1.0)
+                old_values.append(value)
+
+            mesh.attributes.remove(attribute)
+
+        new_attribute = mesh.color_attributes.new(
+            name=attribute_name, type="FLOAT_COLOR", domain="CORNER"
+        )
+        for polygon in mesh.polygons:
+            for loop_index in polygon.loop_indices:
+                source_index = None
+                if old_domain == "POINT":
+                    source_index = mesh.loops[loop_index].vertex_index
+                elif old_domain == "FACE":
+                    source_index = polygon.index
+                elif old_domain == "CORNER":
+                    source_index = loop_index
+                if source_index is not None and source_index < len(old_values):
+                    new_attribute.data[loop_index].color = old_values[source_index]
+                else:
+                    new_attribute.data[loop_index].color = (1.0, 1.0, 1.0, 1.0)
+
+
 def checkpoint(label):
     print(f"[CJ64-RIG-CHECKPOINT] {label}", flush=True)
 
@@ -464,6 +507,16 @@ def main():
     )
     checkpoint(f"tmem-uv-islands-split-{texture_islands.get('island_count', 0)}")
     import fast64.fast64_internal.f3d_material_converter as converter
+    checkpoint("before-normalizing-fast64-color-attributes")
+    ensure_f3d_color_attributes(rigged_mesh.data)
+    color_attribute_report = {
+        name: {
+            "domain": rigged_mesh.data.attributes[name].domain,
+            "data_type": rigged_mesh.data.attributes[name].data_type,
+        }
+        for name in ("Col", "Alpha")
+    }
+    checkpoint("fast64-color-attributes-normalized")
     checkpoint("before-fast64-material-conversion")
     converter.convertAllBSDFtoF3D([rigged_mesh], True)
     checkpoint("fast64-material-conversion-completed")
