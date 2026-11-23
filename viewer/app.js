@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   parseIFP,
   sampleTrack,
+  sampleTrackTranslation,
   buildSourceGlobalDeltas,
   retargetGlobalDeltasToSM64,
   buildTargetNodeSourceBone,
@@ -59,6 +60,7 @@ const state = {
   sourceBoneMap: new Map(),
   targetBoneMap: new Map(),
   sourceRestLocal: {},
+  sourceRestPositions: new Map(),
   targetRestLocal: {},
   sourceParents: {},
   targetNodeSourceBone: {},
@@ -246,26 +248,32 @@ function prepareClip(clip) {
   ui.play.textContent = 'Reproducir';
   ui.timeline.max = String(clip.duration || 0.001);
   ui.timeline.value = '0';
-  ui.details.textContent = `${clip.tracks.length} pistas IFP · ${sourceMapped} articulaciones disponibles en el rig GTA · ${targetMapped} pistas contribuyen a la portada · ${state.mapping.target_animation_node_count} nodos SM64. La pista raíz Normal/traslación se excluye del jugador, igual que en el conversor de juego.`;
+  ui.details.textContent = `${clip.tracks.length} pistas IFP · ${sourceMapped} articulaciones disponibles en el rig GTA · ${targetMapped} pistas contribuyen a la portada · ${state.mapping.target_animation_node_count} nodos SM64. La pista raíz Normal y traslaciones locales type-4 se conservan en GTA; la versión SM64 suprime raíz y traslaciones.`;
   updatePose(0);
   updateTimeline();
 }
 
 function updatePose(timeSeconds) {
   if (!state.selectedClip || !state.mapping) return;
-  // Original GTA preview: mirror the repository's Blender IFP importer by
-  // applying each original ANP3 local quaternion to its mapped FBX bone.
-  // The bind/rest transform remains in place; the pose delta follows it.
-  for (const bone of state.sourceBoneMap.values()) {
+  // GTA source preview: original local ANP3 channels, including Normal root
+  // rotation and type-4 local translations. Suppress only root translation.
+  for (const [key, bone] of state.sourceBoneMap.entries()) {
     const restLocal = state.sourceRestLocal[bone.name];
     if (restLocal) bone.quaternion.copy(qObject(restLocal));
+    const restPosition = state.sourceRestPositions.get(key);
+    if (restPosition) bone.position.copy(restPosition);
   }
   for (const [boneName, track] of Object.entries(state.clipTrackLookup)) {
-    if (boneName === 'root ground') continue; // player/world root is owned by MarioState in the port
-    const bone = state.sourceBoneMap.get(boneName.trim().toLocaleLowerCase('en-US'));
+    const key = boneName.trim().toLocaleLowerCase('en-US');
+    const bone = state.sourceBoneMap.get(key);
     const restLocal = state.sourceRestLocal[bone?.name ?? ''];
+    const restPosition = state.sourceRestPositions.get(key);
     if (!bone || !restLocal || !track.frames.length) continue;
     bone.quaternion.copy(composeRestAndPose(restLocal, sampleTrack(track, timeSeconds))).normalize();
+    if (boneName !== 'root ground') {
+      const translation = sampleTrackTranslation(track, timeSeconds);
+      if (translation && restPosition) bone.position.copy(restPosition).add(new THREE.Vector3(...translation));
+    }
   }
 
   const framePosition = Math.max(0, Math.min(state.targetAngleChannels.frameCount - 1, timeSeconds * FPS));
@@ -337,6 +345,7 @@ async function loadModels() {
   state.sourceBoneMap = collectBones(state.source.root);
   state.targetBoneMap = collectBones(state.target.root);
   state.sourceRestLocal = buildRestLocalMap(mapping.source_rest_rotation_wxyz, mapping.source_fbx_parent_by_bone);
+  state.sourceRestPositions = new Map([...state.sourceBoneMap.entries()].map(([key, bone]) => [key, bone.position.clone()]));
   state.targetRestLocal = buildTargetRestLocalMap(mapping);
 
   const missingSource = Object.keys(mapping.source_rest_rotation_wxyz)
