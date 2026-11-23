@@ -21,6 +21,31 @@ The CS DynOS actor has 20 `GEO_ANIMATED_PART` commands. `tools/inspect_cs_animat
 
 The project owner confirmed that the compiled CS model appears normally with native Mario animations. This isolates the deformation issue to the custom animation data/runtime path rather than the base mesh.
 
+## Native CS actor rest-frame correction
+
+The runtime actor is the original Character Select DynOS binary, not the experimental
+FBX/Fast64 skinned export. Animation retargeting must therefore use the **original
+Mario template's parent rest matrices**. The transferred FBX rest matrices are
+preserved for auditing but must not be used for the CS actor's GTA animation tables.
+
+The rig-transfer artifact now exports both profiles separately:
+- `target_parent_rest_rotation_wxyz`: FBX-transferred target profile, retained only for
+  the experimental FBX actor and comparison.
+- `native_mario_parent_rest_rotation_wxyz`: original Mario bind orientation for every
+  direct parent of the 20 animation nodes. This is the required profile for the CS actor.
+
+The generator rejects maps without `animation_target_profile=native_mario_cs_actor`.
+It still reconstructs GTA global pose deltas through the canonical IFP parent tree,
+then solves each Mario-local channel against its native animated parent. Root
+translation and the GTA Normal/world-heading track stay excluded so SM64CoopDX
+continues to own movement and heading.
+
+The CS binary reports matching 20-node order and parent hierarchy, and the CS actor
+has already been confirmed working with native Mario clips. This makes the native
+Mario template the correct target frame for the first GTA retarget pass; however,
+mesh-local vertex orientation cannot be proven from the DynOS GeoLayout alone.
+The generated clips still require in-game pose checks before being called final.
+
 ## Neutral-pose calibration
 
 The original animation arrays carried static reference/rest rotations into the custom animation channels. In the first frame of `cj64_anim_idle`, the Body channel contained approximately 90 degrees around Z and the Butt channel contained large rotations. Those values are static pose offsets, not useful movement instructions when applied as absolute body rotations.
