@@ -19,6 +19,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cj_skin_weight_map import apply_shoulder_weight_retarget, required_shoulder_deform_groups
+from cj_ifp_skeleton_map import build_ifp_parent_map
 
 SOURCE_WEIGHT_TO_TARGET = {
     "root ground": "Butt", "root hips": "Butt", "pelvis": "Butt",
@@ -647,13 +648,13 @@ def main():
     # Local IFP rotations must be accumulated through this hierarchy before
     # being converted to Mario's different animated-part parent tree.
     source_rest = {}
-    source_parents = {}
+    source_fbx_parents = {}
     for source_bone in source_arm.data.bones:
         q = source_bone.matrix_local.to_3x3().to_quaternion()
         source_rest[source_bone.name] = [
             round(float(x), 7) for x in (q.w, q.x, q.y, q.z)
         ]
-        source_parents[source_bone.name] = (
+        source_fbx_parents[source_bone.name] = (
             source_bone.parent.name if source_bone.parent else None
         )
     required_sources = {
@@ -664,14 +665,17 @@ def main():
     require(required_sources.issubset(source_rest),
             "Source armature lacks retarget bones: "
             + str(sorted(required_sources - set(source_rest))))
+    # IFP bone rotations follow GTA's canonical HAnim parent tree, not the
+    # imported FBX helper parenting. Preserve both trees for auditing, but
+    # use the canonical GTA hierarchy to accumulate the animation channels.
+    source_ifp_parents = build_ifp_parent_map(source_rest)
     retarget_map["source_rest_rotation_wxyz"] = source_rest
-    retarget_map["source_parent_by_bone"] = source_parents
-    source_roots = [name for name, parent in source_parents.items() if parent is None]
-    require("root ground" in source_roots or len(source_roots) == 1,
-            "Cannot identify a unique GTA root bone: " + str(source_roots))
-    retarget_map["source_root_bone"] = (
-        "root ground" if "root ground" in source_roots else source_roots[0]
-    )
+    retarget_map["source_parent_by_bone"] = source_ifp_parents
+    retarget_map["source_fbx_parent_by_bone"] = source_fbx_parents
+    source_roots = [name for name, parent in source_ifp_parents.items() if parent is None]
+    require(source_roots == ["root ground"],
+            "Unexpected GTA IFP source roots: " + str(source_roots))
+    retarget_map["source_root_bone"] = "root ground"
     retarget_map["target_parent_animation_node"] = {
         node["name"]: node["parent_animation_node"] for node in animation_nodes
     }
