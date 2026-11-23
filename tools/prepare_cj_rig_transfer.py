@@ -553,6 +553,7 @@ def main():
         material = base_f3d_material.copy()
         checkpoint("safe-f3d-create-after-base-copy")
         material.name = "f3dlite_material"
+        checkpoint("safe-f3d-create-after-material-rename")
         converter.createScenePropertiesForMaterial(material)
         checkpoint("safe-f3d-create-after-scene-properties")
         if index is None:
