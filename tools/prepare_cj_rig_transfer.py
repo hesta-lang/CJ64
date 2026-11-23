@@ -341,9 +341,17 @@ def main():
     checkpoint("before-transforming-cj-mesh-vertices")
     vertex_count = len(rigged_mesh.data.vertices)
     source_points_target = []
-    for vertex in rigged_mesh.data.vertices:
-        source_points_target.append(mesh_to_target @ vertex.co.copy())
-    checkpoint(f"cj-source-bind-vertices-converted-to-target-axes-{vertex_count}")
+    coordinates = [0.0] * (vertex_count * 3)
+    for vertex_index, vertex in enumerate(rigged_mesh.data.vertices):
+        point = mesh_to_target @ vertex.co.copy()
+        source_points_target.append(point)
+        offset = vertex_index * 3
+        coordinates[offset] = float(point.x)
+        coordinates[offset + 1] = float(point.y)
+        coordinates[offset + 2] = float(point.z)
+    rigged_mesh.data.vertices.foreach_set("co", coordinates)
+    rigged_mesh.data.update()
+    checkpoint(f"cj-source-rest-mesh-converted-to-mario-axes-and-280-unit-scale-{vertex_count}")
     rigged_mesh.matrix_world = Matrix.Identity(4)
     checkpoint("cj-mesh-world-matrix-reset")
     # Defer parenting and the Armature modifier until all vertex groups
@@ -390,34 +398,21 @@ def main():
         axis_len_sq = max(axis_vec.length_squared, 1e-10)
         segments.append((bone.name, head, axis_vec, axis_len_sq))
 
-    source_name_by_folded = {
-        name.strip().casefold(): name for name in source_rest_bones
-    }
     source_weighted_vertices = 0
     fallback_weight_vertices = 0
-    vertex_bind_source_bones = [None] * vertex_count
     for vertex in rigged_mesh.data.vertices:
         mapped_weights = {}
-        strongest_source_for_target = {}
         source_vertex = source_mesh.data.vertices[vertex.index]
         for assignment in source_vertex.groups:
             source_key = source_group_names.get(assignment.group)
             target_name = SOURCE_WEIGHT_TO_TARGET.get(source_key)
             if target_name in groups:
-                weight = float(assignment.weight)
-                mapped_weights[target_name] = mapped_weights.get(target_name, 0.0) + weight
-                if weight > strongest_source_for_target.get(target_name, -1.0):
-                    strongest_source_for_target[target_name] = weight
-                    strongest_source_for_target[target_name + "__source"] = (
-                        source_name_by_folded.get(source_key)
-                    )
+                mapped_weights[target_name] = (
+                    mapped_weights.get(target_name, 0.0) + float(assignment.weight)
+                )
         if mapped_weights:
             target_name = max(mapped_weights, key=mapped_weights.get)
             source_weighted_vertices += 1
-            vertex_bind_source_bones[vertex.index] = (
-                strongest_source_for_target.get(target_name + "__source")
-                or target_bone_sources.get(target_name)
-            )
         else:
             point = source_points_target[vertex.index]
             distances = []
@@ -427,9 +422,6 @@ def main():
                 distances.append(((point - nearest).length, name))
             _, target_name = min(distances)
             fallback_weight_vertices += 1
-            vertex_bind_source_bones[vertex.index] = target_bone_sources.get(target_name)
-        require(vertex_bind_source_bones[vertex.index] is not None,
-                f"No CJ bind bone is available for vertex {vertex.index} ({target_name})")
         groups[target_name].add([vertex.index], 1.0, "REPLACE")
 
     # Fast64 partitions skinned triangles along the deform-bone tree. It
@@ -468,7 +460,6 @@ def main():
         groups[old_bone_name].remove([vertex_index])
         groups[new_bone_name].add([vertex_index], 1.0, "REPLACE")
         labels[vertex_index] = new_bone_name
-        vertex_bind_source_bones[vertex_index] = target_bone_sources.get(new_bone_name)
         return True
 
     rigged_mesh.data.calc_loop_triangles()
@@ -560,37 +551,13 @@ def main():
         f"{face_weight_repair_passes}-passes-{len(used_deform_groups)}-active-bones"
     )
 
-    # Convert each CJ vertex from its chosen CJ source-bone bind frame into
-    # the corresponding *native Mario* target-bone bind frame. This lets the
-    # untouched Mario animation channels deform a mesh that has been fitted
-    # to Mario's rest pose. Keeping the vertex's original selected source bone
-    # is important for groups such as jaw/fingers that share a target display
-    # list but do not share the same source bind transform.
-    corrected_coordinates = [0.0] * (vertex_count * 3)
-    corrected_bind_vertices = 0
-    for vertex_index, source_point in enumerate(source_points_target):
-        target_name = labels[vertex_index]
-        source_name = vertex_bind_source_bones[vertex_index]
-        source_rest = source_rest_bones.get(source_name) if source_name else None
-        if source_rest is None:
-            source_name = target_bone_sources.get(target_name)
-            source_rest = source_rest_bones.get(source_name) if source_name else None
-        require(source_rest is not None,
-                f"No source bind transform for vertex {vertex_index} assigned to {target_name}")
-        source_rest_target = source_to_target @ source_rest[0]
-        target_rest = native_target_rest_bones[target_name]
-        bind_transform = target_rest @ source_rest_target.inverted()
-        corrected_point = bind_transform @ source_point
-        offset = vertex_index * 3
-        corrected_coordinates[offset] = float(corrected_point.x)
-        corrected_coordinates[offset + 1] = float(corrected_point.y)
-        corrected_coordinates[offset + 2] = float(corrected_point.z)
-        corrected_bind_vertices += 1
-    rigged_mesh.data.vertices.foreach_set("co", corrected_coordinates)
-    rigged_mesh.data.update()
-    require(corrected_bind_vertices == vertex_count,
-            "Not all CJ vertices were converted into the native Mario bind pose")
-    checkpoint(f"cj-mesh-converted-to-native-mario-bind-pose-{corrected_bind_vertices}-vertices")
+    # Keep CJ's own bind/rest shape. Only the mesh axes and overall target
+    # dimensions are converted above; its vertex groups are remapped to Mario's
+    # native deform bones. Mario's rest matrices and stock animation channels
+    # remain untouched, so the rest-pose mesh is not pushed through a second
+    # bone-frame conversion.
+    mesh_vertices_in_source_rest_pose = vertex_count
+    checkpoint(f"cj-source-rest-shape-preserved-{mesh_vertices_in_source_rest_pose}-vertices")
 
     # Keep the new mesh disconnected from the armature while its animation
     # node map is read. The Armature modifier and parent link are added only
@@ -1235,8 +1202,8 @@ def main():
         "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
         "native_mario_rest_pose_preserved": True,
         "native_mario_rest_matrix_max_error": native_rest_max_error,
-        "mesh_bind_pose_retarget": "per-vertex CJ source-bone bind frame to unchanged native Mario target-bone bind frame",
-        "bind_pose_retargeted_vertices": corrected_bind_vertices,
+        "mesh_pose_alignment": "CJ source rest shape retained; FBX axes and 280-unit scale converted; weights remapped to native Mario bones",
+        "mesh_vertices_in_source_rest_pose": mesh_vertices_in_source_rest_pose,
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
@@ -1257,7 +1224,7 @@ def main():
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
             "Original FBX vertex weights are collapsed to one mapped Mario deform bone at weight 1.0; nearest-bone fallback is used only for unweighted/unmapped source vertices.",
-            "The native Mario rest skeleton is preserved; CJ vertices are converted individually from their source bind-bone frame into the corresponding native Mario bind-bone frame.",
+            "The native Mario rest skeleton is preserved; CJ's original mesh rest shape is retained while axes, size and vertex-group assignments are converted to the native Mario rig.",
             "The native Mario animation hierarchy is retained so stock Mario animations use their expected rest frame; GTA SA animation retargeting is a separate later step.",
             "The Fast64 DynOS actor is exported, but major poses and in-game rendering still require visual and runtime validation.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
