@@ -47,11 +47,17 @@ jobs:
           python3 - "$RUNNER_TEMP/cj64_gta_animations.pose-report.json" <<'PY'
           import json, math, sys
           report = json.load(open(sys.argv[1], encoding="utf-8"))
+          pose = json.load(open("tools/native_mario_idle_pose.json", encoding="utf-8"))
+          reference = json.load(open("tools/cj_fast64_animation_node_order.json", encoding="utf-8"))
+          pose_order = [node["node"] for node in pose["nodes"]]
+          reference_order = [node["name"] for node in reference["nodes"]]
+          assert pose_order == reference_order, (pose_order, reference_order)
+          assert report["target_nodes"] == reference_order
           assert report["clip_count"] == 13, report["clip_count"]
           assert report["neutral_idle_first_frame_residual_radians"] < math.radians(0.02), report
           assert abs(report["body_base_euler_degrees"][1] - 89.994507) < 0.02, report
           assert len(report["target_nodes"]) == 20
-          print("Native Mario idle pose anchor verified for all 20 CS animated nodes.")
+          print("Native Mario idle pose anchor and 20-node order verified against the CS/Fast64 animation layout.")
           PY
           python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" <<'PY'
           import pathlib, re, sys
