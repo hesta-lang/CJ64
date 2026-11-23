@@ -549,18 +549,24 @@ def main():
     checkpoint("fast64-f3d-base-material-ready")
 
     def create_f3d_material_from_existing_library(obj, preset="Shaded Solid", index=None):
+        checkpoint("safe-f3d-create-before-base-copy")
         material = base_f3d_material.copy()
+        checkpoint("safe-f3d-create-after-base-copy")
         material.name = "f3dlite_material"
         converter.createScenePropertiesForMaterial(material)
+        checkpoint("safe-f3d-create-after-scene-properties")
         if index is None:
             obj.data.materials.append(material)
             obj.active_material_index = len(obj.material_slots) - 1
         else:
             obj.data.materials[index] = material
             obj.active_material_index = index
+        checkpoint("safe-f3d-create-after-material-slot-assignment")
         material.is_f3d = True
         material.mat_ver = converter.F3D_MAT_CUR_VERSION
+        checkpoint("safe-f3d-create-after-f3d-flags")
         converter.update_preset_manual_v4(material, preset)
+        checkpoint("safe-f3d-create-after-preset")
         return material
 
     converter.createF3DMat = create_f3d_material_from_existing_library
