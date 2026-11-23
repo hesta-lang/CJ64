@@ -208,6 +208,7 @@ def apply_native_pose(source: str, pose_path: Path) -> tuple[str, dict[str, Any]
     replacements = []
     clip_reports = []
     max_residual = 0.0
+    neutral_idle_residual = None
 
     for item in registrations:
         if len(item["indices"]) != 126:
@@ -216,16 +217,21 @@ def apply_native_pose(source: str, pose_path: Path) -> tuple[str, dict[str, Any]
             item["values"], item["indices"], node_names, base_rotations
         )
         max_residual = max(max_residual, residual)
+        if item["name"] == "cj64_anim_idle":
+            neutral_idle_residual = residual
         replacements.append((item["span"], format_values(output_values)))
         clip_reports.append({
             "name": item["name"],
             "values_entries": len(output_values),
             "index_entries": len(item["indices"]),
+            "first_frame_pose_residual_radians": residual,
             "sampled_frames": max(
                 item["indices"][(3 + node * 3) * 2]
                 for node in range(len(node_names))
             ),
         })
+    if neutral_idle_residual is None:
+        raise ValueError("Required neutral clip 'cj64_anim_idle' is missing")
 
     output = source
     for (start, end), replacement in reversed(replacements):
@@ -244,6 +250,7 @@ def apply_native_pose(source: str, pose_path: Path) -> tuple[str, dict[str, Any]
         "target_nodes": node_names,
         "clip_count": len(clip_reports),
         "max_first_frame_native_pose_residual_radians": max_residual,
+        "neutral_idle_first_frame_residual_radians": neutral_idle_residual,
         "body_base_euler_degrees": [0.0, 89.994507, 0.0],
         "root_translation": "preserved zero; SM64CoopDX owns movement",
         "composition": "native_idle_local_pose * GTA_local_motion_delta",
@@ -282,6 +289,7 @@ def main():
         "nodes": len(report["target_nodes"]),
         "body_base_euler_degrees": report["body_base_euler_degrees"],
         "max_first_frame_residual_radians": report["max_first_frame_native_pose_residual_radians"],
+        "neutral_idle_first_frame_residual_radians": report["neutral_idle_first_frame_residual_radians"],
         "status": report["status"],
     }, indent=2))
     return 0
