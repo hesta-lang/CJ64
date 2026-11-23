@@ -39,7 +39,10 @@ jobs:
           Source: [CS] Carl Johnson by MrMarco1003, included in the repository as the original source archive.
           
           Install the CJ64 folder into dynos/packs/ so the model is at:
-          dynos/packs/CJ64/actors/cj_geo.bin
+          dynos/packs/CJ64/cj_geo.bin
+
+          IMPORTANT: DynOS scans .bin files directly inside each pack directory.
+          Do not place these binaries inside an actors/ subfolder.
           
           The CJ64 Lua controller requests the model ID cj_geo. This pack contains the original
           Mario-compatible DynOS model and its cap variants. It does not contain Character Select's
@@ -48,17 +51,17 @@ jobs:
                   dst.writestr("CJ64/README.txt", readme)
                   for member in sorted(required):
                       filename = pathlib.PurePosixPath(member).name
-                      dst.writestr("CJ64/actors/" + filename, src.read(member))
+                      dst.writestr("CJ64/" + filename, src.read(member))
           with zipfile.ZipFile(output) as z:
               bad = z.testzip()
               if bad:
                   raise SystemExit("Output ZIP failed integrity check: " + bad)
               expected = {
                   "CJ64/README.txt",
-                  "CJ64/actors/cj_geo.bin",
-                  "CJ64/actors/cj_capnormal_geo.bin",
-                  "CJ64/actors/cj_metalcap_geo.bin",
-                  "CJ64/actors/cj_wingcap_geo.bin",
+                  "CJ64/cj_geo.bin",
+                  "CJ64/cj_capnormal_geo.bin",
+                  "CJ64/cj_metalcap_geo.bin",
+                  "CJ64/cj_wingcap_geo.bin",
               }
               if set(z.namelist()) != expected:
                   raise SystemExit("Unexpected output pack contents: " + repr(z.namelist()))
