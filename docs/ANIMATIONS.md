@@ -21,30 +21,45 @@ The CS DynOS actor has 20 `GEO_ANIMATED_PART` commands. `tools/inspect_cs_animat
 
 The project owner confirmed that the compiled CS model appears normally with native Mario animations. This isolates the deformation issue to the custom animation data/runtime path rather than the base mesh.
 
-## Native CS actor rest-frame correction
+## Native CS actor pose anchor — 0.2.1-alpha
 
-The runtime actor is the original Character Select DynOS binary, not the experimental
-FBX/Fast64 skinned export. Animation retargeting must therefore use the **original
-Mario template's parent rest matrices**. The transferred FBX rest matrices are
-preserved for auditing but must not be used for the CS actor's GTA animation tables.
+The 0.2.0-alpha preview incorrectly treated zero animation channels as the
+visible neutral pose. That assumption was false for the working Character
+Select actor: its 20 animated parts use the native Mario animation channel
+layout, and the model relies on non-zero frame-zero rotations from the Mario
+idle pose to stand upright. Omitting those constants left CJ lying on his side.
 
-The rig-transfer artifact now exports both profiles separately:
-- `target_parent_rest_rotation_wxyz`: FBX-transferred target profile, retained only for
-  the experimental FBX actor and comparison.
-- `native_mario_parent_rest_rotation_wxyz`: original Mario bind orientation for every
-  direct parent of the 20 animation nodes. This is the required profile for the CS actor.
+The correct anchor is frame zero of
+`MARIO_ANIM_IDLE_HEAD_CENTER` (`anim_C5`) from the SM64 animation assets.
+The source file is
+[`assets/anims/anim_C5.inc.c`](https://github.com/n64decomp/sm64/blob/master/assets/anims/anim_C5.inc.c).
+Its first Body rotation is `(0x0000, 0x3FFF, 0x0000)`, approximately
+`(0°, 89.995°, 0°)`. The Butt and the remaining parts also have non-zero
+native frame-zero rotations.
 
-The generator rejects maps without `animation_target_profile=native_mario_cs_actor`.
-It still reconstructs GTA global pose deltas through the canonical IFP parent tree,
-then solves each Mario-local channel against its native animated parent. Root
-translation and the GTA Normal/world-heading track stay excluded so SM64CoopDX
-continues to own movement and heading.
+The package build now performs these steps:
 
-The CS binary reports matching 20-node order and parent hierarchy, and the CS actor
-has already been confirmed working with native Mario clips. This makes the native
-Mario template the correct target frame for the first GTA retarget pass; however,
-mesh-local vertex orientation cannot be proven from the DynOS GeoLayout alone.
-The generated clips still require in-game pose checks before being called final.
+1. Generate GTA rotations as local motion deltas, keeping GTA Normal/world
+   heading and root translation out of MarioState.
+2. Load the 20 native idle-pose quaternions from
+   `tools/native_mario_idle_pose.json`.
+3. For every animated part and every frame, compose
+   `native_idle_local_pose * GTA_local_motion_delta`.
+4. Encode the result back into SM64's 16-bit Euler channels and verify that
+   the first frame of `cj64_anim_idle` reproduces the native idle pose within
+   0.02 degrees.
+5. Reconstruct and syntax-check the Lua tables before packaging them with the
+   unchanged Character Select `mario_geo.bin`.
+
+The postprocessor is `tools/apply_native_cs_idle_pose.py`. It refuses to
+apply the anchor twice. The regression tests check the 90-degree Body anchor,
+all 20 node entries, delta composition and the zeroed root translation.
+This is a pose calibration, not a mesh or scale change.
+
+The pose anchor corrects the missing native base pose that caused the 0.2.0
+model to lie sideways. The remaining GTA-to-CS joint motion still needs visual
+checking in Android; successful CI alone does not establish that every limb
+follows the original GTA animation perfectly.
 
 ## Neutral-pose calibration
 

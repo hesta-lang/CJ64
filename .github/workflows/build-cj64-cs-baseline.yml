@@ -9,11 +9,14 @@ on:
       - "character.lua"
       - "actors/cj/mario_geo.bin"
       - "tools/animations/**"
+      - "tools/native_mario_idle_pose.json"
+      - "tools/apply_native_cs_idle_pose.py"
       - "tools/generate_cj_sm64_animations.py"
       - "tools/scale_cs_cj_actor.py"
       - "tools/normalize_cs_animation_tables.py"
       - "tools/inspect_cs_animation_node_order.py"
       - "tests/test_animation_calibration.py"
+      - "tests/test_native_cs_idle_pose.py"
       - ".github/workflows/build-cj64-cs-baseline.yml"
 
 permissions:
@@ -34,9 +37,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations.lua"
+          cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
+          test -s "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
+          python3 tools/apply_native_cs_idle_pose.py "$RUNNER_TEMP/cj64_gta_animations-raw.lua" \
+            --pose tools/native_mario_idle_pose.json \
+            --output "$RUNNER_TEMP/cj64_gta_animations.lua"
           test -s "$RUNNER_TEMP/cj64_gta_animations.lua"
           luac5.4 -p "$RUNNER_TEMP/cj64_gta_animations.lua"
+          python3 - "$RUNNER_TEMP/cj64_gta_animations.pose-report.json" <<'PY'
+          import json, math, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          pose = json.load(open("tools/native_mario_idle_pose.json", encoding="utf-8"))
+          reference = json.load(open("tools/cj_fast64_animation_node_order.json", encoding="utf-8"))
+          pose_order = [node["node"] for node in pose["nodes"]]
+          reference_order = [node["name"] for node in reference["nodes"]]
+          assert pose_order == reference_order, (pose_order, reference_order)
+          assert report["target_nodes"] == reference_order
+          assert report["clip_count"] == 13, report["clip_count"]
+          assert report["neutral_idle_first_frame_residual_radians"] < math.radians(0.02), report
+          assert abs(report["body_base_euler_degrees"][1] - 89.994507) < 0.02, report
+          assert len(report["target_nodes"]) == 20
+          print("Native Mario idle pose anchor and 20-node order verified against the CS/Fast64 animation layout.")
+          PY
           python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" <<'PY'
           import pathlib, re, sys
           source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
@@ -74,11 +96,9 @@ jobs:
           idle = next(item for item in found if item.group("name") == "cj64_anim_idle")
           idle_values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("values"))]
           idle_indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("indices"))]
-          for channel in range(3, 63):
-              count, offset = idle_indices[channel * 2:channel * 2 + 2]
-              assert idle_values[offset] == 0, ("idle neutral calibration", channel, idle_values[offset])
+          assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" in source
           assert "CJ64_GTA_ANIMATIONS.set_for_role" in source
-          print(f"Validated {len(names)} GTA SA clips, 20 nodes, 63 channels per clip and neutral idle frames.")
+          print(f"Validated {len(names)} GTA SA clips, 20 nodes and native idle pose anchor.")
           PY
 
       - name: Run animation calibration regression tests
@@ -118,7 +138,7 @@ jobs:
 
           main = pathlib.Path("main.lua").read_text(encoding="utf-8")
           character = pathlib.Path("character.lua").read_text(encoding="utf-8")
-          assert 'CJ64.version = "0.2.0-alpha"' in main
+          assert 'CJ64.version = "0.2.1-alpha"' in main
           assert 'CJ64.useGTAAnimations = true' in main
           assert 'CJ64.useGTAAnimations ~= true' in character
           assert 'require, "cj64_gta_animations"' in main
@@ -157,7 +177,7 @@ jobs:
               "registered_filename": "mario_geo.bin",
               "animated_part_nodes": animated_parts,
               "root_scale": root_scale,
-              "custom_gta_animations": "enabled_native_mario_cs_rest_profile",
+              "custom_gta_animations": "enabled_native_mario_idle_pose_anchor",
               "status": "STRUCTURAL_PACKAGE_READY_REQUIRES_ANDROID_POSE_VALIDATION"
           }, indent=2))
           PY
@@ -172,7 +192,7 @@ jobs:
           cp "$RUNNER_TEMP/cj64_gta_animations.lua" "$MOD/cj64_gta_animations.lua"
           cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
           cat > "$MOD/README-INSTALL.txt" <<'EOF'
-          CJ64 GTA ANIMATIONS TEST - 0.2.0-alpha
+          CJ64 GTA ANIMATIONS TEST - 0.2.1-alpha
 
           Install this folder under the SM64CoopDX mods/ directory.
           The installed path must be:
@@ -183,8 +203,9 @@ jobs:
 
           This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
           actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          The rotations are calibrated against the original Mario/CS actor rest
-          frames. SM64CoopDX continues to own MarioState, root movement, heading,
+          Each GTA motion delta is composed on the frame-zero pose of
+          MARIO_ANIM_IDLE_HEAD_CENTER (anim_C5), the native pose anchor used by
+          the working CS actor. SM64CoopDX continues to own MarioState, root movement, heading,
           collision, camera, actions and physics.
 
           IMPORTANT: Do NOT install CJ64-Rigged-Test.zip or CJ64-Install-Package.zip
@@ -211,7 +232,7 @@ jobs:
           import sys
           import hashlib
           source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.0-alpha.zip")
+          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.1-alpha.zip")
           prefix = "mods/CJ64-GTA-Animations-Test"
           expected = {
               f"{prefix}/main.lua",
@@ -243,7 +264,7 @@ jobs:
       - name: Upload baseline test package
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-GTA-Animations-Test-0.2.0-alpha
-          path: CJ64-GTA-Animations-Test-0.2.0-alpha.zip
+          name: CJ64-GTA-Animations-Test-0.2.1-alpha
+          path: CJ64-GTA-Animations-Test-0.2.1-alpha.zip
           if-no-files-found: error
           retention-days: 14

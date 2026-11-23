@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Generate first-pass SM64CoopDX animation tables from a user-provided GTA SA ped.ifp.
+"""Generate GTA SA local-motion deltas for the 20-node Mario/CS animation layout.
 
-The script only emits a 20-node Mario/Fast64 animation table. It does not rig
-or skin the CJ mesh and does not certify visual or in-game compatibility.
+The output is an intermediate motion table. Before packaging it for the
+Character Select actor, tools/apply_native_cs_idle_pose.py MUST compose each
+GTA local delta on the native Mario idle pose frame. Zero rotation channels
+alone are not the actor's visible neutral pose.
 """
 from __future__ import annotations
 import argparse
@@ -226,6 +228,7 @@ def main():
         "-- Source local IFP rotations are accumulated through the original GTA hierarchy.",
         "-- Mario channels are solved relative to the actual animated destination parent.",
         "-- GTA Normal/root rotation and root translation remain excluded from MarioState.",
+        "-- Output channels are local motion deltas; apply the native Mario idle pose anchor before packaging.",
         "-- Visual and in-game validation are still required before release.",
         "CJ64_GTA_ANIMATIONS = CJ64_GTA_ANIMATIONS or {}",
         "CJ64_GTA_ANIMATIONS.names = CJ64_GTA_ANIMATIONS.names or {}",
