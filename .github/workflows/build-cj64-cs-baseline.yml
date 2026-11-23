@@ -40,7 +40,11 @@ jobs:
           python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" <<'PY'
           import pathlib, re, sys
           source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-          names = re.findall(r'smlua_anim_util_register_animation\(\s*"([^"]+)"', source)
+          registration = re.compile(
+              r'smlua_anim_util_register_animation\\(\\s*"(?P<name>[^"]+)"\\s*,\\s*'
+              r'(?P<header>.*?)\\s*,\\s*\\{\\s*(?P<values>.*?)\\s*\\},\\s*'
+              r'\\{\\s*(?P<indices>.*?)\\s*\\}\\s*\\)', re.S
+          )
           expected = {
               "cj64_anim_idle", "cj64_anim_walk_start", "cj64_anim_walk",
               "cj64_anim_run", "cj64_anim_sprint_candidate", "cj64_anim_run_stop",
@@ -48,9 +52,33 @@ jobs:
               "cj64_anim_fall", "cj64_anim_fall_air", "cj64_anim_fall_land",
               "cj64_anim_swim_tread",
           }
+          found = list(registration.finditer(source))
+          names = [item.group("name") for item in found]
           assert len(names) == 13 and set(names) == expected, names
+          for item in found:
+              name = item.group("name")
+              values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("values"))]
+              indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("indices"))]
+              assert len(indices) == 126, (name, len(indices))
+              assert len(values) > 0, name
+              for channel in range(63):
+                  count, offset = indices[channel * 2:channel * 2 + 2]
+                  assert count > 0 and offset + count <= len(values), (name, channel, count, offset)
+              for channel in range(3):
+                  count, offset = indices[channel * 2:channel * 2 + 2]
+                  assert count == 1 and values[offset] == 0, (name, channel)
+              declared_frames = int(item.group("header").split(",")[-1].strip(), 0) + 1
+              for node in range(20):
+                  counts = [indices[(3 + node * 3 + axis) * 2] for axis in range(3)]
+                  assert counts == [declared_frames] * 3, (name, node, counts, declared_frames)
+          idle = next(item for item in found if item.group("name") == "cj64_anim_idle")
+          idle_values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("values"))]
+          idle_indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("indices"))]
+          for channel in range(3, 63):
+              count, offset = idle_indices[channel * 2:channel * 2 + 2]
+              assert idle_values[offset] == 0, ("idle neutral calibration", channel, idle_values[offset])
           assert "CJ64_GTA_ANIMATIONS.set_for_role" in source
-          print(f"Reconstructed and syntax-checked {len(names)} GTA SA clips for the native CS actor.")
+          print(f"Validated {len(names)} GTA SA clips, 20 nodes, 63 channels per clip and neutral idle frames.")
           PY
 
       - name: Run animation calibration regression tests
