@@ -257,6 +257,11 @@ export function buildSourceLocalBasis(mapping, sourceGlobalDeltas, sourceIfpPare
   return localBasis;
 }
 
+export function composeRestAndPose(restLocal, poseDelta) {
+  // Blender pose channels are deltas applied after each bone's local bind pose.
+  return quaternionMultiply(restLocal, poseDelta);
+}
+
 export function eulerXYZFromQuaternion(q) {
   const [x, y, z, w] = normaliseQuaternion(q);
   const rx = Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
