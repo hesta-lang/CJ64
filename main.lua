@@ -19,7 +19,18 @@ if type(CJ64_GTA_ANIMATIONS) == "table" then
     CJ64.animationTablesLoaded = true
 end
 
+-- The entry point must explicitly load the controller; SM64CoopDX does not
+-- automatically execute every sibling Lua file in the mod directory.
+local characterOk, characterError = pcall(require, "character")
+if not characterOk then
+    print("[CJ64] ERROR loading character controller: " .. tostring(characterError))
+end
+
 print("[CJ64] " .. CJ64.name .. " " .. CJ64.version .. " loaded.")
-if CJ64.riggedActor and CJ64.animationTablesLoaded then
-    print("[CJ64] Original GTA animation tables loaded; waiting for the skinned actor.")
+if not CJ64.riggedActor then
+    print("[CJ64] WARNING: rigged_actor.lua did not load; GTA animation playback is disabled.")
+elseif not CJ64.animationTablesLoaded then
+    print("[CJ64] WARNING: cj64_gta_animations.lua did not load; using native Mario animations.")
+else
+    print("[CJ64] Rigged CJ model and GTA San Andreas animation tables loaded.")
 end
