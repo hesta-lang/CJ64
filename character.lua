@@ -4,7 +4,7 @@
 
 CJ64 = CJ64 or {}
 CJ64.character = CJ64.character or {
-    modelName = "mario_geo",
+    modelName = "cj_geo",
     modelId = nil,
     ready = false,
     animationReady = false,
