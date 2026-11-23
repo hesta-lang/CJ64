@@ -171,6 +171,23 @@ export function sampleTrack(track, timeSeconds) {
   return quaternionSlerp(first.rotation, second.rotation, amount);
 }
 
+export function sampleTrackTranslation(track, timeSeconds) {
+  const frames = track?.frames ?? [];
+  if (frames.length === 0 || frames.every((frame) => frame.translation == null)) return null;
+  const sample = (frame) => frame.translation ?? [0, 0, 0];
+  if (frames.length === 1 || timeSeconds <= frames[0].timeSeconds) return [...sample(frames[0])];
+  if (timeSeconds >= frames.at(-1).timeSeconds) return [...sample(frames.at(-1))];
+  let low = 0;
+  while (low + 1 < frames.length && frames[low + 1].timeSeconds < timeSeconds) low += 1;
+  const first = frames[low];
+  const second = frames[low + 1];
+  const span = second.timeSeconds - first.timeSeconds;
+  const amount = span <= 1e-9 ? 0 : (timeSeconds - first.timeSeconds) / span;
+  const a = sample(first);
+  const b = sample(second);
+  return a.map((value, axis) => value + (b[axis] - value) * amount);
+}
+
 export function buildSourceGlobalDeltas(sourceParents, sourceRestWXYZ, sourcePoseLocal, rootBone = 'root ground') {
   const rest = Object.fromEntries(Object.entries(sourceRestWXYZ).map(([name, q]) => [name, fromWXYZ(q)]));
   const order = topologicalOrder(sourceParents, rest, rootBone);
