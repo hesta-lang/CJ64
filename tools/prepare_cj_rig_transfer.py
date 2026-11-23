@@ -368,17 +368,10 @@ def main():
             fallback_weight_vertices += 1
         groups[target_name].add([vertex.index], 1.0, "REPLACE")
 
-    # The copied FBX object still references the source armature; remove that
-    # modifier before binding it to the retargeted Mario armature.
-    for old_modifier in list(rigged_mesh.modifiers):
-        rigged_mesh.modifiers.remove(old_modifier)
-    arm_mod = rigged_mesh.modifiers.new("CJ64_Mario_Skin", "ARMATURE")
-    arm_mod.object = target_arm
-    arm_mod.use_vertex_groups = True
-    arm_mod.use_bone_envelopes = False
-    checkpoint("armature-modifier-configured")
-    rigged_mesh.parent = target_arm
-    checkpoint("cj-mesh-parented-after-weights")
+    # Keep the new mesh disconnected from the armature while its animation
+    # node map is read. The Armature modifier and parent link are added only
+    # after Fast64 has traversed the copied Mario rig.
+    checkpoint("skin-weights-complete-without-armature-link")
 
     # Rebuild the animation retarget map from the actual retargeted armatures.
     from fast64.fast64_internal.utility import findStartBones
@@ -452,7 +445,17 @@ def main():
     target_arm.hide_viewport = False
     rigged_mesh.matrix_world = Matrix.Identity(4)
     target_arm.matrix_world = Matrix.Identity(4)
+
+    # At this point the source rig and mesh are gone, and the target node map
+    # is already saved. Bind the finished skin in one final step.
+    for old_modifier in list(rigged_mesh.modifiers):
+        rigged_mesh.modifiers.remove(old_modifier)
+    arm_mod = rigged_mesh.modifiers.new("CJ64_Mario_Skin", "ARMATURE")
+    arm_mod.object = target_arm
+    arm_mod.use_vertex_groups = True
+    arm_mod.use_bone_envelopes = False
     rigged_mesh.parent = target_arm
+    checkpoint("finished-skin-bound-to-target-armature")
 
     # Prepare TMEM-safe textures and convert materials for Fast64.
     fallback_materials = [
