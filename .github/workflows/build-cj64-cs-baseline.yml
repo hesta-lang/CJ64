@@ -9,6 +9,9 @@ on:
       - "character.lua"
       - "actors/cj/mario_geo.bin"
       - "tools/scale_cs_cj_actor.py"
+      - "tools/normalize_cs_animation_tables.py"
+      - "tools/inspect_cs_animation_node_order.py"
+      - "tests/test_animation_calibration.py"
       - ".github/workflows/build-cj64-cs-baseline.yml"
 
 permissions:
@@ -24,6 +27,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lua5.4
+
+      - name: Run animation calibration regression tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Validate CS animation node traversal
+        run: |
+          set -euo pipefail
+          python3 tools/inspect_cs_animation_node_order.py
+          python3 - <<'PY'
+          import json
+          report = json.load(open("build/cs-cj-animation-node-report.json", encoding="utf-8"))
+          assert report["animated_part_count"] == 20
+          assert report["landmark_checks"] == 11
+          assert report["status"] == "ORDERED_20_NODE_LAYOUT_MATCHES_FAST64_REFERENCE"
+          assert report["rotation_basis_validation"] == "NOT_VALIDATED"
+          print("Verified 20-node traversal and 11 part landmarks; local rest-axis equivalence is still experimental.")
+          PY
 
       - name: Validate controller and CS actor
         shell: bash
