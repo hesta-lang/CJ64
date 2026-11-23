@@ -1017,8 +1017,8 @@ def main():
     pack_dir = output_dir / "CJ64"
     mod_dir.mkdir(parents=True, exist_ok=True)
     pack_dir.mkdir(parents=True, exist_ok=True)
-    # DynOS scans folders under dynos/packs as independent packs. Keep the
-    # actor sources in pack_dir/Assets so DynOS generates the .bin in pack_dir.
+    # Keep a temporary actor-source staging tree here. The packaging step copies
+    # Assets/ into the mod's actors/ folder before creating the install ZIP.
     actor_root = pack_dir
     scene = bpy.context.scene
     scene.gameEditorMode = "SM64"
@@ -1149,13 +1149,11 @@ def main():
         "CJ64 = CJ64 or {}\nCJ64.riggedActor = true\n", encoding="utf-8"
     )
     (mod_dir / "README-INSTALL.txt").write_text(
-        "CJ64 experimental player-model test. Root GeoLayout symbol: mario_geo. "
-        "Install this Lua folder as mods/CJ64-Rigged-Test and the separate CJ64 "
-        "folder as dynos/packs/CJ64. The pack contains Assets/model.inc.c, "
-        "Assets/geo.inc.c and its textures. SM64CoopDX scans dynos/packs at startup "
-        "and generates CJ64/mario_geo.bin from those sources. The Lua controller "
-        "enables the CJ64 DynOS pack before requesting the model by its GeoLayout "
-        "name. Do not put the CJ64 pack inside mods. The private "
+        "CJ64 experimental self-contained player-model mod. Root GeoLayout symbol: mario_geo. "
+        "The packaging step embeds Assets/ into mods/CJ64-Rigged-Test/actors. "
+        "SM64CoopDX compiles and registers the actor binary from that mod-owned "
+        "actors/ folder at startup. No separate DynOS pack installation is needed. "
+        "The private "
         "cj64_gta_animations.lua module is not included in this export. "
         "Test the actor in SM64CoopDX before treating this as a release.\\n",
         encoding="utf-8"
