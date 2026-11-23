@@ -109,6 +109,19 @@ def mapped_target_rotation(target_node, source_quats, chain, bases):
         result = qnorm(qmul(result, mapped))
     return result
 
+def mapped_mario_node_rotation(target_node, source_quats, chain, bases):
+    """Map a GTA bone chain to a Mario animated part.
+
+    The GTA IFP Normal track is bone id 0 (the GTA skeleton root). It is not
+    the Mario player-object/world root: SM64CoopDX already applies MarioState
+    heading and object transforms. Feeding the GTA root orientation into
+    the first Mario Body node tilts the entire rendered actor. Keep Body at
+    identity; retarget the 19 articulated child parts normally.
+    """
+    if target_node == "Body":
+        return (0.0, 0.0, 0.0, 1.0)
+    return mapped_target_rotation(target_node, source_quats, chain, bases)
+
 
 def emit_table(lua, name, flags, sample_count, values, index):
     lua.extend([
@@ -167,7 +180,7 @@ def main():
     lua = [
         "-- CJ64: first-pass GTA San Andreas ped.ifp retarget for SM64CoopDX.",
         "-- Generated from a user-provided ANP3 file; the source IFP is not included.",
-        "-- 20 Fast64 Mario animation nodes; root translation channels are intentionally zero.",
+        "-- 20 Fast64 Mario animation nodes; root translation is zero and Mario Body rotation is fixed identity.",
         "-- Source-to-target basis uses the checked-in inspected rig rest rotations.",
         "-- Must be visually checked in Blender and exported with Fast64 before enabling in-game.",
         "CJ64_GTA_ANIMATIONS = CJ64_GTA_ANIMATIONS or {}",
@@ -207,7 +220,7 @@ def main():
                         sample_track(track, time_seconds) if track and track.frames
                         else (0.0, 0.0, 0.0, 1.0)
                     )
-                quaternion = mapped_target_rotation(node, source_quats, chain, bases)
+                quaternion = mapped_mario_node_rotation(node, source_quats, chain, bases)
                 for axis, angle in enumerate(euler_xyz(quaternion)):
                     axes[axis].append(angle)
             for axis_values in axes:
@@ -279,6 +292,7 @@ def main():
         "target_node_order": node_order,
         "axis_alignment": mapping["axis_alignment"],
         "root_translation": "zeroed",
+        "mario_body_root_rotation": "fixed_identity; GTA IFP Normal/root track is not transferred to MarioState world root",
         "status": "STRUCTURAL_GENERATION_ONLY_NOT_VISUALLY_OR_IN_GAME_VALIDATED",
         "output_lua": args.output.name,
         "output_lua_bytes": args.output.stat().st_size,
