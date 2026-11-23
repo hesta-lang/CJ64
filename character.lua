@@ -16,6 +16,16 @@ CJ64.character = CJ64.character or {
 }
 local state = CJ64.character
 
+-- Decide when to replace the active clip. Without the getter API, use the
+-- last role/name pair so a clip is not reset to frame 0 on every update.
+function state.should_reassert_animation(canInspectAnimation, currentName,
+    expectedName, lastRole, role, lastAnimationName)
+    if canInspectAnimation then
+        return currentName ~= expectedName
+    end
+    return lastRole ~= role or lastAnimationName ~= expectedName
+end
+
 -- SM64CoopDX scans this mod's actors/ folder and registers mario_geo.bin.
 local function valid_model_id(id)
     return type(id) == "number"
@@ -189,7 +199,11 @@ function state.apply_animation(m)
             end
         end
 
-        if not canInspectAnimation or currentName ~= expectedName then
+        local shouldSetAnimation = state.should_reassert_animation(
+            canInspectAnimation, currentName, expectedName,
+            anim.lastRole, role, anim.currentAnimationName
+        )
+        if shouldSetAnimation then
             local previousRole = anim.lastRole
             local setOk = CJ64_GTA_ANIMATIONS.set_for_role(m, role)
             if not setOk then return end
