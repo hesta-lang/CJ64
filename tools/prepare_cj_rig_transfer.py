@@ -1100,6 +1100,22 @@ def main():
     require((actor_dir / "geo.inc.c").is_file() and
             (actor_dir / "model.inc.c").is_file(),
             "Fast64 did not create the CJ DynOS actor files")
+
+    # Namespace the exported root GeoLayout. Generic names such as cj_geo can
+    # collide with another mod or a stale DynOS cache entry on Android.
+    dynos_geo_name = "cj64_cj_geo"
+    for source_path in (actor_dir / "geo.inc.c", actor_dir / "geo_header.h"):
+        require(source_path.is_file(), f"Fast64 did not create {source_path.name}")
+        source_text = source_path.read_text(encoding="utf-8")
+        require("cj_geo" in source_text, f"{source_path.name} has no expected cj_geo symbol")
+        source_path.write_text(source_text.replace("cj_geo", dynos_geo_name), encoding="utf-8")
+    geo_source = (actor_dir / "geo.inc.c").read_text(encoding="utf-8")
+    geo_header = (actor_dir / "geo_header.h").read_text(encoding="utf-8")
+    require(re.search(r"\\bGeoLayout\\s+" + re.escape(dynos_geo_name) + r"\\s*\\[\\s*\\]", geo_source) is not None,
+            "Namespaced DynOS root GeoLayout was not created")
+    require(f"extern const GeoLayout {dynos_geo_name}[];" in geo_header,
+            "Namespaced DynOS root GeoLayout declaration is missing")
+
     repo_root = Path(__file__).resolve().parents[1]
     shutil.copy2(repo_root / "main.lua", mod_dir / "main.lua")
     shutil.copy2(repo_root / "character.lua", mod_dir / "character.lua")
@@ -1165,6 +1181,7 @@ def main():
         "texture_uv_islands": texture_islands,
         "generated_fallback_materials": fallback_materials,
         "fast64_export_result": str(export_result),
+        "dynos_geolayout_name": dynos_geo_name,
         "actor_files": [str(path.relative_to(mod_dir)) for path in actor_dir.rglob("*") if path.is_file()],
         "bounds_after_armature_evaluation": bounds,
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
