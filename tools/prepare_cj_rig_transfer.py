@@ -783,6 +783,191 @@ def main():
             "Fast64 material conversion failed: " + ", ".join(unresolved_materials))
     checkpoint("fast64-materials-validated")
 
+    # Fast64's SM64 skin buffer reserves two entries from the 16-vertex load
+    # window, so every deform bone may reference at most 14 unique parent
+    # vertices per draw layer. Estimate this using Fast64's own F3DVert and
+    # BufferVertex equality rules (position, UV, color, normal, alpha, material).
+    import fast64.fast64_internal.f3d.f3d_writer as f3d_writer
+    checkpoint("before-measuring-fast64-parent-vertex-buffers")
+    mesh_info = f3d_writer.getInfoDict(rigged_mesh)
+    checkpoint("fast64-mesh-info-ready-for-buffer-measurement")
+
+    def f3d_buffer_vertex_key(f3d_vertex, material_index):
+        return (
+            tuple(float(value) for value in f3d_vertex.position),
+            tuple(float(value) for value in f3d_vertex.uv),
+            f3d_vertex.stOffset,
+            tuple(float(value) for value in f3d_vertex.rgb)
+                if f3d_vertex.rgb is not None else None,
+            tuple(float(value) for value in f3d_vertex.normal)
+                if f3d_vertex.normal is not None else None,
+            float(f3d_vertex.alpha),
+            int(material_index),
+        )
+
+    def measure_parent_buffer(bone_name):
+        parent_name = deform_parent[bone_name]
+        if parent_name is None:
+            return {}, {}, set()
+
+        layer_material_keys = {}
+        key_contributors = {}
+        candidate_vertices = set()
+        seen_faces = set()
+        for vertex_index, label in enumerate(labels):
+            if label != bone_name:
+                continue
+            for face in mesh_info.vert.get(vertex_index, ()):
+                face_index = int(face.index)
+                if face_index in seen_faces:
+                    continue
+                seen_faces.add(face_index)
+                face_labels = [labels[int(index)] for index in face.vertices]
+
+                # Descendant skinned faces are exported by their own bone and
+                # are intentionally excluded from this bone's parent buffer.
+                if any(
+                    label_name != bone_name
+                    and bone_name in deform_ancestors(label_name)[1:]
+                    for label_name in face_labels
+                ):
+                    continue
+
+                unexpected = [
+                    label_name for label_name in face_labels
+                    if label_name not in (bone_name, parent_name)
+                ]
+                require(
+                    not unexpected,
+                    f"Fast64 buffer measurement for {bone_name} found "
+                    f"unexpected adjacent groups: {unexpected}",
+                )
+
+                material_index = int(face.material_index)
+                material = rigged_mesh.material_slots[material_index].material
+                f3d_material = material.f3d_mat if material.mat_ver > 3 else material
+                draw_layer = int(f3d_material.draw_layer.sm64)
+                buffer_key = (draw_layer, material_index)
+                unique_vertices = layer_material_keys.setdefault(buffer_key, set())
+
+                for loop_index in face.loops:
+                    loop = rigged_mesh.data.loops[int(loop_index)]
+                    parent_vertex_index = int(loop.vertex_index)
+                    if labels[parent_vertex_index] != parent_name:
+                        continue
+                    candidate_vertices.add(parent_vertex_index)
+                    f3d_vertex = mesh_info.f3dVert[int(loop_index)]
+                    vertex_key = f3d_buffer_vertex_key(f3d_vertex, material_index)
+                    unique_vertices.add(vertex_key)
+                    key_contributors.setdefault(
+                        (draw_layer, material_index, vertex_key), set()
+                    ).add(parent_vertex_index)
+
+        counts_by_layer = {}
+        for (draw_layer, material_index), unique_vertices in layer_material_keys.items():
+            counts_by_layer[draw_layer] = (
+                counts_by_layer.get(draw_layer, 0) + len(unique_vertices)
+            )
+        return counts_by_layer, key_contributors, candidate_vertices
+
+    def can_promote_parent_vertex(vertex_index, child_bone_name):
+        parent_name = deform_parent[child_bone_name]
+        for face in mesh_info.vert.get(vertex_index, ()):
+            simulated = [
+                child_bone_name if int(index) == vertex_index else labels[int(index)]
+                for index in face.vertices
+            ]
+            for left_pos, right_pos in ((0, 1), (0, 2), (1, 2)):
+                left_name = simulated[left_pos]
+                right_name = simulated[right_pos]
+                if left_name == right_name:
+                    continue
+                if (deform_parent[left_name] == right_name
+                        or deform_parent[right_name] == left_name):
+                    continue
+                return False
+        return True
+
+    capacity_repair_count = 0
+    max_parent_buffer_vertices = 14
+    for capacity_pass in range(len(rigged_mesh.data.vertices) + 1):
+        measurements = {}
+        worst = None
+        for bone_name in deform_names:
+            counts_by_layer, contributors, candidates = measure_parent_buffer(bone_name)
+            if counts_by_layer:
+                worst_layer, worst_count = max(
+                    counts_by_layer.items(), key=lambda item: item[1]
+                )
+                measurements[bone_name] = (
+                    counts_by_layer, contributors, candidates
+                )
+                if worst_count > max_parent_buffer_vertices and (
+                    worst is None or worst_count > worst[0]
+                ):
+                    worst = (
+                        worst_count, bone_name, worst_layer,
+                        contributors, candidates,
+                    )
+
+        if worst is None:
+            break
+
+        worst_count, bone_name, draw_layer, contributors, candidates = worst
+        safe_candidates = []
+        for vertex_index in candidates:
+            if labels[vertex_index] != deform_parent[bone_name]:
+                continue
+            if not can_promote_parent_vertex(vertex_index, bone_name):
+                continue
+            exclusive_keys = [
+                key for key, vertex_set in contributors.items()
+                if key[0] == draw_layer
+                and vertex_set == {vertex_index}
+            ]
+            benefit = len(exclusive_keys)
+            if benefit > 0:
+                safe_candidates.append((benefit, vertex_index))
+
+        require(
+            safe_candidates,
+            f"Fast64 parent buffer for {bone_name} on draw layer {draw_layer} "
+            f"has {worst_count} unique vertices (maximum 14), but no boundary "
+            "vertex can be promoted without violating the adjacent bone hierarchy",
+        )
+        safe_candidates.sort(reverse=True)
+        best_benefit, best_vertex = safe_candidates[0]
+        promote_vertex_group(best_vertex, bone_name)
+        capacity_repair_count += 1
+        if capacity_repair_count % 4 == 0:
+            checkpoint(
+                f"fast64-parent-buffer-repair-{capacity_repair_count}-"
+                f"promoted-{best_benefit}-vertices-from-{bone_name}"
+            )
+    else:
+        raise RuntimeError(
+            "Fast64 parent-buffer repair exceeded the mesh vertex count"
+        )
+
+    final_buffer_overflows = []
+    for bone_name in deform_names:
+        counts_by_layer, _, _ = measure_parent_buffer(bone_name)
+        for draw_layer, count in counts_by_layer.items():
+            if count > max_parent_buffer_vertices:
+                final_buffer_overflows.append(
+                    (bone_name, draw_layer, count)
+                )
+    require(
+        not final_buffer_overflows,
+        "Fast64 parent vertex buffers still exceed 14 entries: "
+        + str(final_buffer_overflows[:8]),
+    )
+    used_deform_groups = sorted(set(labels))
+    checkpoint(
+        f"fast64-parent-buffers-repaired-{capacity_repair_count}-promotions-"
+        f"{len(used_deform_groups)}-active-bones"
+    )
+
     # Bind the completed, texture-converted mesh only now.
     for old_modifier in list(rigged_mesh.modifiers):
         rigged_mesh.modifiers.remove(old_modifier)
