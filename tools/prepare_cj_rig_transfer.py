@@ -1106,20 +1106,32 @@ def main():
             (actor_dir / "model.inc.c").is_file(),
             "Fast64 did not create the CJ DynOS actor files")
 
-    # Namespace the exported root GeoLayout. Generic names such as cj_geo can
-    # collide with another mod or a stale DynOS cache entry on Android.
+    # Fast64 names the root GeoLayout after the export object, so the name
+    # varies with the pack's source-folder name. DynOS associates player-model
+    # packs by the builtin root name; Mario must therefore use mario_geo.
     dynos_geo_name = "mario_geo"
-    for source_path in (actor_dir / "geo.inc.c", actor_dir / "geo_header.h"):
-        require(source_path.is_file(), f"Fast64 did not create {source_path.name}")
-        source_text = source_path.read_text(encoding="utf-8")
-        require("cj_geo" in source_text, f"{source_path.name} has no expected cj_geo symbol")
-        source_path.write_text(source_text.replace("cj_geo", dynos_geo_name), encoding="utf-8")
-    geo_source = (actor_dir / "geo.inc.c").read_text(encoding="utf-8")
-    geo_header = (actor_dir / "geo_header.h").read_text(encoding="utf-8")
-    require(re.search(r"\bGeoLayout\s+" + re.escape(dynos_geo_name) + r"\s*\[\s*\]", geo_source) is not None,
-            "Namespaced DynOS root GeoLayout was not created")
+    geo_path = actor_dir / "geo.inc.c"
+    header_path = actor_dir / "geo_header.h"
+    require(geo_path.is_file() and header_path.is_file(),
+            "Fast64 did not create geo.inc.c and geo_header.h")
+    geo_source = geo_path.read_text(encoding="utf-8")
+    declarations = re.findall(r"\bGeoLayout\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*\]\s*=", geo_source)
+    require(declarations, "Fast64 geo.inc.c contains no GeoLayout declarations")
+    fast64_root_name = declarations[-1]
+    require(fast64_root_name != dynos_geo_name,
+            "Fast64 unexpectedly already exported the Mario root symbol")
+    geo_header = header_path.read_text(encoding="utf-8")
+    root_token = re.compile(r"\b" + re.escape(fast64_root_name) + r"\b")
+    require(root_token.search(geo_header) is not None,
+            f"geo_header.h does not declare Fast64 root symbol {fast64_root_name}")
+    geo_source = root_token.sub(dynos_geo_name, geo_source)
+    geo_header = root_token.sub(dynos_geo_name, geo_header)
+    geo_path.write_text(geo_source, encoding="utf-8")
+    header_path.write_text(geo_header, encoding="utf-8")
+    require(re.search(r"\bGeoLayout\s+" + re.escape(dynos_geo_name) + r"\s*\[\s*\]\s*=", geo_source) is not None,
+            "Mario root GeoLayout symbol was not written")
     require(f"extern const GeoLayout {dynos_geo_name}[];" in geo_header,
-            "Namespaced DynOS root GeoLayout declaration is missing")
+            "Mario root GeoLayout declaration is missing")
 
     repo_root = Path(__file__).resolve().parents[1]
     shutil.copy2(repo_root / "main.lua", mod_dir / "main.lua")
