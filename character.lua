@@ -1,5 +1,5 @@
--- CJ64: replace only Mario's rendered model and, when a rigged actor is present,
--- drive its 20-node armature with converted GTA San Andreas animation clips.
+-- CJ64: replace only Mario's rendered model with the CS 20-node CJ actor,
+-- then optionally apply calibrated GTA San Andreas animation clips.
 -- MarioState, marioObj, movement, collision, camera and physics remain native.
 
 CJ64 = CJ64 or {}
@@ -16,7 +16,7 @@ CJ64.character = CJ64.character or {
 }
 local state = CJ64.character
 
--- CoopDX generates and registers this actor from the mod's own actors/ folder.
+-- SM64CoopDX scans this mod's actors/ folder and registers mario_geo.bin.
 local function valid_model_id(id)
     return type(id) == "number"
         and (E_MODEL_NONE == nil or id ~= E_MODEL_NONE)
@@ -51,7 +51,7 @@ function state.try_register(force)
     state.modelId = id
     state.ready = true
     state.warnedMissing = false
-    print("[CJ64] Registered CJ model ID " .. tostring(id) .. ".")
+    print("[CJ64] Registered CS CJ model ID " .. tostring(id) .. ".")
     return true
 end
 
@@ -124,7 +124,9 @@ local function choose_transition_role(m, loopRole, anim)
 end
 
 function state.apply_animation(m)
-    if not state.ready or CJ64.riggedActor ~= true or CJ64.animationTablesLoaded ~= true then
+    -- The old rigged_actor.lua gate belonged to the failed FBX transfer.
+    -- The CS binary already has the same 20 animated-part slots as these tables.
+    if not state.ready or CJ64.animationTablesLoaded ~= true then
         state.animationReady = false
         return
     end
