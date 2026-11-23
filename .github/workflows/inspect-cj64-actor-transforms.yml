@@ -1,0 +1,51 @@
+name: Inspect CJ64 CS actor transforms
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "actors/cj/mario_geo.bin"
+      - "tools/inspect_cs_actor_transform_hierarchy.py"
+      - "tools/cj_fast64_animation_node_order.json"
+      - "tests/test_actor_transform_diagnostic.py"
+      - ".github/workflows/inspect-cj64-actor-transforms.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CJ64
+        uses: actions/checkout@v4
+      - name: Run transform diagnostic unit tests
+        run: python3 -m unittest discover -s tests -p "test_actor_transform_diagnostic.py" -v
+      - name: Inspect compiled CS DynOS actor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/inspect_cs_actor_transform_hierarchy.py \
+            --actor actors/cj/mario_geo.bin \
+            --geo cj_geo \
+            --reference tools/cj_fast64_animation_node_order.json \
+            --output build/cj64-transform-diagnostic.json
+          python3 - <<'PY'
+          import json
+          report = json.load(open("build/cj64-transform-diagnostic.json", encoding="utf-8"))
+          assert report["animated_part_count"] == 20
+          assert report["animated_parent_hierarchy_matches_reference"], report["parent_mismatches"]
+          assert not report["root_static_rotation_detected"], report["root_static_rotation_degrees"]
+          assert abs(report["root_scale"] - 0.39) < 0.001, report["root_scale"]
+          assert report["local_mesh_axis_basis_validation"] == "NOT_VALIDATED_BY_DYNOS_BIN_ONLY"
+          assert report["vertex_orientation_validation"] == "NOT_VALIDATED"
+          print("CJ64 root has no static rotation; the 20 animated-parent links match Mario.")
+          print("Mesh-local axes/rest basis remain unverified; no geometry or rotation was modified.")
+          PY
+      - name: Upload transform diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-CS-Transform-Diagnostic
+          path: build/cj64-transform-diagnostic.json
+          if-no-files-found: error
+          retention-days: 14
