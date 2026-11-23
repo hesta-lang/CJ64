@@ -17,6 +17,9 @@ from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cj_skin_weight_map import apply_shoulder_weight_retarget, required_shoulder_deform_groups
+
 SOURCE_WEIGHT_TO_TARGET = {
     "root ground": "Butt", "root hips": "Butt", "pelvis": "Butt",
     "spine lower": "Torso", "spine middle": "Torso", "spine upper": "Torso",
@@ -48,6 +51,7 @@ SOURCE_WEIGHT_TO_TARGET = {
     "leg right thigh": "Right Thigh Color", "leg right knee": "Right Leg",
     "leg right ankle": "Right Shoe DL", "leg right toes": "Right Shoe DL",
 }
+SOURCE_WEIGHT_TO_TARGET = apply_shoulder_weight_retarget(SOURCE_WEIGHT_TO_TARGET)
 
 
 def require(condition, message):
@@ -370,8 +374,22 @@ def main():
         if bone.geo_cmd == "DisplayList" and not bone.use_deform:
             bone.use_deform = True
             enabled_display_list_bones.append(bone.name)
+
+    # These two animated pivots are genuine GTA shoulder joints. Fast64's
+    # copied Mario template leaves them non-deformable even though their
+    # GeoLayout command supports skinning. Enable them so source clavicle
+    # weights do not have to collapse into their upper-arm child nodes.
+    for shoulder_name in ("Left Arm", "Right Arm"):
+        shoulder = target_arm.data.bones.get(shoulder_name)
+        require(shoulder is not None, f"Missing animated shoulder node {shoulder_name}")
+        require(shoulder.geo_cmd == "DisplayListWithOffset",
+                f"{shoulder_name} is not a deform-capable animated-part node: {shoulder.geo_cmd}")
+        if not shoulder.use_deform:
+            shoulder.use_deform = True
+            enabled_display_list_bones.append(shoulder_name)
+
     checkpoint(
-        "fast64-display-list-deform-bones-enabled-"
+        "fast64-display-list-and-shoulder-deform-bones-enabled-"
         + ",".join(sorted(enabled_display_list_bones))
     )
     for group in list(rigged_mesh.vertex_groups):
@@ -1252,6 +1270,16 @@ def main():
         "mesh_vertices_in_source_rest_pose": mesh_vertices_in_source_rest_pose,
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
+        "shoulder_weight_targets": {
+            "arm left shoulder 1": SOURCE_WEIGHT_TO_TARGET["arm left shoulder 1"],
+            "arm left shoulder 2": SOURCE_WEIGHT_TO_TARGET["arm left shoulder 2"],
+            "arm right shoulder 1": SOURCE_WEIGHT_TO_TARGET["arm right shoulder 1"],
+            "arm right shoulder 2": SOURCE_WEIGHT_TO_TARGET["arm right shoulder 2"],
+        },
+        "deformable_shoulder_pivots": {
+            name: bool(target_arm.data.bones[name].use_deform)
+            for name in ("Left Arm", "Right Arm")
+        },
         "weighted_vertices": weighted_vertices,
         "weight_influences_per_vertex": max_influences,
         "vertices_using_original_source_weights": source_weighted_vertices,
