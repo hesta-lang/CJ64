@@ -1111,7 +1111,7 @@ def main():
         source_path.write_text(source_text.replace("cj_geo", dynos_geo_name), encoding="utf-8")
     geo_source = (actor_dir / "geo.inc.c").read_text(encoding="utf-8")
     geo_header = (actor_dir / "geo_header.h").read_text(encoding="utf-8")
-    require(re.search(r"\\bGeoLayout\\s+" + re.escape(dynos_geo_name) + r"\\s*\\[\\s*\\]", geo_source) is not None,
+    require(re.search(r"\bGeoLayout\s+" + re.escape(dynos_geo_name) + r"\s*\[\s*\]", geo_source) is not None,
             "Namespaced DynOS root GeoLayout was not created")
     require(f"extern const GeoLayout {dynos_geo_name}[];" in geo_header,
             "Namespaced DynOS root GeoLayout declaration is missing")
