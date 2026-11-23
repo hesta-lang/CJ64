@@ -95,13 +95,26 @@ jobs:
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test/actors/cj/geo.inc.c"
           test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test/actors/cj/model.inc.c"
 
-      - name: Normalize DynOS texture paths and rebuild install ZIP
+      - name: Confirm Fast64 exporter generated the self-contained package
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/fix_cj_dynos_texture_paths.py \
-            "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test" \
-            "$RUNNER_TEMP/cj-model-test"
+          test -s "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip"
+          python3 - "$RUNNER_TEMP/cj-model-test/CJ64-Model-Test.zip" <<'PY'
+          import sys, zipfile
+          archive = zipfile.ZipFile(sys.argv[1])
+          assert archive.testzip() is None
+          names = set(archive.namelist())
+          required = {
+              "CJ64-Model-Test/main.lua",
+              "CJ64-Model-Test/character.lua",
+              "CJ64-Model-Test/actors/cj/geo.inc.c",
+              "CJ64-Model-Test/actors/cj/model.inc.c",
+          }
+          missing = required - names
+          assert not missing, f"Fast64 ZIP is missing: {sorted(missing)}"
+          print(f"Fast64 produced a valid self-contained archive with {len(names)} files.")
+          PY
 
       - name: Verify Blender bridge, geometry and DynOS package
         shell: bash
