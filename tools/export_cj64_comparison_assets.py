@@ -110,6 +110,11 @@ def main() -> None:
                      if obj.type == "MESH" and obj.find_armature() == source_arm]
     require(source_meshes, "The source CJ FBX has no mesh skinned to its armature")
     source_mesh = max(source_meshes, key=lambda obj: len(obj.data.vertices))
+    # Cache metadata before opening the saved rig-transfer .blend. read_mainfile
+    # replaces the active scene and invalidates all object RNA references from
+    # the source FBX import.
+    source_vertex_count = len(source_mesh.data.vertices)
+    source_face_count = len(source_mesh.data.polygons)
     source_bones = set(source_arm.data.bones.keys())
     fbx_bone_map = json.loads(fbx_bone_map_path.read_text(encoding="utf-8"))
     source_required = fbx_bone_map["ifp_to_fbx"]
@@ -211,7 +216,8 @@ def main() -> None:
         "source_bone_map": bone_map_output.name,
         "source_bone_count": len(source_bones),
         "target_animation_node_count": retarget_map["target_animation_node_count"],
-        "source_vertex_count": len(source_mesh.data.vertices),
+        "source_vertex_count": source_vertex_count,
+        "source_face_count": source_face_count,
         "target_vertex_count": len(preview_mesh.data.vertices),
         "ifp_file_embedded": False,
         "validation_scope": "paired_GLTF_assets_and_actual_retarget_metadata; not_SM64_runtime_or_Dynos_render_validation",
