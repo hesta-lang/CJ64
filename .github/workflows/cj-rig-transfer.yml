@@ -134,6 +134,7 @@ jobs:
           assert d["vertices_using_original_source_weights"]>0
           assert d["vertices_using_nearest_bone_fallback"]<=d["source_vertices"]*0.05
           assert d["target_animation_node_count"]==20
+          assert d["dynos_geolayout_name"]=="cj64_cj_geo"
           assert abs(d["target_height_sm64_units"]-280.0)<0.1
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
           assert any(p["path"].endswith("geo.inc.c") for p in d["actor_files"])
