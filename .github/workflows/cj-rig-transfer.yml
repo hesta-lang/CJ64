@@ -90,24 +90,6 @@ jobs:
           assert d["fast64_addon"]=="Fast64 Gart Edition"
           assert d["fast64_version"]==[2,5,3]
           assert d["target_animation_node_count"]==20
-          assert d["shoulder_weight_targets"] == {
-              "arm left shoulder 1": "Left Arm",
-              "arm left shoulder 2": "Left Arm Color",
-              "arm right shoulder 1": "Right Arm",
-              "arm right shoulder 2": "Right Arm Color",
-          }
-          assert d["deformable_shoulder_pivots"] == {"Left Arm": True, "Right Arm": True}
-          for group in ("Left Arm", "Left Arm Color", "Right Arm", "Right Arm Color"):
-              assert group in d["target_vertex_groups"], group
-          anim_nodes = {node["name"]: node for node in d["target_animation_nodes"]}
-          assert anim_nodes["Left Arm"]["use_deform"] is True
-          assert anim_nodes["Right Arm"]["use_deform"] is True
-          assert mapping["source_parent_by_bone"]["arm left shoulder 1"] == "head neck lower"
-          assert mapping["source_parent_by_bone"]["arm right shoulder 1"] == "head neck lower"
-          assert mapping["source_parent_by_bone"]["spine lower"] == "pelvis"
-          assert mapping["target_parent_animation_node"]["Left Arm"] == "Torso"
-          assert mapping["target_parent_animation_node"]["Right Arm"] == "Torso"
-          assert set(mapping["target_parent_rest_rotation_wxyz"]) == set(mapping["target_node_order"])
           assert len(d["source_cj"]["armatures"])==1
           assert len(d["source_cj"]["meshes"])>=1
           print("Inspected actual CJ and Mario/Fast64-Gart rigs")
@@ -162,6 +144,24 @@ jobs:
           assert d["vertices_using_original_source_weights"]>0
           assert d["vertices_using_nearest_bone_fallback"]<=d["source_vertices"]*0.05
           assert d["target_animation_node_count"]==20
+          assert d["shoulder_weight_targets"] == {
+              "arm left shoulder 1": "Left Arm",
+              "arm left shoulder 2": "Left Arm Color",
+              "arm right shoulder 1": "Right Arm",
+              "arm right shoulder 2": "Right Arm Color",
+          }
+          assert d["deformable_shoulder_pivots"] == {"Left Arm": True, "Right Arm": True}
+          for group in ("Left Arm", "Left Arm Color", "Right Arm", "Right Arm Color"):
+              assert group in d["target_vertex_groups"], group
+          anim_nodes = {node["name"]: node for node in d["target_animation_nodes"]}
+          assert anim_nodes["Left Arm"]["use_deform"] is True
+          assert anim_nodes["Right Arm"]["use_deform"] is True
+          assert mapping["source_parent_by_bone"]["arm left shoulder 1"] == "head neck lower"
+          assert mapping["source_parent_by_bone"]["arm right shoulder 1"] == "head neck lower"
+          assert mapping["source_parent_by_bone"]["spine lower"] == "pelvis"
+          assert mapping["target_parent_animation_node"]["Left Arm"] == "Torso"
+          assert mapping["target_parent_animation_node"]["Right Arm"] == "Torso"
+          assert set(mapping["target_parent_rest_rotation_wxyz"]) == set(mapping["target_node_order"])
           assert d["native_mario_rest_pose_preserved"] is True
           assert d["native_mario_rest_matrix_max_error"]<1e-6
           assert d["mesh_vertices_in_source_rest_pose"]==d["source_vertices"]
