@@ -40,7 +40,7 @@ jobs:
           python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" <<'PY'
           import pathlib, re, sys
           source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-          names = re.findall(r'smlua_anim_util_register_animation\\(\s*"([^"]+)"', source)
+          names = re.findall(r'smlua_anim_util_register_animation\(\s*"([^"]+)"', source)
           expected = {
               "cj64_anim_idle", "cj64_anim_walk_start", "cj64_anim_walk",
               "cj64_anim_run", "cj64_anim_sprint_candidate", "cj64_anim_run_stop",
