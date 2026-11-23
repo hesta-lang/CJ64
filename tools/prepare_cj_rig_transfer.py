@@ -411,6 +411,133 @@ def main():
             fallback_weight_vertices += 1
         groups[target_name].add([vertex.index], 1.0, "REPLACE")
 
+    # Fast64 partitions skinned triangles along the deform-bone tree. It
+    # allows vertices from one bone to meet its direct deform parent or any
+    # descendant, but not a sibling or a grandparent. Promote only boundary
+    # vertices to the nearest valid ancestor so every triangle obeys that rule.
+    deform_names = set(groups)
+    deform_parent = {}
+    for bone_name in deform_names:
+        parent_bone = target_arm.data.bones[bone_name].parent
+        while parent_bone is not None and parent_bone.name not in deform_names:
+            parent_bone = parent_bone.parent
+        deform_parent[bone_name] = parent_bone.name if parent_bone else None
+
+    def deform_ancestors(bone_name):
+        result = [bone_name]
+        while deform_parent[result[-1]] is not None:
+            result.append(deform_parent[result[-1]])
+        return result
+
+    labels = []
+    for vertex in rigged_mesh.data.vertices:
+        valid_assignments = [
+            assignment for assignment in vertex.groups if assignment.weight > 0.5
+        ]
+        require(len(valid_assignments) == 1,
+                f"Vertex {vertex.index} does not have exactly one dominant target group")
+        labels.append(rigged_mesh.vertex_groups[valid_assignments[0].group].name)
+
+    def promote_vertex_group(vertex_index, new_bone_name):
+        old_bone_name = labels[vertex_index]
+        if old_bone_name == new_bone_name:
+            return False
+        require(new_bone_name in groups,
+                f"Boundary repair selected non-deform bone {new_bone_name}")
+        groups[old_bone_name].remove([vertex_index])
+        groups[new_bone_name].add([vertex_index], 1.0, "REPLACE")
+        labels[vertex_index] = new_bone_name
+        return True
+
+    rigged_mesh.data.calc_loop_triangles()
+    triangles = [
+        tuple(loop_triangle.vertices)
+        for loop_triangle in rigged_mesh.data.loop_triangles
+    ]
+    face_weight_repairs = 0
+    face_weight_repair_passes = 0
+    for repair_pass in range(24):
+        changes_this_pass = 0
+        for triangle in triangles:
+            pairs = ((0, 1), (0, 2), (1, 2))
+            for left_pos, right_pos in pairs:
+                left_index = triangle[left_pos]
+                right_index = triangle[right_pos]
+                left_bone = labels[left_index]
+                right_bone = labels[right_index]
+                if left_bone == right_bone:
+                    continue
+                if (deform_parent[left_bone] == right_bone
+                        or deform_parent[right_bone] == left_bone):
+                    continue
+
+                left_chain = deform_ancestors(left_bone)
+                right_chain = deform_ancestors(right_bone)
+                if left_bone in right_chain:
+                    # The left bone is an ancestor, but not the direct parent.
+                    new_bone = deform_parent[right_bone]
+                    if new_bone is not None:
+                        changes_this_pass += int(
+                            promote_vertex_group(right_index, new_bone)
+                        )
+                elif right_bone in left_chain:
+                    # The right bone is an ancestor, but not the direct parent.
+                    new_bone = deform_parent[left_bone]
+                    if new_bone is not None:
+                        changes_this_pass += int(
+                            promote_vertex_group(left_index, new_bone)
+                        )
+                else:
+                    # Sibling branches cannot share a triangle. Promote both
+                    # boundary vertices to their nearest common deform ancestor.
+                    common_bone = next(
+                        (name for name in left_chain if name in right_chain),
+                        None,
+                    )
+                    if common_bone is None:
+                        common_bone = "Body" if "Body" in groups else None
+                    require(common_bone is not None,
+                            f"No common deform ancestor for {left_bone} and {right_bone}")
+                    changes_this_pass += int(
+                        promote_vertex_group(left_index, common_bone)
+                    )
+                    changes_this_pass += int(
+                        promote_vertex_group(right_index, common_bone)
+                    )
+
+        face_weight_repairs += changes_this_pass
+        face_weight_repair_passes = repair_pass + 1
+        if changes_this_pass == 0:
+            break
+
+    incompatible_face_pairs = []
+    for triangle in triangles:
+        triangle_groups = [labels[index] for index in triangle]
+        for left_pos, right_pos in ((0, 1), (0, 2), (1, 2)):
+            left_bone = triangle_groups[left_pos]
+            right_bone = triangle_groups[right_pos]
+            if left_bone == right_bone:
+                continue
+            if deform_parent[left_bone] == right_bone or deform_parent[right_bone] == left_bone:
+                continue
+            left_chain = deform_ancestors(left_bone)
+            right_chain = deform_ancestors(right_bone)
+            if left_bone in right_chain or right_bone in left_chain:
+                continue
+            incompatible_face_pairs.append((left_bone, right_bone))
+            if len(incompatible_face_pairs) >= 8:
+                break
+        if len(incompatible_face_pairs) >= 8:
+            break
+    require(not incompatible_face_pairs,
+            "Fast64 face-weight boundaries remain incompatible: "
+            + str(incompatible_face_pairs))
+    used_deform_groups = sorted(set(labels))
+    checkpoint(
+        f"fast64-face-weights-repaired-{face_weight_repairs}-changes-"
+        f"{face_weight_repair_passes}-passes-{len(used_deform_groups)}-active-bones"
+    )
+
     # Keep the new mesh disconnected from the armature while its animation
     # node map is read. The Armature modifier and parent link are added only
     # after Fast64 has traversed the copied Mario rig.
