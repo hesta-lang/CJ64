@@ -1,5 +1,6 @@
--- CJ64: replace only Mario's rendered model with the CS 20-node CJ actor,
--- then optionally apply calibrated GTA San Andreas animation clips.
+-- CJ64: replace only Mario's rendered model with the CS DynOS CJ actor.
+-- Experimental GTA clips remain disabled until the CS node order and rest pose
+-- are verified against the target animation skeleton.
 -- MarioState, marioObj, movement, collision, camera and physics remain native.
 
 CJ64 = CJ64 or {}
@@ -124,9 +125,11 @@ local function choose_transition_role(m, loopRole, anim)
 end
 
 function state.apply_animation(m)
-    -- The old rigged_actor.lua gate belonged to the failed FBX transfer.
-    -- The CS binary already has the same 20 animated-part slots as these tables.
-    if not state.ready or CJ64.animationTablesLoaded ~= true then
+    -- A matching animated-part count is not proof of matching node order,
+    -- hierarchy or rest pose. Keep GTA playback off until those are verified.
+    if CJ64.useGTAAnimations ~= true
+        or not state.ready
+        or CJ64.animationTablesLoaded ~= true then
         state.animationReady = false
         return
     end
