@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Package CJ64 as a DynOS pack plus a separate Lua model-replacement mod.
+"""Embed the generated CJ actor source into the Lua mod and build its install ZIP.
 
-SM64CoopDX generates the actor .bin when it scans dynos/packs at startup.
-This preflight validates the exact source tree and creates an install archive
-with the two folders at their required user-data paths.
+SM64CoopDX scans each mod's actors/ directory, generates its actor binary there,
+and registers that binary as a custom actor owned by the same mod. This script
+validates the source tree and creates a single-folder mod installation archive.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def add_tree(zf: zipfile.ZipFile, root: Path, archive_prefix: str) -> None:
 def main() -> None:
     if len(sys.argv) not in (4, 5):
         raise SystemExit(
-            "usage: fix_cj_dynos_texture_paths.py <lua_mod_root> <dynos_pack_root> "
+            "usage: fix_cj_dynos_texture_paths.py <lua_mod_root> <actor_source_root> "
             "<output_dir> [report_name]"
         )
 
@@ -49,8 +49,8 @@ def main() -> None:
     expected_geo_name = "mario_geo"
 
     require(mod_root.is_dir(), f"Lua mod folder not found: {mod_root}")
-    require(pack_root.is_dir(), f"DynOS pack folder not found: {pack_root}")
-    require(pack_name == "CJ64", f"DynOS pack folder must be named CJ64, got {pack_name}")
+    require(pack_root.is_dir(), f"Actor source staging folder not found: {pack_root}")
+    require(pack_name == "CJ64", f"Actor source staging folder must be named CJ64, got {pack_name}")
     require(actor_dir.is_dir(), f"DynOS actor source folder not found: {actor_dir}")
     for path in (model_file, geo_file, header_file, report_file):
         require(path.is_file(), f"Missing required file: {path}")
@@ -68,7 +68,7 @@ def main() -> None:
         path.rename(target)
         renamed[path.name] = target.name
 
-    # DynOS resolves texture includes from the pack root. Fast64 therefore
+    # The actor-source compiler resolves texture includes from its actor root. Fast64 therefore
     # emits Assets/<texture>.inc.c for this pack layout.
     source = model_file.read_text(encoding="utf-8")
     include_pattern = re.compile(r'(?m)(#include\s+")([^"\r\n]+)(")')
