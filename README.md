@@ -4,48 +4,40 @@
 
 CJ64 replaces Mario's rendered model while keeping MarioState, movement, collision, camera, actions and physics native.
 
-## Current model
+## Model
 
 The active source files are stored in `actors/cj/`:
 
-- `mario_geo.bin`: normal CJ actor, intended to be registered inside the mod as `mario_geo`.
+- `mario_geo.bin`: normal CJ actor, registered inside the mod as `mario_geo`.
 - `mario_wingcap_geo.bin`: separate wingcap/Jetpack accessory; it is not attached and has no flight or fuel behaviour yet.
 - `[CS] Carl Johnson.zip`: original Character Select actor archive.
 
-The compiled CS actor contains 20 `GEO_ANIMATED_PART` nodes. **Only the node count is known. Its node order, hierarchy and rest rotations have not been proven to match the Fast64/Mario animation map.** A matching count is not sufficient to reuse animation tables.
+The model has now been tested in-game by the project owner with SM64CoopDX's native Mario animations and appears normal. Model geometry, scale and orientation are therefore not being changed as part of the current animation correction.
 
-## Size
+The scale workflow sets root `GEO_SCALE` to `0.39`, approximately 1.5 times the source actor's previous root scale. Its absolute in-game height has not been measured, so 280 SM64 units is not yet verified.
 
-The scale workflow sets the root `GEO_SCALE` to `0.39`, approximately 1.5 times the source actor's previous root scale. The resulting in-game height has not been measured, so this is **not a verified 280-unit model**. The binary has not been given a speculative global 90-degree rotation.
+## Animation correction
 
-## Animations
+The custom GTA San Andreas clips previously applied their generated rest-pose rotations directly to the CS model. That caused the body and limbs to inherit large static offsets, including a roughly 90-degree root Z rotation in the idle source.
 
-The custom GTA San Andreas clips are **disabled by default** in version `0.1.3-alpha`.
+The compiled CS actor's animated-part traversal order has been inspected against the Fast64/Mario mapping: 20 animated parts and 11 display-list landmarks match. This verifies node order and part identity; it does not mean the CS actor has GTA's full skeleton or every independent source joint.
 
-The private `cj64_gta_animations.lua` file was generated from the user's `ped.ifp` against the experimental FBX/Fast64 Mario skeleton. It was not calibrated or validated against the compiled Character Select actor. The first idle sample contains a roughly 90-degree Z rotation on the `Body` channel and large `Butt` rotations; applying those values to an unverified CS node layout can produce the horizontal pose and overlapping parts shown in the in-game screenshot.
+The new `tools/normalize_cs_animation_tables.py` utility calibrates each node against the first frame of `cj64_anim_idle`:
 
-`tools/normalize_cs_animation_tables.py` removes a reference sample from each numbered channel, but it assumes the channel order already corresponds. It does not inspect or prove the CS actor's hierarchy, node order or rest basis. Its output must not be treated as a verified retarget.
+`q_relative = inverse(q_idle_first) * q_current`
 
-The current safe baseline leaves SM64CoopDX's native player animation handling in control while the CS actor is tested. The 20-node CS actor also cannot reproduce every independent track of the full GTA skeleton (such as individual fingers and toes).
+It preserves the three zeroed root translation channels, animation names, frame counts, channel indices and sample lengths. This removes the fixed idle/rest offset while retaining motion relative to the neutral reference.
 
-## Test package
+The private experimental package `0.1.4-alpha` contains 13 calibrated clips and enables them only after the module loads successfully. The derived animation Lua tables and user-supplied `ped.ifp` are not committed to this public repository.
 
-The [Build CJ64 CS baseline test package](.github/workflows/build-cj64-cs-baseline.yml) workflow creates a self-contained install ZIP with this structure:
+**Runtime status:** the converter and neutral-pose structure pass automated checks, but the GTA clips still need to be tested in-game on Android. This is an experimental best-fit retarget, not a verified final animation release.
 
-```
-mods/CJ64-CS-Baseline/
-  main.lua
-  character.lua
-  actors/
-    mario_geo.bin
-```
+## Limits
 
-Install only the generated `CJ64-CS-Baseline` folder under `mods/` for this test. Disable other CJ64 test copies while checking it. This package deliberately excludes the private GTA animation table.
+The CS actor has 20 animated parts rather than GTA's full ped skeleton. Independent finger, toe, breast and belly tracks cannot be reproduced one-to-one with this model. `sprint_civi` is a generic civilian sprint candidate, not confirmed as a CJ-exclusive clip.
 
-## Validation status
+## Validation
 
-- [Scale CS CJ DynOS actors](.github/workflows/scale-cs-cj-actor.yml) validates the binary structure and requested scale.
-- [Build CJ64 CS baseline test package](.github/workflows/build-cj64-cs-baseline.yml) checks Lua syntax, actor structure and ZIP paths.
-- [CJ rigged actor export](.github/workflows/cj-rig-transfer.yml) remains the separate FBX/Fast64 experiment; it does not prove the CS binary's animation compatibility.
+The [CJ64 CS baseline workflow](.github/workflows/build-cj64-cs-baseline.yml) runs the animation calibration regression tests, checks the CS animated-part traversal and landmarks, validates Lua syntax and the DynOS actor, and builds the native-animation baseline package. A green workflow proves these structural checks; it does not replace the Android animation test.
 
-A green workflow proves structural checks only. The model's upright orientation and appearance still require an Android in-game test. GTA animation playback must remain disabled until the CS hierarchy and rest pose are inspected and matching animation previews are checked.
+The [CS animation node inspection workflow](.github/workflows/inspect-cs-animation-node-order.yml) also publishes the traversal-order report.
