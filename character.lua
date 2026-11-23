@@ -4,7 +4,7 @@
 
 CJ64 = CJ64 or {}
 CJ64.character = CJ64.character or {
-    modelName = "cj_geo",
+    modelName = "cj64_cj_geo",
     modelId = nil,
     ready = false,
     animationReady = false,
@@ -28,7 +28,7 @@ function state.try_register(force)
         state.retryFrames = state.retryFrames - 1
         return false
     end
-    state.retryFrames = 60
+    state.retryFrames = 300
 
     if type(smlua_model_util_get_id) ~= "function" then
         if not state.warnedApi then
