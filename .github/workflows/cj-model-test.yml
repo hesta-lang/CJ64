@@ -139,7 +139,8 @@ jobs:
           assert any(x["path"].endswith("geo.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith("model.inc.c") for x in report["actor_files"])
           assert any(x["path"].endswith(".png") for x in report["actor_files"])
-          assert len(report["dynos_texture_includes"]) >= 4
+          textures = [item["path"] for item in report["actor_files"] if item["path"].endswith(".png")]
+          assert len(textures) >= 4, textures
           assert report["back_blender_preview"]["path"] == "CJ64-3.6-Back-Preview.png"
           islands = report["texture_uv_islands"]
           assert islands["generated_material_count"] > 4, islands
@@ -180,7 +181,7 @@ jobs:
           assert report["generated_solid_fallback_materials"] == [], report["generated_solid_fallback_materials"]
           with zipfile.ZipFile(sys.argv[2]) as archive:
               members = set(archive.namelist())
-              for texture in report["dynos_texture_includes"]:
+              for texture in textures:
                   assert f"CJ64-Model-Test/{texture}" in members, texture
               texture_paths = [p for p in members if p.startswith("CJ64-Model-Test/actors/cj/") and p.endswith(".png")]
               assert len(texture_paths) >= 4, texture_paths
