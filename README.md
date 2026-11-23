@@ -1,62 +1,41 @@
 # CJ64
 
-**Carl Johnson character replacement for SM64CoopDX.**
+**Carl Johnson character replacement for SM64CoopDX, using the original Character Select DynOS actor.**
 
-CJ64 replaces Mario's visible character model with a rigged Carl Johnson model from GTA: San Andreas. It keeps the existing Mario player object, movement, physics, collision, camera, actions and interactions.
+CJ64 replaces only Mario's rendered model. MarioState, the existing marioObj, movement, collision, camera, actions and physics remain native.
 
-## Model integration
+## Current model
 
-The rigged actor and its textures are shipped **inside the CJ64 mod**:
+The active actor files are stored in `actors/cj/`:
 
+- `mario_geo.bin`: normal CJ model. Its filename registers it as `mario_geo`, which CJ64 requests from SM64CoopDX.
+- `mario_wingcap_geo.bin`: separate CJ wingcap/jetpack accessory. It is preserved for the upcoming Jetpack implementation; it is not yet attached to CJ and does not provide flight, fuel or thrust behaviour.
+- `[CS] Carl Johnson.zip`: original Character Select archive retained as the source reference.
+
+The normal actor contains 20 `GEO_ANIMATED_PART` nodes in the same order used by the controller and the calibrated animation tables. The binary uses the existing Mario-compatible GeoLayout function hooks. No separate/global DynOS pack is needed; place the mod's actor files under its own `actors/` folder.
+
+## Size
+
+The scaling workflow changes the root `GEO_SCALE` to `0.39` (about 1.5× the original normal actor scale). The wingcap/Jetpack accessory is scaled to the same root value. This is an initial increase for an in-game size check, **not a verified 280-unit measurement**. We do not apply a global 90-degree rotation: the Mario-compatible skeleton already uses its native local coordinate convention.
+
+## Animations
+
+The previous animation tables were generated for the experimental FBX/Fast64 rig. The private replacement module is recalibrated against the CS actor's first `IDLE_stance` sample, per animated node, to remove static orientation offsets before preserving relative motion.
+
+The generated animation module is not committed because it contains keyframes derived from the user's `ped.ifp`. Use `tools/normalize_cs_animation_tables.py` to recalibrate a private generated Lua table:
+
+```sh
+python tools/normalize_cs_animation_tables.py cj64_gta_animations.lua --output cj64_gta_animations_cs.lua
 ```
-mods/
-└── CJ64-Rigged-Test/
-    ├── main.lua
-    ├── character.lua
-    ├── rigged_actor.lua
-    └── actors/
-        └── Assets/
-            ├── geo.inc.c
-            ├── geo_header.h
-            ├── model.inc.c
-            └── texture PNG files
-```
 
-SM64CoopDX scans each mod's `actors/` directory at startup. It compiles the actor sources into `actors/mario_geo.bin` inside that same mod and registers the binary as a mod-owned custom actor. CJ64 then requests the actor by the GeoLayout name `mario_geo`.
+The CS model has 20 animated parts, not the full GTA skeleton. Individual finger, toe, breast and belly tracks cannot be ported one-to-one onto this model. A genuinely full-fidelity port requires a model with the complete GTA skeleton and matching skinned geometry, or a rebuilt GeoLayout with corresponding bones and vertex weights. The current 13 clips are experimental and still require visual/in-game validation.
 
-This uses the engine's DynOS actor compiler internally, but **does not require a separate/global DynOS pack**. Do not copy anything to `dynos/packs/`; install only the CJ64 mod folder.
+## Workflow and validation
 
-The model is targeted at 280 SM64 units. The rig-transfer validation reported 1,630 weighted vertices, one deform influence per vertex, zero invalid weights, a 20-node Mario-compatible armature, and a preserved native Mario rest pose. These are export checks, not proof of correct appearance or animation in-game.
+- [Scale CS CJ DynOS actors](.github/workflows/scale-cs-cj-actor.yml) applies the model scale and verifies the DynOS binary structure.
+- [CJ rigged actor export](.github/workflows/cj-rig-transfer.yml) is the legacy FBX/Fast64 experiment and is not the current source of the active CS actor.
+- `tools/scale_cs_cj_actor.py` changes only the root scale command and checks the 20 animated-part count.
+- `tools/normalize_cs_animation_tables.py` recalibrates a private animation module for the 20-node CS actor.
 
-## Installation
+Passing a structural workflow does not prove that the character looks correct on Android or that every animation is faithful. That still requires testing inside SM64CoopDX.
 
-1. Close SM64CoopDX.
-2. Remove the older standalone `dynos/packs/CJ64` folder if a previous build installed it.
-3. Extract `CJ64-Install-Package.zip`.
-4. Copy only `mods/CJ64-Rigged-Test` into the game's `mods/` directory.
-5. Start SM64CoopDX and enable **CJ64-Rigged-Test** in the Mods menu.
-
-On startup the game generates `mods/CJ64-Rigged-Test/actors/mario_geo.bin` from the embedded source files. The generated `.bin` is not shipped in the ZIP, so stale actor binaries are not reused.
-
-## GTA: San Andreas animations
-
-The model uses the native 20-node Mario-compatible armature so SM64CoopDX can deform the mesh. Original GTA animation clips require converted animation tables generated from the supplied `ped.ifp`. Those tables are kept out of the public repository because they are derived from the commercial game's animation file; the public workflow validates the rig and model export, not the private clip data.
-
-The experimental converted clips have not been visually approved or confirmed in-game. Native Mario physics remain authoritative, and any animation retargeting must not move the player root independently of MarioState.
-
-## Build and validation
-
-The [CJ rig transfer workflow](.github/workflows/cj-rig-transfer.yml) imports the source FBX into the SM64CoopDX Mario template, transfers skin weights, exports the Fast64-Gart actor, embeds its sources and textures under the mod's `actors/` directory, and validates the install ZIP.
-
-The CI checks confirm packaging structure, texture references, GeoLayout name and scale, model weights, skeleton and Lua syntax. They cannot confirm Android runtime rendering, skin deformation or animation quality; that still requires an in-game test.
-
-## Source and credits
-
-The Carl Johnson source model is by Tsaphnat (Tsaphnat Mbuyi), Sketchfab, CC BY 4.0. See [assets/cj/source/README.md](assets/cj/source/README.md).
-
-## Repository tools
-
-- `tools/inspect_cj_mario_rigs.py` — inspects the source and target armatures.
-- `tools/prepare_cj_rig_transfer.py` — transfers the CJ skin to the Mario-compatible armature and exports the actor source.
-- `tools/fix_cj_dynos_texture_paths.py` — normalizes texture paths and embeds the actor under the mod's `actors/` folder.
-- `tools/ifp_reader.py` and `tools/generate_cj_sm64_animations.py` — parse and retarget owner-provided GTA animation data.
