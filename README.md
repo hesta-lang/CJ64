@@ -12,32 +12,30 @@ The active source files are stored in `actors/cj/`:
 - `mario_wingcap_geo.bin`: separate wingcap/Jetpack accessory; it is not attached and has no flight or fuel behaviour yet.
 - `[CS] Carl Johnson.zip`: original Character Select actor archive.
 
-The model has now been tested in-game by the project owner with SM64CoopDX's native Mario animations and appears normal. Model geometry, scale and orientation are therefore not being changed as part of the current animation correction.
+The project owner has confirmed that this model appears normally in-game with native Mario animations. The animation correction does not modify its mesh or scale.
 
 The scale workflow sets root `GEO_SCALE` to `0.39`, approximately 1.5 times the source actor's previous root scale. Its absolute in-game height has not been measured, so 280 SM64 units is not yet verified.
 
-## Animation correction
+## GTA animation pipeline
 
-The custom GTA San Andreas clips previously applied their generated rest-pose rotations directly to the CS model. That caused the body and limbs to inherit large static offsets, including a roughly 90-degree root Z rotation in the idle source.
-
-The compiled CS actor's animated-part traversal order has been inspected against the Fast64/Mario mapping: 20 animated parts and 11 display-list landmarks match. This verifies node order and part identity; it does not mean the CS actor has GTA's full skeleton or every independent source joint.
-
-The new `tools/normalize_cs_animation_tables.py` utility calibrates each node against the first frame of `cj64_anim_idle`:
+The user-supplied GTA San Andreas `ped.ifp` was converted into 13 candidate clips for the actor's 20 animated-part nodes. Their neutral-pose offsets were calibrated relative to the first frame of `cj64_anim_idle`:
 
 `q_relative = inverse(q_idle_first) * q_current`
 
-It preserves the three zeroed root translation channels, animation names, frame counts, channel indices and sample lengths. This removes the fixed idle/rest offset while retaining motion relative to the neutral reference.
+The converter preserves the three zeroed root translation channels, clip names, frame counts, channel indices and sample lengths. This is a best-fit retarget, not a one-to-one recreation of GTA's complete ped skeleton.
 
-The private experimental package `0.1.4-alpha` contains 13 calibrated clips and enables them only after the module loads successfully. The derived animation Lua tables and user-supplied `ped.ifp` are not committed to this public repository.
+### Runtime selection correction — 0.1.5-alpha
 
-**Runtime status:** the converter and neutral-pose structure pass automated checks, but the GTA clips still need to be tested in-game on Android. This is an experimental best-fit retarget, not a verified final animation release.
+The earlier controller selected a GTA clip only when its semantic role changed. SM64CoopDX calls `HOOK_MARIO_UPDATE` at the end of a Mario update, after native action code has chosen an animation. If the native animation ID changed while CJ's mapped GTA role stayed the same, the current animation pointer could be replaced by a Mario clip without the controller noticing.
 
-## Limits
+The 0.1.5-alpha controller checks `smlua_anim_util_get_current_animation_name` against the expected GTA clip on each Mario update. It restores the GTA clip only when the current clip differs, then verifies the selected name. It does not call the setter again while the expected GTA clip is already active, avoiding unnecessary frame resets.
 
-The CS actor has 20 animated parts rather than GTA's full ped skeleton. Independent finger, toe, breast and belly tracks cannot be reproduced one-to-one with this model. `sprint_civi` is a generic civilian sprint candidate, not confirmed as a CJ-exclusive clip.
+The regression test `tests/test_animation_hook.lua` simulates the native animation replacing the GTA fall clip, verifies that CJ64 restores the GTA clip, confirms that an already-active GTA clip is not reset, and checks role changes to idle.
 
-## Validation
+## Limits and validation
 
-The [CJ64 CS baseline workflow](.github/workflows/build-cj64-cs-baseline.yml) runs the animation calibration regression tests, checks the CS animated-part traversal and landmarks, validates Lua syntax and the DynOS actor, and builds the native-animation baseline package. A green workflow proves these structural checks; it does not replace the Android animation test.
+The CS actor has 20 animated parts rather than GTA's full ped skeleton. Independent finger, toe, breast and belly tracks cannot be reproduced one-to-one. `sprint_civi` is a generic civilian sprint candidate, not confirmed as a CJ-exclusive clip.
 
-The [CS animation node inspection workflow](.github/workflows/inspect-cs-animation-node-order.yml) also publishes the traversal-order report.
+The converter and runtime-selection logic pass automated checks. **The 13 clips still need visual validation inside SM64CoopDX on Android.** A green workflow does not prove that every GTA pose is correct in the game.
+
+The [CJ64 CS baseline workflow](.github/workflows/build-cj64-cs-baseline.yml) runs animation calibration tests, the runtime override regression test, CS animated-part order/landmark validation, Lua syntax checks and DynOS actor structure checks. The [CS animation node inspection workflow](.github/workflows/inspect-cs-animation-node-order.yml) publishes the traversal-order report.
