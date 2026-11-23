@@ -1,5 +1,5 @@
 # Manual rerun requested for the current CS baseline package.
-name: Build CJ64 CS baseline test package
+name: Build CJ64 Character Select actor baseline
 
 on:
   workflow_dispatch:
@@ -117,7 +117,7 @@ jobs:
           cp main.lua character.lua "$MOD/"
           cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
           cat > "$MOD/README-INSTALL.txt" <<'EOF'
-          CJ64 CS BASELINE - 0.1.3-alpha
+          CJ64 CS BASELINE - 0.1.8-alpha
 
           Install this folder under the SM64CoopDX mods/ directory.
           The installed path must be:
@@ -144,7 +144,7 @@ jobs:
           import zipfile
           import sys
           source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path("CJ64-CS-Baseline-0.1.3-alpha.zip")
+          output = pathlib.Path("CJ64-CS-Baseline-0.1.8-alpha.zip")
           prefix = "mods/CJ64-CS-Baseline"
           expected = {
               f"{prefix}/main.lua",
@@ -168,7 +168,7 @@ jobs:
       - name: Upload baseline test package
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-CS-Baseline-0.1.3-alpha
-          path: CJ64-CS-Baseline-0.1.3-alpha.zip
+          name: CJ64-CS-Baseline-0.1.8-alpha
+          path: CJ64-CS-Baseline-0.1.8-alpha.zip
           if-no-files-found: error
           retention-days: 14
