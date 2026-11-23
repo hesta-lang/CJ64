@@ -1,41 +1,51 @@
 # CJ64
 
-**Carl Johnson character replacement for SM64CoopDX, using the original Character Select DynOS actor.**
+**Carl Johnson character replacement for SM64CoopDX, using the Character Select DynOS actor.**
 
-CJ64 replaces only Mario's rendered model. MarioState, the existing marioObj, movement, collision, camera, actions and physics remain native.
+CJ64 replaces Mario's rendered model while keeping MarioState, movement, collision, camera, actions and physics native.
 
 ## Current model
 
-The active actor files are stored in `actors/cj/`:
+The active source files are stored in `actors/cj/`:
 
-- `mario_geo.bin`: normal CJ model. Its filename registers it as `mario_geo`, which CJ64 requests from SM64CoopDX.
-- `mario_wingcap_geo.bin`: separate CJ wingcap/jetpack accessory. It is preserved for the upcoming Jetpack implementation; it is not yet attached to CJ and does not provide flight, fuel or thrust behaviour.
-- `[CS] Carl Johnson.zip`: original Character Select archive retained as the source reference.
+- `mario_geo.bin`: normal CJ actor, intended to be registered inside the mod as `mario_geo`.
+- `mario_wingcap_geo.bin`: separate wingcap/Jetpack accessory; it is not attached and has no flight or fuel behaviour yet.
+- `[CS] Carl Johnson.zip`: original Character Select actor archive.
 
-The normal actor contains 20 `GEO_ANIMATED_PART` nodes in the same order used by the controller and the calibrated animation tables. The binary uses the existing Mario-compatible GeoLayout function hooks. No separate/global DynOS pack is needed; place the mod's actor files under its own `actors/` folder.
+The compiled CS actor contains 20 `GEO_ANIMATED_PART` nodes. **Only the node count is known. Its node order, hierarchy and rest rotations have not been proven to match the Fast64/Mario animation map.** A matching count is not sufficient to reuse animation tables.
 
 ## Size
 
-The scaling workflow changes the root `GEO_SCALE` to `0.39` (about 1.5× the original normal actor scale). The wingcap/Jetpack accessory is scaled to the same root value. This is an initial increase for an in-game size check, **not a verified 280-unit measurement**. We do not apply a global 90-degree rotation: the Mario-compatible skeleton already uses its native local coordinate convention.
+The scale workflow sets the root `GEO_SCALE` to `0.39`, approximately 1.5 times the source actor's previous root scale. The resulting in-game height has not been measured, so this is **not a verified 280-unit model**. The binary has not been given a speculative global 90-degree rotation.
 
 ## Animations
 
-The previous animation tables were generated for the experimental FBX/Fast64 rig. The private replacement module is recalibrated against the CS actor's first `IDLE_stance` sample, per animated node, to remove static orientation offsets before preserving relative motion.
+The custom GTA San Andreas clips are **disabled by default** in version `0.1.3-alpha`.
 
-The generated animation module is not committed because it contains keyframes derived from the user's `ped.ifp`. Use `tools/normalize_cs_animation_tables.py` to recalibrate a private generated Lua table:
+The private `cj64_gta_animations.lua` file was generated from the user's `ped.ifp` against the experimental FBX/Fast64 Mario skeleton. It was not calibrated or validated against the compiled Character Select actor. The first idle sample contains a roughly 90-degree Z rotation on the `Body` channel and large `Butt` rotations; applying those values to an unverified CS node layout can produce the horizontal pose and overlapping parts shown in the in-game screenshot.
 
-```sh
-python tools/normalize_cs_animation_tables.py cj64_gta_animations.lua --output cj64_gta_animations_cs.lua
+`tools/normalize_cs_animation_tables.py` removes a reference sample from each numbered channel, but it assumes the channel order already corresponds. It does not inspect or prove the CS actor's hierarchy, node order or rest basis. Its output must not be treated as a verified retarget.
+
+The current safe baseline leaves SM64CoopDX's native player animation handling in control while the CS actor is tested. The 20-node CS actor also cannot reproduce every independent track of the full GTA skeleton (such as individual fingers and toes).
+
+## Test package
+
+The [Build CJ64 CS baseline test package](.github/workflows/build-cj64-cs-baseline.yml) workflow creates a self-contained install ZIP with this structure:
+
+```
+mods/CJ64-CS-Baseline/
+  main.lua
+  character.lua
+  actors/
+    mario_geo.bin
 ```
 
-The CS model has 20 animated parts, not the full GTA skeleton. Individual finger, toe, breast and belly tracks cannot be ported one-to-one onto this model. A genuinely full-fidelity port requires a model with the complete GTA skeleton and matching skinned geometry, or a rebuilt GeoLayout with corresponding bones and vertex weights. The current 13 clips are experimental and still require visual/in-game validation.
+Install only the generated `CJ64-CS-Baseline` folder under `mods/` for this test. Disable other CJ64 test copies while checking it. This package deliberately excludes the private GTA animation table.
 
-## Workflow and validation
+## Validation status
 
-- [Scale CS CJ DynOS actors](.github/workflows/scale-cs-cj-actor.yml) applies the model scale and verifies the DynOS binary structure.
-- [CJ rigged actor export](.github/workflows/cj-rig-transfer.yml) is the legacy FBX/Fast64 experiment and is not the current source of the active CS actor.
-- `tools/scale_cs_cj_actor.py` changes only the root scale command and checks the 20 animated-part count.
-- `tools/normalize_cs_animation_tables.py` recalibrates a private animation module for the 20-node CS actor.
+- [Scale CS CJ DynOS actors](.github/workflows/scale-cs-cj-actor.yml) validates the binary structure and requested scale.
+- [Build CJ64 CS baseline test package](.github/workflows/build-cj64-cs-baseline.yml) checks Lua syntax, actor structure and ZIP paths.
+- [CJ rigged actor export](.github/workflows/cj-rig-transfer.yml) remains the separate FBX/Fast64 experiment; it does not prove the CS binary's animation compatibility.
 
-Passing a structural workflow does not prove that the character looks correct on Android or that every animation is faithful. That still requires testing inside SM64CoopDX.
-
+A green workflow proves structural checks only. The model's upright orientation and appearance still require an Android in-game test. GTA animation playback must remain disabled until the CS hierarchy and rest pose are inspected and matching animation previews are checked.
