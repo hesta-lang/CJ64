@@ -1,36 +1,29 @@
--- CJ64 - self-contained Carl Johnson visual replacement for SM64CoopDX
--- 0.1.0-alpha
+-- CJ64 - CS DynOS model port for SM64CoopDX
 CJ64 = CJ64 or {}
 CJ64.name = "CJ64"
-CJ64.version = "0.1.1-alpha"
-CJ64.riggedActor = CJ64.riggedActor == true
-CJ64.animationTablesLoaded = CJ64.animationTablesLoaded == true
+CJ64.version = "0.1.2-alpha"
+CJ64.csActor = true
+CJ64.animationTablesLoaded = false
 
--- This marker enables GTA animation playback for the embedded skinned actor.
-local rigOk = pcall(require, "rigged_actor")
-if not rigOk and CJ64.riggedActor ~= true then
-    CJ64.riggedActor = false
-end
-
--- This module is kept private because its keyframes are derived from the
--- user's GTA San Andreas ped.ifp file.
-local animationOk = pcall(require, "cj64_gta_animations")
-if type(CJ64_GTA_ANIMATIONS) == "table" then
+-- The GTA animation table is private because its keyframes are derived from
+-- the user's ped.ifp file. Its 20 channels are calibrated for the CS actor.
+local animationOk, animationError = pcall(require, "cj64_gta_animations")
+if type(CJ64_GTA_ANIMATIONS) == "table"
+    and type(CJ64_GTA_ANIMATIONS.set_for_role) == "function" then
     CJ64.animationTablesLoaded = true
+elseif not animationOk then
+    print("[CJ64] GTA animation module unavailable: " .. tostring(animationError))
 end
 
--- The entry point must explicitly load the controller; SM64CoopDX does not
--- automatically execute every sibling Lua file in the mod directory.
+-- SM64CoopDX does not automatically execute every sibling Lua file.
 local characterOk, characterError = pcall(require, "character")
 if not characterOk then
     print("[CJ64] ERROR loading character controller: " .. tostring(characterError))
 end
 
 print("[CJ64] " .. CJ64.name .. " " .. CJ64.version .. " loaded.")
-if not CJ64.riggedActor then
-    print("[CJ64] WARNING: rigged_actor.lua did not load; GTA animation playback is disabled.")
-elseif not CJ64.animationTablesLoaded then
-    print("[CJ64] WARNING: cj64_gta_animations.lua did not load; using native Mario animations.")
+if CJ64.animationTablesLoaded then
+    print("[CJ64] CS 20-node actor and calibrated GTA animation tables loaded.")
 else
-    print("[CJ64] Rigged CJ model and GTA San Andreas animation tables loaded.")
+    print("[CJ64] GTA animation tables unavailable; SM64CoopDX animations remain active.")
 end
