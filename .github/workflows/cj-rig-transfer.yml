@@ -144,7 +144,7 @@ jobs:
           assert d["target_animation_node_count"]==20
           assert d["native_mario_rest_pose_preserved"] is True
           assert d["native_mario_rest_matrix_max_error"]<1e-6
-          assert d["bind_pose_retargeted_vertices"]==d["source_vertices"]
+          assert d["mesh_vertices_in_source_rest_pose"]==d["source_vertices"]
           assert d["dynos_geolayout_name"]=="mario_geo"
           assert d["dynos_pack_name"]=="CJ64"
           assert d["dynos_pack_install_path"]=="dynos/packs/CJ64"
