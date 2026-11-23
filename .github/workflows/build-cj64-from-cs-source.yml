@@ -1,0 +1,75 @@
+name: Build CJ64 pack from Character Select source
+
+on:
+  push:
+    paths:
+      - 'actors/cj/**'
+      - 'character.lua'
+      - '.github/workflows/build-cj64-from-cs-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Convert original Character Select archive into standalone DynOS pack
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib, zipfile
+          source = pathlib.Path("actors/cj/[CS] Carl Johnson.zip")
+          output = pathlib.Path("CJ64-CS-Mario-Dynos-Pack.zip")
+          required = {
+              "[CS] Carl Johnson/actors/cj_geo.bin",
+              "[CS] Carl Johnson/actors/cj_capnormal_geo.bin",
+              "[CS] Carl Johnson/actors/cj_metalcap_geo.bin",
+              "[CS] Carl Johnson/actors/cj_wingcap_geo.bin",
+          }
+          with zipfile.ZipFile(source) as src:
+              names = set(src.namelist())
+              missing = required - names
+              if missing:
+                  raise SystemExit("Missing source models: " + ", ".join(sorted(missing)))
+              with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as dst:
+                  readme = """CJ64 standalone DynOS model pack
+          Source: [CS] Carl Johnson by MrMarco1003, included in the repository as the original source archive.
+          
+          Install the CJ64 folder into dynos/packs/ so the model is at:
+          dynos/packs/CJ64/actors/cj_geo.bin
+          
+          The CJ64 Lua controller requests the model ID cj_geo. This pack contains the original
+          Mario-compatible DynOS model and its cap variants. It does not contain Character Select's
+          main.lua, Character Select registration hooks, health-meter UI, or custom voice hooks.
+          """
+                  dst.writestr("CJ64/README.txt", readme)
+                  for member in sorted(required):
+                      filename = pathlib.PurePosixPath(member).name
+                      dst.writestr("CJ64/actors/" + filename, src.read(member))
+          with zipfile.ZipFile(output) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit("Output ZIP failed integrity check: " + bad)
+              expected = {
+                  "CJ64/README.txt",
+                  "CJ64/actors/cj_geo.bin",
+                  "CJ64/actors/cj_capnormal_geo.bin",
+                  "CJ64/actors/cj_metalcap_geo.bin",
+                  "CJ64/actors/cj_wingcap_geo.bin",
+              }
+              if set(z.namelist()) != expected:
+                  raise SystemExit("Unexpected output pack contents: " + repr(z.namelist()))
+              for name in sorted(expected):
+                  info = z.getinfo(name)
+                  print(f"{name}: {info.file_size} bytes")
+          print(f"Created {output} ({output.stat().st_size} bytes)")
+          PY
+      - name: Upload standalone DynOS pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-CS-Mario-Dynos-Pack
+          path: CJ64-CS-Mario-Dynos-Pack.zip
+          if-no-files-found: error
