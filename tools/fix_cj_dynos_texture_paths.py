@@ -210,6 +210,7 @@ def main() -> None:
     report["dynos_geolayout_name"] = expected_geo_name
     report["dynos_pack_name"] = None
     report["dynos_pack_install_path"] = None
+    report["dynos_pack_actor_folder"] = None
     report["dynos_actor_install_path"] = "mods/CJ64-Rigged-Test/actors"
     report["dynos_binary_generation"] = "SM64CoopDX DynOS_Gfx_GenerateModPacks generates actors/mario_geo.bin inside this mod at startup"
     report["actor_is_embedded_in_mod"] = True
