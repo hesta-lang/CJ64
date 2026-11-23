@@ -157,6 +157,7 @@ def main():
     # The official CoopDX Makefile sets GRUCODE=f3dex2e by default. The Mario
     # authoring template sets the Fast64 scene to classic F3D (16 vertices),
     # which incorrectly limits skinned parent buffers to 14 entries.
+    bpy.context.scene.gameEditorMode = "SM64"
     bpy.context.scene.f3d_type = "F3DEX2E"
     from fast64.fast64_internal.f3d.f3d_gbi import get_F3D_GBI
     target_gbi = get_F3D_GBI()
@@ -1015,6 +1016,16 @@ def main():
     actor_root.mkdir(parents=True, exist_ok=True)
     scene = bpy.context.scene
     scene.gameEditorMode = "SM64"
+    # gameEditorMode's update callback restores the legacy F3D default; reset
+    # the explicit CoopDX target microcode after that callback before exporting.
+    scene.f3d_type = "F3DEX2E"
+    export_gbi = get_F3D_GBI()
+    require(
+        export_gbi.F3D_VER == target_gbi.F3D_VER
+        and export_gbi.vert_load_size == target_gbi.vert_load_size,
+        "The scene microcode changed between buffer measurement and export",
+    )
+    checkpoint(f"final-export-microcode-{export_gbi.F3D_VER}-load-{export_gbi.vert_load_size}")
     scene.fast64.sm64.export_type = "C"
     scene.fast64.sm64.blender_to_sm64_scale = 100.0
     scene.saveTextures = True
