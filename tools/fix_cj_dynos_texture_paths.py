@@ -109,10 +109,10 @@ def main() -> None:
     # These empty placeholders carry no GeoLayout arguments or geometry, so
     # remove the standalone calls while preserving the surrounding node tree.
     unsupported_custom_geo_commands_removed = len(
-        re.findall(r"(?m)^[ \\t]*CUSTOM_CMD\\s*\\(\\s*\\)\\s*;[ \\t]*(?:\\r?\\n|$)", geo_source)
+        re.findall(r"(?m)^[ \t]*CUSTOM_CMD\s*\(\s*\)\s*;[ \t]*(?:\r?\n|$)", geo_source)
     )
     geo_source = re.sub(
-        r"(?m)^[ \\t]*CUSTOM_CMD\\s*\\(\\s*\\)\\s*;[ \\t]*(?:\\r?\\n|$)",
+        r"(?m)^[ \t]*CUSTOM_CMD\s*\(\s*\)\s*;[ \t]*(?:\r?\n|$)",
         "",
         geo_source,
     )
