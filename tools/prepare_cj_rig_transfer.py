@@ -824,13 +824,19 @@ def main():
                 seen_faces.add(face_index)
                 face_labels = [labels[int(index)] for index in face.vertices]
 
-                # Descendant skinned faces are exported by their own bone and
-                # are intentionally excluded from this bone's parent buffer.
-                if any(
-                    label_name != bone_name
-                    and bone_name in deform_ancestors(label_name)[1:]
+                # Fast64 skips faces connected to any other bone on the
+                # current branch (ancestor or descendant), except for the
+                # immediate deform parent whose vertices enter this buffer.
+                # Only cross-branch/sibling groups are invalid here.
+                related_non_parent = any(
+                    label_name not in (bone_name, parent_name)
+                    and (
+                        label_name in deform_ancestors(bone_name)[1:]
+                        or bone_name in deform_ancestors(label_name)[1:]
+                    )
                     for label_name in face_labels
-                ):
+                )
+                if related_non_parent:
                     continue
 
                 unexpected = [
