@@ -507,6 +507,7 @@ def main():
     )
     checkpoint(f"tmem-uv-islands-split-{texture_islands.get('island_count', 0)}")
     import fast64.fast64_internal.f3d_material_converter as converter
+    import fast64.fast64_internal.f3d.f3d_material as f3d_material_module
     checkpoint("before-normalizing-fast64-color-attributes")
     ensure_f3d_color_attributes(rigged_mesh.data)
     color_attribute_report = {
@@ -532,6 +533,38 @@ def main():
     checkpoint("rigged-mesh-selected-for-material-conversion")
     for uv_layer in rigged_mesh.data.uv_layers:
         uv_layer.name = "UVMap"
+
+    # The Mario template already links Fast64's material library. Calling
+    # createF3DMat normally re-links the same library for every material and
+    # removes the linked source material after each copy. Reuse the existing
+    # library material instead, and assign slots directly (Col/Alpha were
+    # normalized above), avoiding duplicate library links and context operators.
+    base_f3d_material = bpy.data.materials.get("fast64_f3d_material_library_beefwashere")
+    if base_f3d_material is None:
+        checkpoint("fast64-template-material-library-not-present-linking-once")
+        f3d_material_module.link_f3d_material_library()
+        base_f3d_material = bpy.data.materials.get("fast64_f3d_material_library_beefwashere")
+    require(base_f3d_material is not None,
+            "Fast64 F3D base material is unavailable after one library link")
+    checkpoint("fast64-f3d-base-material-ready")
+
+    def create_f3d_material_from_existing_library(obj, preset="Shaded Solid", index=None):
+        material = base_f3d_material.copy()
+        material.name = "f3dlite_material"
+        converter.createScenePropertiesForMaterial(material)
+        if index is None:
+            obj.data.materials.append(material)
+            obj.active_material_index = len(obj.material_slots) - 1
+        else:
+            obj.data.materials[index] = material
+            obj.active_material_index = index
+        material.is_f3d = True
+        material.mat_ver = converter.F3D_MAT_CUR_VERSION
+        converter.update_preset_manual_v4(material, preset)
+        return material
+
+    converter.createF3DMat = create_f3d_material_from_existing_library
+    checkpoint("fast64-f3d-material-creation-patched-to-reuse-library")
 
     material_dict = {}
     checkpoint(f"before-fast64-material-conversion-{len(rigged_mesh.material_slots)}-slots")
