@@ -58,7 +58,7 @@ def main() -> None:
     # literals, including palette placeholders. Only .inc.c includes resolve
     # to PNG files; .pal entries are empty palette placeholders in DynOS.
     source = model_file.read_text(encoding="utf-8")
-    include_pattern = re.compile(r'(?m)(#include\\s+")([^"\\r\\n]+)(")')
+    include_pattern = re.compile(r'(?m)(#include\s+")([^"\r\n]+)(")')
     includes: list[str] = []
     palettes: list[str] = []
 
@@ -66,7 +66,7 @@ def main() -> None:
         original_path = match.group(2)
         if not (original_path.endswith(".inc.c") or original_path.endswith(".pal")):
             return match.group(0)
-        normalized_path = re.sub(r"\\s+", "_", original_path)
+        normalized_path = re.sub(r"\s+", "_", original_path)
         if normalized_path.endswith(".inc.c"):
             includes.append(normalized_path)
         else:
