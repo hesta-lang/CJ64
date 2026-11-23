@@ -146,6 +146,7 @@ jobs:
           assert d["dynos_pack_name"]=="CJ64"
           assert d["dynos_pack_install_path"]=="dynos/packs/CJ64"
           assert d["dynos_pack_actor_folder"]=="Assets"
+          assert d["unsupported_custom_geo_commands_remaining"]==0
           assert abs(d["target_height_sm64_units"]-280.0)<0.1
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
           assert any(p["path"]=="Assets/geo.inc.c" for p in d["actor_files"])
