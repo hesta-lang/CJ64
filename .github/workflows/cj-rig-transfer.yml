@@ -124,7 +124,7 @@ jobs:
           python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
-          assert d["status"]=="EXPORTED_TEXTURE_PATHS_NORMALIZED_NOT_TESTED_IN_GAME"
+          assert d["status"]=="DYNOS_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
           assert d["fast64_addon"]=="Fast64 Gart Edition"
           assert d["fast64_version"]==[2,5,3]
           assert d["source_vertices"]>1000
