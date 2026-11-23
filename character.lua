@@ -12,51 +12,11 @@ CJ64.character = CJ64.character or {
     applied = {},
     warnedMissing = false,
     warnedApi = false,
-    warnedPackMissing = false,
-    warnedPackApi = false,
     animationState = {},
 }
 local state = CJ64.character
 
-local function ensure_dynos_pack()
-    if type(dynos_pack_get_count) ~= "function"
-        or type(dynos_pack_get_name) ~= "function"
-        or type(dynos_pack_get_enabled) ~= "function"
-        or type(dynos_pack_set_enabled) ~= "function" then
-        if not state.warnedPackApi then
-            print("[CJ64] ERROR: DynOS pack API is unavailable.")
-            state.warnedPackApi = true
-        end
-        return false
-    end
-
-    local okCount, count = pcall(dynos_pack_get_count)
-    if not okCount or type(count) ~= "number" then
-        return false
-    end
-
-    for index = 0, count - 1 do
-        local okName, name = pcall(dynos_pack_get_name, index)
-        if okName and name == "CJ64" then
-            local okEnabled, enabled = pcall(dynos_pack_get_enabled, index)
-            if not okEnabled then return false end
-            if not enabled then
-                local okSet = pcall(dynos_pack_set_enabled, index, true)
-                if not okSet then return false end
-                print("[CJ64] Enabled DynOS pack 'CJ64'.")
-            end
-            state.warnedPackMissing = false
-            return true
-        end
-    end
-
-    if not state.warnedPackMissing then
-        print("[CJ64] DynOS pack 'CJ64' was not found. Install the CJ64 folder into dynos/packs/CJ64.")
-        state.warnedPackMissing = true
-    end
-    return false
-end
-
+-- CoopDX generates and registers this actor from the mod's own actors/ folder.
 local function valid_model_id(id)
     return type(id) == "number"
         and (E_MODEL_NONE == nil or id ~= E_MODEL_NONE)
@@ -79,14 +39,10 @@ function state.try_register(force)
         return false
     end
 
-    if not ensure_dynos_pack() then
-        return false
-    end
-
     local ok, id = pcall(smlua_model_util_get_id, state.modelName)
     if not ok or not valid_model_id(id) then
         if not state.warnedMissing then
-            print("[CJ64] Waiting for DynOS GeoLayout '" .. state.modelName .. "' in pack CJ64.")
+            print("[CJ64] Waiting for DynOS GeoLayout '" .. state.modelName .. "' in this mod's actors/ folder.")
             state.warnedMissing = true
         end
         return false
