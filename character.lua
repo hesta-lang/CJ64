@@ -1,6 +1,5 @@
 -- CJ64: replace only Mario's rendered model with the CS DynOS CJ actor.
--- Experimental GTA clips remain disabled until the CS node order and rest pose
--- are verified against the target animation skeleton.
+-- Optional GTA clips are used only when main.lua successfully loads the calibrated table.
 -- MarioState, marioObj, movement, collision, camera and physics remain native.
 
 CJ64 = CJ64 or {}
@@ -125,8 +124,7 @@ local function choose_transition_role(m, loopRole, anim)
 end
 
 function state.apply_animation(m)
-    -- A matching animated-part count is not proof of matching node order,
-    -- hierarchy or rest pose. Keep GTA playback off until those are verified.
+    -- Custom playback remains gated by the successful table load in main.lua.
     if CJ64.useGTAAnimations ~= true
         or not state.ready
         or CJ64.animationTablesLoaded ~= true then
