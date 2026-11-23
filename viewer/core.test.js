@@ -114,3 +114,14 @@ test('quantizes and unwraps 16-bit Euler angle samples across the wrap boundary'
   assert.ok(Math.abs(values.Body[0][1]-values.Body[0][0])<1000);
   assert.equal(angle16(0),0);
 });
+
+test('composes animation delta after the bind-pose local rotation', async () => {
+  const { composeRestAndPose } = await import('./core.js');
+  const rest=qAxis([0,0,1],Math.PI/2);
+  const delta=qAxis([1,0,0],Math.PI/3);
+  const actual=composeRestAndPose(rest,delta);
+  const expected=(await import('./core.js')).quaternionMultiply(rest,delta);
+  const wrong=(await import('./core.js')).quaternionMultiply(delta,rest);
+  quatNear(actual,expected);
+  assert.ok(Math.max(...actual.map((v,i)=>Math.abs(v-wrong[i])))>0.1);
+});
