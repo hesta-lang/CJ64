@@ -521,9 +521,12 @@ def main():
     # Fast64's batch converter calls Blender context-sensitive operators
     # while adding F3D materials. Make this mesh the unambiguous active object
     # and convert one material slot at a time so native crashes are localized.
-    for obj in bpy.context.view_layer.objects:
-        if obj.select_get():
-            obj.select_set(False)
+    for obj in bpy.data.objects:
+        try:
+            if obj.select_get():
+                obj.select_set(False)
+        except ReferenceError:
+            continue
     rigged_mesh.select_set(True)
     bpy.context.view_layer.objects.active = rigged_mesh
     checkpoint("rigged-mesh-selected-for-material-conversion")
