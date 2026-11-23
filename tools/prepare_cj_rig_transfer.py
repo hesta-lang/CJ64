@@ -1123,10 +1123,14 @@ def main():
         "CJ64 = CJ64 or {}\nCJ64.riggedActor = true\n", encoding="utf-8"
     )
     (mod_dir / "README-INSTALL.txt").write_text(
-        "CJ64 experimental skinned actor. It uses the Mario/Fast64 armature, "
-        "one deform bone per vertex at weight 1.0, and a 280 SM64-unit model. "
+        "CJ64 experimental skinned actor. DynOS root model: cj64_cj_geo. "
+        "It uses the Mario/Fast64 armature, one deform bone per vertex at weight 1.0, "
+        "and a 280 SM64-unit model. SM64CoopDX generates actors/cj64_cj_geo.bin "
+        "from these C sources when the mod is refreshed; the generated .bin is "
+        "intentionally not shipped. Before replacing an older test installation, "
+        "delete any old actors/cj64_cj_geo.bin so DynOS rebuilds it. "
         "The private cj64_gta_animations.lua module is not included. "
-        "Test the actor in SM64CoopDX before treating this as a release.\n",
+        "Test the actor in SM64CoopDX before treating this as a release.\\n",
         encoding="utf-8"
     )
 
