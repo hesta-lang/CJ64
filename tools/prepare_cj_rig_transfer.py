@@ -383,11 +383,18 @@ def main():
     # Fast64/SM64 supports one deform-bone influence per vertex. Collapse the
     # original GTA FBX weights to the strongest mapped Mario deform group;
     # use nearest retargeted segment only for any source vertex without a mapped group.
-    for bone_name in ("Left Wing DL", "Right Wing DL"):
-        bone = target_arm.data.bones.get(bone_name)
-        if bone is not None:
-            bone.use_deform = False
-    checkpoint("non-deforming-wing-bones-disabled")
+    # Fast64 requires every 0x15 DisplayList bone to remain deformable,
+    # even when the CJ mesh has no vertices explicitly assigned to that
+    # auxiliary Mario display-list group (e.g. Left/Right Wing DL).
+    enabled_display_list_bones = []
+    for bone in target_arm.data.bones:
+        if bone.geo_cmd == "DisplayList" and not bone.use_deform:
+            bone.use_deform = True
+            enabled_display_list_bones.append(bone.name)
+    checkpoint(
+        "fast64-display-list-deform-bones-enabled-"
+        + ",".join(sorted(enabled_display_list_bones))
+    )
     for group in list(rigged_mesh.vertex_groups):
         rigged_mesh.vertex_groups.remove(group)
     checkpoint("existing-rigged-mesh-groups-cleared")
