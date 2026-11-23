@@ -31,6 +31,9 @@ jobs:
       - name: Run animation calibration regression tests
         run: python3 -m unittest discover -s tests -v
 
+      - name: Verify GTA animation override handling
+        run: lua5.4 tests/test_animation_hook.lua
+
       - name: Validate CS animation node traversal
         run: |
           set -euo pipefail
