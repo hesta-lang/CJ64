@@ -162,8 +162,13 @@ jobs:
           assert mapping["target_parent_animation_node"]["Left Arm"] == "Torso"
           assert mapping["target_parent_animation_node"]["Right Arm"] == "Torso"
           assert set(mapping["target_parent_rest_rotation_wxyz"]) == set(mapping["target_node_order"])
-          assert d["native_mario_rest_pose_preserved"] is True
-          assert d["native_mario_rest_matrix_max_error"]<1e-6
+          assert d["cj_source_rest_pose_transferred"] is True
+          assert d["native_mario_rest_pose_preserved"] is False
+          assert d["source_rest_alignment_head_max_error"] < 1e-4
+          assert d["source_rest_alignment_tail_max_error"] < 1e-4
+          assert d["source_rest_alignment_rotation_max_error_degrees"] < 0.1
+          assert d["post_cleanup_source_rest_head_max_error"] < 1e-4
+          assert d["post_cleanup_source_rest_tail_max_error"] < 1e-4
           assert d["mesh_vertices_in_source_rest_pose"]==d["source_vertices"]
           assert d["dynos_geolayout_name"]=="mario_geo"
           assert d["dynos_pack_name"] is None
@@ -188,6 +193,9 @@ jobs:
             ${{ runner.temp }}/cj-rig-output/CJ64-CJ-Rig-Transfer.blend
             ${{ runner.temp }}/cj-rig-output/cj64_rig_transfer_report.json
             ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Rest-Preview.png
+            ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Back-Preview.png
+            ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Left-Preview.png
+            ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Right-Preview.png
             ${{ runner.temp }}/cj-rig-output/cj64_sm64_animation_retarget_map.json
             ${{ runner.temp }}/cj-rig-output/target_animation_node_order.json
           if-no-files-found: error

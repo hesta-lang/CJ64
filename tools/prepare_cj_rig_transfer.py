@@ -297,11 +297,10 @@ def main():
         "Right Shoe": "leg right ankle",
         "Right Shoe DL": "leg right ankle",
     }
-    # Cache the complete CJ source rest skeleton, but keep the copied Mario
-    # armature's native rest matrices unchanged. The game applies Mario's stock
-    # animation channels to mario_geo; replacing those rest matrices with CJ's
-    # FBX bind pose makes every stock animation act on the wrong coordinate
-    # frame and produces a collapsed/sideways character.
+    # Cache source and template rest data, then place the Fast64 animated nodes
+    # at the corresponding CJ FBX joint transforms. The previous pipeline only
+    # copied CJ vertex weights onto the Mario bind skeleton. That left CJ's mesh
+    # and the target joint pivots in different rest coordinate frames.
     source_rest_bones = {
         bone.name: (bone.matrix_local.copy(), float(bone.length))
         for bone in source_arm.data.bones
@@ -323,7 +322,68 @@ def main():
             "Mario template is missing expected bones: " + ", ".join(missing_target_bones))
     require(not missing_source_bones,
             "CJ source armature is missing expected bones: " + ", ".join(missing_source_bones))
-    checkpoint("native-mario-rest-pose-preserved")
+
+    # FBX bone matrices are armature-local. Convert them through the imported
+    # armature object transform, then the same unit/axis/visual-scale transform
+    # already used for the CJ vertices. EditBone.matrix is an armature-space
+    # matrix, so this makes the 20-node Fast64 rig share CJ's actual bind pose.
+    source_bone_to_target = scale @ source_to_target_unscaled @ source_arm.matrix_world
+    if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    target_arm.select_set(True)
+    bpy.context.view_layer.objects.active = target_arm
+    bpy.ops.object.mode_set(mode="EDIT")
+    edit_bones = target_arm.data.edit_bones
+    for target_name, source_name in target_bone_sources.items():
+        edit_bone = edit_bones.get(target_name)
+        source_bone = source_arm.data.bones.get(source_name)
+        require(edit_bone is not None, f"Target edit bone is missing: {target_name}")
+        require(source_bone is not None, f"Source joint is missing: {source_name}")
+        set_edit_bone_from_source(
+            edit_bone,
+            source_bone.matrix_local,
+            source_bone.length,
+            source_bone_to_target,
+        )
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update()
+
+    source_rest_head_max_error = 0.0
+    source_rest_tail_max_error = 0.0
+    source_rest_rotation_max_error_degrees = 0.0
+    for target_name, source_name in target_bone_sources.items():
+        target_bone = target_arm.data.bones[target_name]
+        source_bone = source_arm.data.bones[source_name]
+        expected_head = source_bone_to_target @ source_bone.head_local
+        expected_tail = source_bone_to_target @ source_bone.tail_local
+        source_rest_head_max_error = max(
+            source_rest_head_max_error, (target_bone.head_local - expected_head).length
+        )
+        source_rest_tail_max_error = max(
+            source_rest_tail_max_error, (target_bone.tail_local - expected_tail).length
+        )
+        expected_matrix = source_bone_to_target @ source_bone.matrix_local
+        expected_rotation = expected_matrix.to_3x3().normalized().to_quaternion()
+        actual_rotation = target_bone.matrix_local.to_3x3().normalized().to_quaternion()
+        dot = max(-1.0, min(1.0, abs(float(expected_rotation.dot(actual_rotation)))))
+        angle_error = math.degrees(2.0 * math.acos(dot))
+        source_rest_rotation_max_error_degrees = max(
+            source_rest_rotation_max_error_degrees, angle_error
+        )
+    require(source_rest_head_max_error < 1e-4,
+            f"CJ source-rest head alignment failed: {source_rest_head_max_error}")
+    require(source_rest_tail_max_error < 1e-4,
+            f"CJ source-rest tail alignment failed: {source_rest_tail_max_error}")
+    require(source_rest_rotation_max_error_degrees < 0.1,
+            "CJ source-rest rotation alignment failed: "
+            f"{source_rest_rotation_max_error_degrees} degrees")
+    checkpoint(
+        "cj-source-rest-skeleton-mapped-to-fast64-nodes-"
+        f"head-{source_rest_head_max_error:.2e}-"
+        f"tail-{source_rest_tail_max_error:.2e}-"
+        f"rotation-{source_rest_rotation_max_error_degrees:.4f}-deg"
+    )
 
     # Preserve original FBX vertex-group assignments before creating the target groups.
     source_group_names = {
@@ -1160,20 +1220,28 @@ def main():
         "The target armature still contains orphaned mesh switch options",
     )
 
-    native_rest_max_error = 0.0
-    for bone_name, original_matrix in native_target_rest_bones.items():
-        current_bone = target_arm.data.bones.get(bone_name)
-        require(current_bone is not None,
-                f"Native Mario bone disappeared before export: {bone_name}")
-        current_matrix = current_bone.matrix_local
-        matrix_error = max(
-            abs(float(original_matrix[row][column] - current_matrix[row][column]))
-            for row in range(4) for column in range(4)
+    # Recheck the source-to-target bind alignment after Fast64's switch/mesh
+    # cleanup, which must not modify the mapped joint pivots.
+    post_cleanup_head_error = 0.0
+    post_cleanup_tail_error = 0.0
+    for target_name, source_name in target_bone_sources.items():
+        target_bone = target_arm.data.bones[target_name]
+        source_bone = source_arm.data.bones[source_name]
+        post_cleanup_head_error = max(
+            post_cleanup_head_error,
+            (target_bone.head_local - source_bone_to_target @ source_bone.head_local).length,
         )
-        native_rest_max_error = max(native_rest_max_error, matrix_error)
-    require(native_rest_max_error < 1e-6,
-            f"Mario's native rest skeleton was modified: max matrix error {native_rest_max_error}")
-    checkpoint(f"native-mario-rest-skeleton-preserved-max-error-{native_rest_max_error:.2e}")
+        post_cleanup_tail_error = max(
+            post_cleanup_tail_error,
+            (target_bone.tail_local - source_bone_to_target @ source_bone.tail_local).length,
+        )
+    require(post_cleanup_head_error < 1e-4 and post_cleanup_tail_error < 1e-4,
+            "Fast64 cleanup changed a CJ-mapped rest pivot: "
+            f"head={post_cleanup_head_error}, tail={post_cleanup_tail_error}")
+    checkpoint(
+        "cj-source-rest-pivots-preserved-after-fast64-cleanup-"
+        f"head-{post_cleanup_head_error:.2e}-tail-{post_cleanup_tail_error:.2e}"
+    )
 
     bpy.ops.object.select_all(action="DESELECT")
     target_arm.select_set(True)
@@ -1271,9 +1339,14 @@ def main():
         "target_height_sm64_units": target_height * 100.0,
         "visual_scale_factor": visual_scale,
         "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
-        "native_mario_rest_pose_preserved": True,
-        "native_mario_rest_matrix_max_error": native_rest_max_error,
-        "mesh_pose_alignment": "CJ source rest shape retained; FBX axes and 280-unit scale converted; weights remapped to native Mario bones",
+        "native_mario_rest_pose_preserved": False,
+        "cj_source_rest_pose_transferred": True,
+        "source_rest_alignment_head_max_error": source_rest_head_max_error,
+        "source_rest_alignment_tail_max_error": source_rest_tail_max_error,
+        "source_rest_alignment_rotation_max_error_degrees": source_rest_rotation_max_error_degrees,
+        "post_cleanup_source_rest_head_max_error": post_cleanup_head_error,
+        "post_cleanup_source_rest_tail_max_error": post_cleanup_tail_error,
+        "mesh_pose_alignment": "CJ source bind transforms mapped onto the 20-node Fast64 hierarchy; FBX axes and 280-unit scale converted; original per-vertex group labels retargeted",
         "mesh_vertices_in_source_rest_pose": mesh_vertices_in_source_rest_pose,
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
@@ -1305,15 +1378,16 @@ def main():
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
             "Original FBX vertex weights are collapsed to one mapped Mario deform bone at weight 1.0; nearest-bone fallback is used only for unweighted/unmapped source vertices.",
-            "The native Mario rest skeleton is preserved; CJ's original mesh rest shape is retained while axes, size and vertex-group assignments are converted to the native Mario rig.",
-            "The native Mario animation hierarchy is retained so stock Mario animations use their expected rest frame; GTA SA animation retargeting is a separate later step.",
+            "The mapped Fast64 joints use CJ's transformed FBX rest pivots and axes; this removes the previous bind-pose mismatch between CJ's mesh and Mario's native joint positions.",
+            "Mario's stock animation curves are not the target for this rig. Use the CJ/GTA retargeted animation tables; stock Mario animations require a separate compatibility pass.",
             "The Fast64 DynOS actor is exported, but major poses and in-game rendering still require visual and runtime validation.",
             "The original CJ mesh and source IFP are not added to the repository by this script."
         ]
     }
     report_path = output_dir / "cj64_rig_transfer_report.json"
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    # Render a rest-pose preview with the Mario template's X-up orientation.
+    # Render orthographic previews from all four cardinal directions. SM64 uses X-up
+    # in this authoring scene, so every view uses world X as its up direction.
     scene = bpy.context.scene
     if bpy.app.version >= (4, 2, 0):
         scene.render.engine = "BLENDER_EEVEE_NEXT"
@@ -1337,45 +1411,66 @@ def main():
         background.inputs["Strength"].default_value = 0.8
 
     target = Vector((1.4, 0.0, 0.0))
+    view_specs = [
+        ("Rest-Preview", Vector((1.4, 0.0, 5.8))),
+        ("Back-Preview", Vector((1.4, 0.0, -5.8))),
+        ("Left-Preview", Vector((1.4, 5.8, 0.0))),
+        ("Right-Preview", Vector((1.4, -5.8, 0.0))),
+    ]
     camera_data = bpy.data.cameras.new("CJ64_Rig_Preview_Camera")
     camera = bpy.data.objects.new("CJ64_Rig_Preview_Camera", camera_data)
     scene.collection.objects.link(camera)
-    camera.location = (1.4, 0.0, -5.2)
-    forward = (target - camera.location).normalized()
-    up_reference = Vector((1.0, 0.0, 0.0))
-    right = forward.cross(up_reference).normalized()
-    camera_up = right.cross(forward).normalized()
-    camera_basis = Matrix((right, camera_up, -forward)).transposed()
-    camera.rotation_euler = camera_basis.to_euler()
-    camera_data.lens = 55
+    camera_data.type = "ORTHO"
+    camera_data.ortho_scale = 3.55
     scene.camera = camera
 
+    light_objects = []
     light_specs = [
-        ("CJ64_Rig_Key", (3.0, -3.0, -3.0), 850.0, 3.0),
-        ("CJ64_Rig_Fill", (0.0, 3.0, -2.0), 500.0, 4.0),
-        ("CJ64_Rig_Rim", (1.5, 0.0, 3.0), 650.0, 3.0),
+        ("CJ64_Rig_Key", 850.0, 3.0),
+        ("CJ64_Rig_Fill", 500.0, 4.0),
+        ("CJ64_Rig_Rim", 650.0, 3.0),
     ]
-    for light_name, location, energy, size in light_specs:
+    for light_name, energy, size in light_specs:
         light_data = bpy.data.lights.new(light_name, "AREA")
         light_data.energy = energy
         light_data.shape = "DISK"
         light_data.size = size
         light_obj = bpy.data.objects.new(light_name, light_data)
         scene.collection.objects.link(light_obj)
-        light_obj.location = location
-        light_obj.rotation_euler = (target - light_obj.location).to_track_quat("-Z", "Y").to_euler()
+        light_objects.append(light_obj)
 
-    preview_path = output_dir / "CJ64-Rigged-Rest-Preview.png"
-    scene.render.filepath = str(preview_path)
-    bpy.ops.render.render(write_still=True)
+    for label, camera_location in view_specs:
+        forward = (target - camera_location).normalized()
+        up_reference = Vector((1.0, 0.0, 0.0))
+        right = forward.cross(up_reference).normalized()
+        camera_up = right.cross(forward).normalized()
+        camera_basis = Matrix((right, camera_up, -forward)).transposed()
+        camera.location = camera_location
+        camera.rotation_euler = camera_basis.to_euler()
+
+        view_dir = (camera_location - target).normalized()
+        light_positions = [
+            target + view_dir * 3.4 + right * -2.8 + camera_up * 2.0,
+            target + view_dir * 2.2 + right * 2.6 + camera_up * 0.5,
+            target - view_dir * 3.0 + camera_up * 2.0,
+        ]
+        for light_obj, light_position in zip(light_objects, light_positions):
+            light_obj.location = light_position
+            light_obj.rotation_euler = (target - light_obj.location).to_track_quat("-Z", "Y").to_euler()
+
+        suffix = "CJ64-Rigged-" + label + ".png"
+        scene.render.filepath = str(output_dir / suffix)
+        bpy.context.view_layer.update()
+        bpy.ops.render.render(write_still=True)
 
     scene_path = output_dir / "CJ64-CJ-Rig-Transfer.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(scene_path))
     print(json.dumps({
         "scene": str(scene_path), "report": str(report_path),
-        "lua_mod_dir": str(mod_dir), "dynos_pack_dir": str(pack_dir), **report
+        "lua_mod_dir": str(mod_dir), "dynos_pack_dir": str(pack_dir),
+        "preview_images": [("CJ64-Rigged-" + label + ".png") for label, _ in view_specs],
+        **report
     }, indent=2))
-
 
 if __name__ == "__main__":
     main()
