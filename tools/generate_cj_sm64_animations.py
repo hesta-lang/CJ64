@@ -15,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools"
 sys.path.insert(0, str(TOOLS))
 from ifp_reader import IFPError, load_ifp  # noqa: E402
+from animation_hierarchy import (  # noqa: E402
+    build_source_global_deltas,
+    retarget_global_deltas_to_mario,
+)
 
 
 def qnorm(q):
@@ -161,28 +165,46 @@ def main():
     node_order = mapping["target_node_order"]
     if len(node_order) != 20 or len(set(node_order)) != 20:
         raise SystemExit("Retarget map has an invalid Fast64 animation-node order")
-    source_rest = {name: from_wxyz(value) for name, value in mapping["source_rest_rotation_wxyz"].items()}
-    target_rest = {name: from_wxyz(value) for name, value in mapping["target_rest_rotation_wxyz"].items()}
+    source_rest = {
+        name: from_wxyz(value)
+        for name, value in mapping["source_rest_rotation_wxyz"].items()
+    }
+    source_parents = mapping.get("source_parent_by_bone")
+    target_parent_nodes = mapping.get("target_parent_animation_node")
+    target_parent_rest = {
+        name: from_wxyz(value)
+        for name, value in mapping.get("target_parent_rest_rotation_wxyz", {}).items()
+    }
+    if not isinstance(source_parents, dict) or not isinstance(target_parent_nodes, dict):
+        raise SystemExit(
+            "Retarget map lacks source_parent_by_bone or target_parent_animation_node; "
+            "rerun the CJ64 rig-transfer workflow"
+        )
+    if set(target_parent_nodes) != set(node_order) or set(target_parent_rest) != set(node_order):
+        raise SystemExit("Retarget map lacks target parent-frame data for one or more animated nodes")
+
     source_map = {key.casefold(): value for key, value in mapping["source_track_to_bone"].items()}
     chains = mapping["target_source_chains"]
-    align_data = mapping["axis_alignment"]["quaternion_xyzw"]
-    q_align = qnorm(tuple(align_data))
+    node_source_bone = {
+        node: (chains[node][-1] if chains[node] else None)
+        for node in node_order
+    }
+    missing_rest = sorted({
+        source_name
+        for source_name in node_source_bone.values()
+        if source_name is not None and source_name not in source_rest
+    })
+    if missing_rest:
+        raise SystemExit("Retarget map lacks source rest bones: " + ", ".join(missing_rest))
 
-    bases = {}
-    for node in node_order:
-        if node not in target_rest:
-            raise SystemExit(f"Target rest pose lacks Fast64 node: {node}")
-        for source_bone in chains[node]:
-            if source_bone not in source_rest:
-                raise SystemExit(f"Source rest pose lacks mapped bone: {source_bone}")
-            bases[(node, source_bone)] = build_basis(node, source_bone, source_rest, target_rest, q_align)
-
+    q_align = qnorm(tuple(mapping["axis_alignment"]["quaternion_xyzw"]))
     lua = [
-        "-- CJ64: first-pass GTA San Andreas ped.ifp retarget for SM64CoopDX.",
+        "-- CJ64: parent-aware GTA San Andreas ped.ifp retarget for SM64CoopDX.",
         "-- Generated from a user-provided ANP3 file; the source IFP is not included.",
-        "-- 20 Fast64 Mario animation nodes; root translation is zero and Mario Body rotation is fixed identity.",
-        "-- Source-to-target basis uses the checked-in inspected rig rest rotations.",
-        "-- Must be visually checked in Blender and exported with Fast64 before enabling in-game.",
+        "-- Source local IFP rotations are accumulated through the original GTA hierarchy.",
+        "-- Mario channels are solved relative to the actual animated destination parent.",
+        "-- GTA Normal/root rotation and root translation remain excluded from MarioState.",
+        "-- Visual and in-game validation are still required before release.",
         "CJ64_GTA_ANIMATIONS = CJ64_GTA_ANIMATIONS or {}",
         "CJ64_GTA_ANIMATIONS.names = CJ64_GTA_ANIMATIONS.names or {}",
         "",
@@ -209,20 +231,36 @@ def main():
             frame_count += 1
 
         channels = [[0], [0], [0]]
+        per_node_angles = {node: [[], [], []] for node in node_order}
+        for time_seconds in times:
+            source_pose_local = {}
+            for source_bone, track in track_by_source.items():
+                if track and track.frames:
+                    source_pose_local[source_bone] = sample_track(track, time_seconds)
+            source_global_deltas = build_source_global_deltas(
+                source_parents,
+                source_rest,
+                source_pose_local,
+                root_bone=next(
+                    (name for name, parent in source_parents.items() if parent is None),
+                    "",
+                ),
+            )
+            local_rotations, _target_global_deltas = retarget_global_deltas_to_mario(
+                node_order,
+                target_parent_nodes,
+                target_parent_rest,
+                node_source_bone,
+                source_global_deltas,
+                q_align,
+                root_node="Body",
+            )
+            for node in node_order:
+                for axis, angle in enumerate(euler_xyz(local_rotations[node])):
+                    per_node_angles[node][axis].append(angle)
+
         for node in node_order:
-            axes = [[], [], []]
-            chain = chains[node]
-            for time_seconds in times:
-                source_quats = []
-                for source_bone in chain:
-                    track = track_by_source.get(source_bone)
-                    source_quats.append(
-                        sample_track(track, time_seconds) if track and track.frames
-                        else (0.0, 0.0, 0.0, 1.0)
-                    )
-                quaternion = mapped_mario_node_rotation(node, source_quats, chain, bases)
-                for axis, angle in enumerate(euler_xyz(quaternion)):
-                    axes[axis].append(angle)
+            axes = per_node_angles[node]
             for axis_values in axes:
                 for frame in range(1, len(axis_values)):
                     while axis_values[frame] - axis_values[frame - 1] > math.pi:
