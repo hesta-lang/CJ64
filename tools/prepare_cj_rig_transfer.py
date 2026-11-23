@@ -152,6 +152,24 @@ def main():
     checkpoint("before-opening-mario-template")
     bpy.ops.wm.open_mainfile(filepath=str(template_path))
     checkpoint("mario-template-opened")
+
+    # SM64CoopDX's PC build defaults to F3DEX2 Extended, not classic F3D.
+    # The official CoopDX Makefile sets GRUCODE=f3dex2e by default. The Mario
+    # authoring template sets the Fast64 scene to classic F3D (16 vertices),
+    # which incorrectly limits skinned parent buffers to 14 entries.
+    bpy.context.scene.f3d_type = "F3DEX2E"
+    from fast64.fast64_internal.f3d.f3d_gbi import get_F3D_GBI
+    target_gbi = get_F3D_GBI()
+    require(
+        target_gbi.vert_load_size == 64,
+        f"Expected F3DEX2E 64-vertex load buffer, got "
+        f"{target_gbi.F3D_VER}/{target_gbi.vert_load_size}",
+    )
+    checkpoint(
+        f"target-microcode-{target_gbi.F3D_VER}-"
+        f"load-{target_gbi.vert_load_size}-parent-buffer-{target_gbi.vert_load_size - 2}"
+    )
+
     mario_arm = find_object("Mario", "ARMATURE")
     checkpoint("mario-armature-found")
 
@@ -783,10 +801,11 @@ def main():
             "Fast64 material conversion failed: " + ", ".join(unresolved_materials))
     checkpoint("fast64-materials-validated")
 
-    # Fast64's SM64 skin buffer reserves two entries from the 16-vertex load
-    # window, so every deform bone may reference at most 14 unique parent
-    # vertices per draw layer. Estimate this using Fast64's own F3DVert and
-    # BufferVertex equality rules (position, UV, color, normal, alpha, material).
+    # Fast64's skinned mesh buffer reserves two entries from the active
+    # microcode's vertex-load window. Calculate the parent capacity from the
+    # same GBI configuration used by the export operator instead of assuming
+    # classic F3D's 16-vertex limit. Estimate usage with Fast64's own F3DVert
+    # and BufferVertex equality rules (position, UV, color, normal, alpha, material).
     import fast64.fast64_internal.f3d.f3d_writer as f3d_writer
     checkpoint("before-measuring-fast64-parent-vertex-buffers")
     mesh_info = f3d_writer.getInfoDict(rigged_mesh)
@@ -898,7 +917,8 @@ def main():
         return True
 
     capacity_repair_count = 0
-    max_parent_buffer_vertices = 14
+    max_parent_buffer_vertices = target_gbi.vert_load_size - 2
+    checkpoint(f"fast64-parent-buffer-capacity-{max_parent_buffer_vertices}")
     for capacity_pass in range(len(rigged_mesh.data.vertices) + 1):
         measurements = {}
         worst = None
@@ -941,7 +961,7 @@ def main():
         require(
             safe_candidates,
             f"Fast64 parent buffer for {bone_name} on draw layer {draw_layer} "
-            f"has {worst_count} unique vertices (maximum 14), but no boundary "
+            f"has {worst_count} unique vertices (maximum {max_parent_buffer_vertices}), but no boundary "
             "vertex can be promoted without violating the adjacent bone hierarchy",
         )
         safe_candidates.sort(reverse=True)
@@ -968,7 +988,7 @@ def main():
                 )
     require(
         not final_buffer_overflows,
-        "Fast64 parent vertex buffers still exceed 14 entries: "
+        f"Fast64 parent vertex buffers still exceed {max_parent_buffer_vertices} entries: "
         + str(final_buffer_overflows[:8]),
     )
     used_deform_groups = sorted(set(labels))
