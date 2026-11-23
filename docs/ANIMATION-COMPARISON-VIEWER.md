@@ -16,11 +16,11 @@ The IFP is parsed in browser memory. It is not uploaded, saved to the repository
 
 ## How the two sides are produced
 
-The source view applies the local IFP quaternion tracks to the original FBX rig after reconstructing global source deltas through the canonical GTA hierarchy and solving those deltas against the actual imported FBX parent tree. Static helper bones inherit parent motion.
+The source view follows the repository's original Blender IFP importer: each source quaternion is applied as a local pose channel to its mapped FBX bone, preserving the source skeleton's own bind pose and helper-bone hierarchy. The GTA `Normal` root rotation is retained on this side. Type-4 local translations are interpolated and applied to mapped non-root bones, such as `Pelvis` in `FALL_fall`.
 
 The target view uses the same 30 FPS retarget and channel conversion as `tools/generate_cj_sm64_animations.py`: source global deltas, target-parent compensation, XYZ Euler extraction, 16-bit angle channels, and interpolation between generated samples. The target mesh's original vertex-group assignments after the 20-node mapping are reused; the preview exporter only restores the original FBX PBR material/UV data so it can be displayed as GLB.
 
-The GTA `Normal` root track and global translation channels are suppressed in both previews. This matches the in-game design where MarioState owns the player/world transform.
+The ported SM64 view uses the exact 30 FPS channel generation path but deliberately suppresses the GTA `Normal` root rotation and all translations. That matches the current game integration: MarioState owns the player's world orientation and movement, and the SM64 animation tables only carry the 20 rotation channels. The viewer therefore makes any motion lost by this reduction visible instead of hiding it.
 
 ## Validation limits
 
