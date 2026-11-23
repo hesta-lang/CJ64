@@ -165,10 +165,62 @@ function state.apply_animation(m)
         end
     end
 
-    if role ~= nil and role ~= anim.lastRole then
-        if CJ64_GTA_ANIMATIONS.set_for_role(m, role) then
-            anim.lastRole = role
+    -- HOOK_MARIO_UPDATE runs after execute_mario_action(). Native Mario can
+    -- replace curAnim when its animation ID changes, even if our mapped GTA
+    -- role has not changed. Reassert only when the actual custom clip differs.
+    if role ~= nil then
+        local animationNames = CJ64_GTA_ANIMATIONS.names
+        local expectedName = type(animationNames) == "table" and animationNames[role] or nil
+        if expectedName == nil then
+            if not anim.warnedMissingRole then
+                print("[CJ64] No GTA animation is registered for role '" .. tostring(role) .. "'.")
+                anim.warnedMissingRole = true
+            end
+            return
         end
+
+        local currentName
+        local canInspectAnimation = false
+        if type(smlua_anim_util_get_current_animation_name) == "function" then
+            local ok, result = pcall(smlua_anim_util_get_current_animation_name, m.marioObj)
+            if ok then
+                currentName = result
+                canInspectAnimation = true
+            end
+        end
+
+        if not canInspectAnimation or currentName ~= expectedName then
+            local previousRole = anim.lastRole
+            local setOk = CJ64_GTA_ANIMATIONS.set_for_role(m, role)
+            if not setOk then return end
+
+            if canInspectAnimation then
+                local verifyOk, verifiedName = pcall(smlua_anim_util_get_current_animation_name, m.marioObj)
+                if not verifyOk or verifiedName ~= expectedName then
+                    if not anim.warnedAnimationMismatch then
+                        print("[CJ64] ERROR: requested GTA clip '" .. expectedName
+                            .. "' but current clip is '" .. tostring(verifiedName) .. "'.")
+                        anim.warnedAnimationMismatch = true
+                    end
+                    return
+                end
+            end
+
+            if previousRole == role and canInspectAnimation then
+                print("[CJ64] Restored GTA clip '" .. expectedName
+                    .. "' after native animation override ('" .. tostring(currentName) .. "').")
+            elseif previousRole ~= role then
+                print("[CJ64] GTA animation active: '" .. expectedName .. "'.")
+            end
+            anim.warnedAnimationMismatch = false
+        end
+
+        anim.lastRole = role
+        anim.currentAnimationName = expectedName
+        anim.warnedMissingRole = false
+    else
+        anim.lastRole = nil
+        anim.currentAnimationName = nil
     end
 end
 
