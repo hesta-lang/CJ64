@@ -871,7 +871,10 @@ def main():
         return counts_by_layer, key_contributors, candidate_vertices
 
     def can_promote_parent_vertex(vertex_index, child_bone_name):
-        parent_name = deform_parent[child_bone_name]
+        # Fast64 treats any ancestor/descendant on the active bone branch as a
+        # child-skinned face (except the immediate parent, which is buffered).
+        # Only cross-branch/sibling labels are unsafe. Requiring an immediate
+        # parent-child pair here was too strict and blocked valid limb repairs.
         for face in mesh_info.vert.get(vertex_index, ()):
             simulated = [
                 child_bone_name if int(index) == vertex_index else labels[int(index)]
@@ -882,8 +885,8 @@ def main():
                 right_name = simulated[right_pos]
                 if left_name == right_name:
                     continue
-                if (deform_parent[left_name] == right_name
-                        or deform_parent[right_name] == left_name):
+                if (left_name in deform_ancestors(right_name)
+                        or right_name in deform_ancestors(left_name)):
                     continue
                 return False
         return True
