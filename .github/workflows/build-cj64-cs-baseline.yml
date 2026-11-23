@@ -119,7 +119,8 @@ jobs:
           import pathlib
           import zipfile
 
-          source = pathlib.Path("$RUNNER_TEMP/CJ64-CS-Baseline")
+          import sys
+          source = pathlib.Path(sys.argv[1])
           output = pathlib.Path("CJ64-CS-Baseline-0.1.3-alpha.zip")
           prefix = "mods/CJ64-CS-Baseline"
           expected = {
