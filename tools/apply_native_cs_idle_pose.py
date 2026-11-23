@@ -63,9 +63,17 @@ def q_from_euler_xyz(rx, ry, rz):
 
 def euler_xyz(q):
     x, y, z, w = qnorm(q)
+    sin_y = max(-1.0, min(1.0, 2.0 * (w * y - z * x)))
+    if sin_y >= 1.0 - 1e-7:
+        # At +90 degrees pitch the ordinary roll/yaw atan2 pairs both
+        # approach 0/0. Choose the equivalent stable representation with
+        # yaw=0 and keep the combined roll in X.
+        return 2.0 * math.atan2(x, w), math.pi / 2.0, 0.0
+    if sin_y <= -1.0 + 1e-7:
+        # Equivalent stable representation for -90 degrees pitch.
+        return 2.0 * math.atan2(-z, w), -math.pi / 2.0, 0.0
     rx = math.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
-    sin_y = 2.0 * (w * y - z * x)
-    ry = math.copysign(math.pi / 2.0, sin_y) if abs(sin_y) >= 1.0 else math.asin(sin_y)
+    ry = math.asin(sin_y)
     rz = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
     return rx, ry, rz
 
