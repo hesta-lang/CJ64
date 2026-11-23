@@ -325,12 +325,10 @@ def main():
         mario_body_rest_matrix.to_3x3().to_quaternion().to_matrix().to_4x4()
     )
     root_rotation_correction = mario_root_rotation @ source_root_rotation.inverted()
-    root_translation_correction = (
-        mario_body_rest_matrix.translation - source_root_target.translation
-    )
     root_correction = (
-        Matrix.Translation(root_translation_correction)
+        Matrix.Translation(mario_body_rest_matrix.translation)
         @ root_rotation_correction
+        @ Matrix.Translation(-source_root_target.translation)
     )
     source_to_target = root_correction @ source_to_target
     mesh_to_target = root_correction @ mesh_to_target
