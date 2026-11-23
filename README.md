@@ -1,41 +1,62 @@
 # CJ64
 
-**Carl Johnson character replacement for SM64CoopDX, using the Character Select DynOS actor.**
+**Carl Johnson replacement for SM64CoopDX, using the original Character Select DynOS actor and GTA San Andreas movement animations.**
 
-CJ64 replaces Mario's rendered model while keeping MarioState, movement, collision, camera, actions and physics native.
+CJ64 replaces Mario's rendered character while keeping SM64CoopDX in charge of MarioState, movement, collision, camera, player heading, actions and physics.
 
 ## Model
 
-The active runtime model is the original Character Select DynOS actor stored in `actors/cj/`:
+The runtime model is the original pre-rigged Character Select actor in `actors/cj/`:
 
-- `mario_geo.bin`: normal CJ actor, registered inside the mod as `mario_geo`.
-- `mario_wingcap_geo.bin`: separate wingcap/Jetpack accessory; it is not attached and has no flight or fuel behaviour yet.
-- `[CS] Carl Johnson.zip`: original Character Select actor archive.
+- `mario_geo.bin`: normal CJ actor, registered as `mario_geo`.
+- `mario_wingcap_geo.bin`: separate jetpack/wing-cap accessory; not attached to CJ yet.
+- `[CS] Carl Johnson.zip`: original Character Select source archive.
 
-**CJ64 0.1.8-alpha returns to this original CS model.** The FBX/Fast64-generated mesh is no longer used for the baseline package. The project owner confirmed that the CS actor appears correctly with native Mario animations. This avoids the FBX skin-weight/export deformation that persisted despite rig corrections.
+The FBX/Fast64 experimental actor is not used in the runtime package. The CS model has already been confirmed working in-game with native Mario animations.
 
-The scale workflow sets root `GEO_SCALE` to `0.39`, approximately 1.5 times the source actor's previous root scale. Its absolute in-game height has not been measured, so 280 SM64 units is not yet verified.
+## GTA San Andreas animations — 0.2.0-alpha
 
-## GTA animation pipeline
+The preview package adds 13 clips from the user-supplied GTA SA `ped.ifp`, sampled at 30 FPS and retargeted to the 20 animated parts of the CS actor:
 
-The user-supplied GTA San Andreas `ped.ifp` was converted into 13 candidate clips for the actor's 20 animated-part nodes. Their neutral-pose offsets were calibrated relative to the first frame of `cj64_anim_idle`:
+| GTA SA source clip | CJ64 role |
+|---|---|
+| `IDLE_stance` | Idle |
+| `WALK_start` | Walk start |
+| `WALK_player` | Walk |
+| `run_player` | Run |
+| `sprint_civi` | Sprint candidate |
+| `Run_stop` | Run stop |
+| `JUMP_launch` | Jump start |
+| `JUMP_glide` | Jump in air |
+| `JUMP_land` | Jump landing |
+| `FALL_fall` | Falling |
+| `FALL_glide` | Falling in air |
+| `FALL_land` | Fall landing |
+| `Swim_Tread` | Swimming idle |
 
-`q_relative = inverse(q_idle_first) * q_current`
+The generated table contains 5,097 source keyframes, resampled to 30 FPS. Its neutral-pose calibration uses the first frame of `IDLE_stance`. The animation retargeter uses the original Mario template's native parent rest frames because those are the frames used by the working CS actor. It does not use the experimental FBX-transferred rest axes.
 
-The converter preserves the three zeroed root translation channels, clip names, frame counts, channel indices and sample lengths. This is a best-fit retarget, not a one-to-one recreation of GTA's complete ped skeleton.
+### What stays native to SM64CoopDX
 
-### Runtime selection correction — 0.1.5-alpha
+GTA root translation and world-heading tracks are excluded. All three position channels remain zero, so the animations do not move CJ independently of the game. SM64CoopDX continues to control movement, collision, camera, actions, and physics.
 
-The earlier controller selected a GTA clip only when its semantic role changed. SM64CoopDX calls `HOOK_MARIO_UPDATE` at the end of a Mario update, after native action code has chosen an animation. If the native animation ID changed while CJ's mapped GTA role stayed the same, the current animation pointer could be replaced by a Mario clip without the controller noticing.
+### Limits
 
-The 0.1.5-alpha controller checks `smlua_anim_util_get_current_animation_name` against the expected GTA clip on each Mario update. It restores the GTA clip only when the current clip differs, then verifies the selected name. It does not call the setter again while the expected GTA clip is already active, avoiding unnecessary frame resets.
+The CS actor has 20 animated parts, not GTA's full ped skeleton. Finger, toe, jaw, brow, belly and breast tracks cannot be reproduced as independent moving parts. This is a best-fit retarget of the main body movement, not an exact 58-bone reconstruction. `sprint_civi` is the generic civilian sprint candidate, not a confirmed CJ-exclusive sprint.
 
-The regression test `tests/test_animation_hook.lua` simulates the native animation replacing the GTA fall clip, verifies that CJ64 restores the GTA clip, confirms that an already-active GTA clip is not reset, and checks role changes to idle.
+The alpha package passes structural and Lua checks, but the new GTA clips still need in-game visual testing on Android. A green workflow does not prove that every pose looks correct. Test idle, walking, running, sprinting, jumping, falling, landing and swimming.
 
-## Current baseline — 0.1.8-alpha\n\nThe install package embeds `actors/cj/mario_geo.bin` directly under `mods/CJ64-CS-Baseline/actors/`. Its filename registers the actor as `mario_geo`. The model is the original CS binary, not the generated FBX mesh. Native Mario animation playback is retained.\n\n## Limits and validation
+## Installation
 
-The CS actor has 20 animated parts rather than GTA's full ped skeleton. Independent finger, toe, breast and belly tracks cannot be reproduced one-to-one. `sprint_civi` is a generic civilian sprint candidate, not confirmed as a CJ-exclusive clip.
+Use the `CJ64-GTA-Animations-Test-0.2.0-alpha.zip` package from the latest successful **Build CJ64 GTA animation preview package** workflow. Extract it into the game's root so it creates `mods/CJ64-GTA-Animations-Test/`.
 
-The 13 GTA clips are not enabled in the CS baseline. Although the CS actor has the same 20-node traversal order as the Fast64/Mario reference, its local rest-axis basis has not been validated. The baseline therefore deliberately uses native Mario animations until that calibration is completed. A matching node count/order alone is insufficient to enable GTA rotations safely.
+Disable older CJ64 packages first. Only one mod registering `mario_geo` should be enabled at a time. Do not install the experimental `CJ64-Rigged-Test` FBX package.
 
-The [CJ64 CS baseline workflow](.github/workflows/build-cj64-cs-baseline.yml) runs animation calibration tests, the runtime override regression test, CS animated-part order/landmark validation, Lua syntax checks and DynOS actor structure checks. The [CS animation node inspection workflow](.github/workflows/inspect-cs-animation-node-order.yml) publishes the traversal-order report.
+## Development and validation
+
+- `.github/workflows/build-cj64-cs-baseline.yml`: reconstructs the compressed animation table, checks all 13 clip names and Lua syntax, then packages the working CS actor with the GTA preview module.
+- `.github/workflows/cj-rig-transfer.yml`: inspects and exports the experimental FBX rig. It supplies native Mario rest-frame data for animation retarget calibration, but its exported FBX actor is not the runtime model.
+- `tools/ifp_reader.py`: reads ANP3 IFP animation tracks.
+- `tools/animation_hierarchy.py`: reconstructs source global pose deltas and solves them against the target actor's parent hierarchy.
+- `tools/generate_cj_sm64_animations.py`: generates the 20-part SM64 animation tables.
+- `tools/normalize_cs_animation_tables.py`: calibrates generated animation tables against the first idle pose.
