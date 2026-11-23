@@ -98,14 +98,14 @@ def build_source_global_deltas(
     deltas = {}
 
     for name in order:
-        if name == root_bone:
+        parent = parents.get(name)
+        if name == root_bone or parent is None:
+            # The configured GTA root is deliberately static. Any unrelated
+            # disconnected helper root is also held at bind pose.
             current_global[name] = rest[name]
             deltas[name] = IDENTITY
             continue
 
-        parent = parents.get(name)
-        if parent is None:
-            raise ValueError(f"unexpected extra source root {name!r}")
         local_rest = qmul(qinv(rest[parent]), rest[name])
         pose_delta = qnorm(source_pose_local.get(name, IDENTITY))
         current_global[name] = qmul(
