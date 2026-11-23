@@ -352,11 +352,15 @@ def main():
     source_rest_head_max_error = 0.0
     source_rest_tail_max_error = 0.0
     source_rest_rotation_max_error_degrees = 0.0
+    # Store numeric expected pivots now. Fast64's later material conversion may
+    # replace Blender scene data and invalidate imported FBX object references.
+    source_rest_target_pivots = {}
     for target_name, source_name in target_bone_sources.items():
         target_bone = target_arm.data.bones[target_name]
         source_bone = source_arm.data.bones[source_name]
         expected_head = source_bone_to_target @ source_bone.head_local
         expected_tail = source_bone_to_target @ source_bone.tail_local
+        source_rest_target_pivots[target_name] = (expected_head.copy(), expected_tail.copy())
         source_rest_head_max_error = max(
             source_rest_head_max_error, (target_bone.head_local - expected_head).length
         )
@@ -1224,16 +1228,16 @@ def main():
     # cleanup, which must not modify the mapped joint pivots.
     post_cleanup_head_error = 0.0
     post_cleanup_tail_error = 0.0
-    for target_name, source_name in target_bone_sources.items():
+    for target_name in target_bone_sources:
         target_bone = target_arm.data.bones[target_name]
-        source_bone = source_arm.data.bones[source_name]
+        expected_head, expected_tail = source_rest_target_pivots[target_name]
         post_cleanup_head_error = max(
             post_cleanup_head_error,
-            (target_bone.head_local - source_bone_to_target @ source_bone.head_local).length,
+            (target_bone.head_local - expected_head).length,
         )
         post_cleanup_tail_error = max(
             post_cleanup_tail_error,
-            (target_bone.tail_local - source_bone_to_target @ source_bone.tail_local).length,
+            (target_bone.tail_local - expected_tail).length,
         )
     require(post_cleanup_head_error < 1e-4 and post_cleanup_tail_error < 1e-4,
             "Fast64 cleanup changed a CJ-mapped rest pivot: "
