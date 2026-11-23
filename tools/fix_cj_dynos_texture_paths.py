@@ -128,14 +128,14 @@ def main() -> None:
     # retaining 0.25 shrinks it to 70 units in game. Promote only the root
     # GeoLayout scale to 1.0; leave hand/foot animation scales untouched.
     root_scale_pattern = re.compile(
-        r"(GEO_SCALE\\s*\\(\\s*LAYER_FORCE\\s*,\\s*)16384(\\s*\\))"
+        r"(GEO_SCALE\s*\(\s*LAYER_FORCE\s*,\s*)16384(\s*\))"
     )
     root_scale_matches = list(root_scale_pattern.finditer(geo_source))
     require(len(root_scale_matches) == 1,
             f"Expected exactly one stock Mario root scale 16384, found {len(root_scale_matches)}")
-    geo_source = root_scale_pattern.sub(r"\\g<1>65536\\g<2>", geo_source, count=1)
+    geo_source = root_scale_pattern.sub(r"\g<1>65536\g<2>", geo_source, count=1)
     require(
-        re.search(r"GEO_SCALE\\s*\\(\\s*LAYER_FORCE\\s*,\\s*65536\\s*\\)", geo_source),
+        re.search(r"GEO_SCALE\s*\(\s*LAYER_FORCE\s*,\s*65536\s*\)", geo_source),
         "CJ root GeoLayout scale was not normalized to 1.0",
     )
     geo_file.write_text(geo_source, encoding="utf-8")
