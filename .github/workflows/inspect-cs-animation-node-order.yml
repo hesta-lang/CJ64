@@ -1,0 +1,39 @@
+name: Inspect CS CJ animation node order
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "actors/cj/mario_geo.bin"
+      - "tools/cj_fast64_animation_node_order.json"
+      - "tools/inspect_cs_animation_node_order.py"
+      - ".github/workflows/inspect-cs-animation-node-order.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect compiled CS GeoLayout node order
+        run: |
+          python3 tools/inspect_cs_animation_node_order.py
+          python3 - <<'PY'
+          import json
+          report=json.load(open("build/cs-cj-animation-node-report.json",encoding="utf-8"))
+          assert report["animated_part_count"] == 20
+          assert report["landmark_checks"] == 11
+          assert report["status"] == "ORDERED_20_NODE_LAYOUT_MATCHES_FAST64_REFERENCE"
+          assert report["rotation_basis_validation"] == "NOT_VALIDATED"
+          print("CS actor traversal order and 11 display-list landmarks match the Fast64/Mario reference.")
+          print("Rest-pose and local-axis equivalence remain unverified.")
+          PY
+      - name: Upload animation node report
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-CS-Animation-Node-Report
+          path: build/cs-cj-animation-node-report.json
+          if-no-files-found: error
+          retention-days: 14
