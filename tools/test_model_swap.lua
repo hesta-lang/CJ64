@@ -9,7 +9,7 @@ HOOK_ON_LEVEL_INIT = "level_init"
 function print() end
 function hook_event(name, fn) hooks[name] = fn end
 function smlua_model_util_get_id(name)
-    assert(name == "cj64_cj_geo")
+    assert(name == "actors/cj64_cj_geo.bin")
     return actorAvailable and 900 or E_MODEL_NONE
 end
 function obj_get_model_id_extended(obj) return obj.modelId or 1 end
