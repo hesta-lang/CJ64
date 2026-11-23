@@ -1,10 +1,8 @@
-# CJ original animations: extraction and integration status
+# CJ original animations: calibration and integration status
 
 ## Source package
 
-The owner supplied the original GTA: San Andreas `anim/ped.ifp` package.
-It parses as ANP3 package `ped`, with 294 clips and 1,433,248 bytes. The
-13 selected candidates contain 5,097 source keyframes:
+The project owner supplied the original GTA: San Andreas `anim/ped.ifp` package. It parses as ANP3 package `ped`, with 294 clips and 1,433,248 bytes. Thirteen selected candidates contain 5,097 source keyframes:
 
 - `IDLE_stance`
 - `WALK_start`, `WALK_player`
@@ -13,70 +11,45 @@ It parses as ANP3 package `ped`, with 294 clips and 1,433,248 bytes. The
 - `FALL_fall`, `FALL_glide`, `FALL_land`
 - `Swim_Tread`
 
-`sprint_civi` is a generic civilian sprint candidate, not confirmed as a
-CJ-exclusive animation. The IFP and keyframe-derived Lua output are not stored
-in this public repository.
+`sprint_civi` is a generic civilian sprint candidate, not confirmed as a CJ-exclusive animation. The IFP and derived per-frame Lua output are private working inputs and are not stored in this public repository.
 
-## First-pass retarget target
+## Verified animated-part mapping
 
-The experimental FBX/Fast64 transfer inspected the Mario character template and
-generated a 20-node animation target in this order:
+The CS DynOS actor has 20 `GEO_ANIMATED_PART` commands. `tools/inspect_cs_animation_node_order.py` compares their traversal order and 11 display-list landmarks against the Fast64/Mario reference. The order and selected part identities match:
 
-`Body`, `Butt`, `Torso`, `Head`, `Left Arm`, `Left Arm Color`,
-`Left Forearm`, `Left Hand`, `Right Arm`, `Right Arm Color`,
-`Right Forearm`, `Right Hand`, `Left Thigh`, `Left Thigh Color`,
-`Left Leg`, `Left Shoe`, `Right Thigh`, `Right Thigh Color`,
-`Right Leg`, `Right Shoe`.
+`Body`, `Butt`, `Torso`, `Head`, `Left Arm`, `Left Arm Color`, `Left Forearm`, `Left Hand`, `Right Arm`, `Right Arm Color`, `Right Forearm`, `Right Hand`, `Left Thigh`, `Left Thigh Color`, `Left Leg`, `Left Shoe`, `Right Thigh`, `Right Thigh Color`, `Right Leg`, `Right Shoe`.
 
-The private Lua tables have 63 channels per clip: three zeroed root translation
-channels and three rotation channels for each of those 20 Fast64/Mario nodes.
-They were generated using the FBX-to-Mario rest-space map in
-`tools/cj64_sm64_animation_retarget_map.json`. Their structural report says
-`STRUCTURAL_GENERATION_ONLY_NOT_VISUALLY_OR_IN_GAME_VALIDATED`.
+The owner has confirmed that the compiled CS model appears normally in-game with native Mario animations. This isolates the current defect to the custom animation data/conversion path; the model's mesh and scale are not modified by the calibration.
 
-## Why the CS actor was lying down
+## Cause of the previous animation failure
 
-The current Character Select model is a compiled DynOS binary with 20
-`GEO_ANIMATED_PART` commands. The binary's animated-part count is known, but
-its node order, parent hierarchy and rest rotations have not been demonstrated
-to match the FBX/Fast64 target above. It was incorrect to infer compatibility
-from the count alone.
+The original generated table carried static reference/rest rotations into the custom animation arrays. In the first frame of the original `cj64_anim_idle` table, the `Body` channel contained approximately 90 degrees around Z and the `Butt` channel contained large rotations. These are rest-space offsets, not useful movement instructions to apply as absolute character pose rotations.
 
-Inspection of the actual private `cj64_gta_animations.lua` file showed that
-the first frame of `cj64_anim_idle` contains approximately:
+A matching number of nodes or a matching traversal order does not prove the coordinate basis is identical. The prior table could therefore move the model away from its valid neutral pose even though it rendered correctly with native Mario animations.
 
-- `Body`: X 0.6°, Y -0.6°, Z 90.1°.
-- `Butt`: X -180.0°, Y -85.4°, Z 90.0°.
+## Neutral-pose calibration
 
-These are channel values generated for the FBX/Fast64 Mario rig. When interpreted
-as if they belonged to the unverified CS node layout, they can rotate the body
-onto its side and place animated parts over one another. The supplied screenshot
-is consistent with this failure.
+`tools/normalize_cs_animation_tables.py` now:
 
-## Current runtime safeguard
+1. Parses every `smlua_anim_util_register_animation` block and rejects duplicate names, unexpected channel counts, invalid offsets, missing samples and non-zero root translation.
+2. Reads the first XYZ rotation sample for each of the 20 target nodes in `cj64_anim_idle`.
+3. Computes each sample relative to that node's idle reference quaternion:
+   `q_relative = inverse(q_idle_first) * q_current`.
+4. Converts the relative rotations back to 16-bit Euler channels, unwraps angular discontinuities and preserves the channel index tables and all sample lengths.
+5. Emits a report that clearly marks visual and in-game validation as incomplete.
 
-Version `0.1.3-alpha` sets `CJ64.useGTAAnimations = false` by default.
-The controller does not load or apply the private GTA tables in this mode.
-SM64CoopDX's native player animation handling remains in control while the CS
-model is isolated for an orientation/mesh test.
+Each clip has 63 channels: three fixed-zero root translation channels plus three rotation channels for each of 20 animated parts. The three translation channels remain zero so MarioState continues to own player position and world movement.
 
-The previous helper `tools/normalize_cs_animation_tables.py` applies the inverse
-of the first reference quaternion to each numbered channel. That operation does
-not discover the CS node order, validate its hierarchy, or prove that source and
-target channels refer to the same body parts. Running it alone cannot establish
-a correct CS retarget, so its output is still experimental.
+The first idle frame is now identity across all 20 nodes, with a maximum numerical residual below (10^{-15}) radians in the private calibration report. All 13 clips retain their original frame counts and 126 index entries per clip.
 
-## Required work before re-enabling GTA clips
+## Current experimental package
 
-1. Inspect the CS actor's actual animated-part hierarchy and rest transforms,
-   not just the number of nodes.
-2. Establish a verified mapping from each CS node to its intended GTA source
-   bone and compare the neutral pose.
-3. Retarget the IFP tracks using that mapping and render pose previews for idle,
-   walk, run, jump, fall, landing and swimming.
-4. Enable the clips only after the previews and in-game tests match the model.
+The private `0.1.4-alpha` test package includes the calibrated table and enables it only after successful module loading. If the module fails to load, the main script leaves native Mario animations enabled as a fallback.
 
-The CS actor has only 20 animated parts, not the complete GTA skeleton. It
-cannot independently animate every source track (for example, separate finger
-and toe tracks) unless the model is rebuilt with an expanded skeleton and
-matching geometry weights.
+Automated tests cover neutral-pose removal, motion preservation, idempotency, preservation of translation channels, duplicate registration rejection and invalid channel-index rejection. These tests validate the converter's data handling; they cannot show how the animation looks on the actual character in the game.
+
+## Limitations and next validation
+
+The CS actor has only 20 animated parts rather than GTA's full ped skeleton. Individual finger, toe, breast and belly tracks cannot be animated independently, so exact one-to-one GTA skeleton parity is not possible without rebuilding the model with a larger skeleton and matching geometry.
+
+The calibrated clips remain experimental until tested in SM64CoopDX on Android. The important in-game checks are idle, walk start/walk, run, sprint candidate, run stop, jump launch/air/land, fall/land and swimming. If one clip deforms the model, the next correction should target that clip/node using the observed pose rather than applying another global model rotation.
