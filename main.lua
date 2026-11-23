@@ -1,12 +1,12 @@
--- CJ64 - Carl Johnson visual replacement for SM64CoopDX
+-- CJ64 - self-contained Carl Johnson visual replacement for SM64CoopDX
 -- 0.1.0-alpha
 CJ64 = CJ64 or {}
 CJ64.name = "CJ64"
-CJ64.version = "0.1.0-alpha"
+CJ64.version = "0.1.1-alpha"
 CJ64.riggedActor = CJ64.riggedActor == true
 CJ64.animationTablesLoaded = CJ64.animationTablesLoaded == true
 
--- A rigged actor marker is generated only in the experimental skinned package.
+-- This marker enables GTA animation playback for the embedded skinned actor.
 local rigOk = pcall(require, "rigged_actor")
 if not rigOk and CJ64.riggedActor ~= true then
     CJ64.riggedActor = false
