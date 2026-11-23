@@ -186,7 +186,7 @@ def main() -> None:
             lua_source = fh.read().decode("utf-8")
         require('modelName = "mario_geo"' in lua_source,
                 "Lua controller must request the DynOS GeoLayout symbol, not a file path")
-        require('dynos_pack_set_enabled(index, true)' in lua_source,
+        require('pcall(dynos_pack_set_enabled, index, true)' in lua_source,
                 "Lua controller does not enable the CJ64 DynOS pack")
         with zf.open("dynos/packs/CJ64/Assets/geo.inc.c") as fh:
             zipped_geo = fh.read().decode("utf-8")
