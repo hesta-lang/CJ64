@@ -13,14 +13,22 @@ on:
       - 'main.lua'
       - 'character.lua'
       - 'assets/cj/source/**'
+      - 'tools/export_cj64_comparison_assets.py'
+      - 'viewer/**'
+      - 'docs/ANIMATION-COMPARISON-VIEWER.md'
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 jobs:
   inspect-rig-export:
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -116,6 +124,22 @@ jobs:
           test -s "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json"
           test -s "$RUNNER_TEMP/cj-rig-output/target_animation_node_order.json"
 
+      - name: Export paired GTA and SM64 comparison models
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cj-rig-output/comparison"
+          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --factory-startup \
+            --python-exit-code 1 --python tools/export_cj64_comparison_assets.py -- \
+            assets/cj/source/CarlJohnson-GTASA.FBX \
+            "$RUNNER_TEMP/cj-rig-output/CJ64-CJ-Rig-Transfer.blend" \
+            "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json" \
+            tools/cj_fbx_bone_map.json \
+            "$RUNNER_TEMP/cj-rig-output/comparison"
+          test -s "$RUNNER_TEMP/cj-rig-output/comparison/cj64-gta-source.glb"
+          test -s "$RUNNER_TEMP/cj-rig-output/comparison/cj64-sm64-target.glb"
+          test -s "$RUNNER_TEMP/cj-rig-output/comparison/cj64_sm64_animation_retarget_map.json"
+          test -s "$RUNNER_TEMP/cj-rig-output/comparison/comparison-assets.json"
       - name: Normalize DynOS texture paths and rebuild rigged ZIP
         run: |
           python3 tools/fix_cj_dynos_texture_paths.py \
@@ -178,6 +202,74 @@ jobs:
           print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
           PY
 
+      - name: Validate local IFP parser, retarget math and viewer scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test viewer/core.test.js
+          node --check viewer/app.js
+          python3 -m py_compile tools/export_cj64_comparison_assets.py
+
+      - name: Assemble paired 3D comparison viewer
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/cj-rig-output/comparison-site"
+          mkdir -p "$site/assets"
+          cp viewer/index.html viewer/app.js viewer/core.js viewer/style.css "$site/"
+          cp "$RUNNER_TEMP/cj-rig-output/comparison/"* "$site/assets/"
+          touch "$site/.nojekyll"
+          python3 - "$site" <<'PY'
+          import json,sys
+          from pathlib import Path
+          root=Path(sys.argv[1])
+          required=[root/'index.html',root/'app.js',root/'core.js',root/'style.css',
+                    root/'assets/cj64-gta-source.glb',root/'assets/cj64-sm64-target.glb',
+                    root/'assets/cj64_sm64_animation_retarget_map.json',
+                    root/'assets/cj_fbx_bone_map.json',root/'assets/comparison-assets.json']
+          missing=[str(p) for p in required if not p.is_file() or p.stat().st_size==0]
+          assert not missing, f"Incomplete viewer bundle: {missing}"
+          manifest=json.loads((root/'assets/comparison-assets.json').read_text())
+          assert manifest['ifp_file_embedded'] is False
+          assert manifest['target_animation_node_count']==20
+          assert manifest['source_model']=='cj64-gta-source.glb'
+          assert manifest['target_model']=='cj64-sm64-target.glb'
+          print(f"Viewer bundle contains {len(list(root.rglob('*')))} entries; original IFP is not embedded.")
+          PY
+
+      - name: Upload interactive comparison viewer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-Animation-Comparison-Viewer
+          path: ${{ runner.temp }}/cj-rig-output/comparison-site
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 1
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/cj-rig-output/comparison-site
+
+      - name: Deploy interactive comparison viewer to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Publish viewer URL or setup instructions in summary
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
+          DEPLOY_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          if [ "$DEPLOY_OUTCOME" = "success" ] && [ -n "$DEPLOY_URL" ]; then
+            echo "## CJ64 animation comparison viewer" >> "$GITHUB_STEP_SUMMARY"
+            echo "[Open the interactive GTA / SM64 comparison]($DEPLOY_URL)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## CJ64 animation comparison viewer" >> "$GITHUB_STEP_SUMMARY"
+            echo "The viewer artifact was generated. To publish a permanent page, open Repository Settings → Pages and set Build and deployment Source to GitHub Actions, then rerun this workflow." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload rigged CJ actor package and authoring scene
         uses: actions/upload-artifact@v4
         with:
