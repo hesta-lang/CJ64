@@ -142,7 +142,7 @@ jobs:
           assert d["vertices_using_original_source_weights"]>0
           assert d["vertices_using_nearest_bone_fallback"]<=d["source_vertices"]*0.05
           assert d["target_animation_node_count"]==20
-          assert d["dynos_geolayout_name"]=="cj64_cj_geo"
+          assert d["dynos_geolayout_name"]=="mario_geo"
           assert d["dynos_pack_name"]=="CJ64"
           assert d["dynos_pack_install_path"]=="dynos/packs/CJ64"
           assert d["dynos_pack_actor_folder"]=="Assets"
