@@ -24,6 +24,8 @@ jobs:
           done < <(find . -type f -name '*.lua' -print0)
       - name: Test model replacement
         run: lua5.4 tools/test_model_swap.lua
+      - name: Test GTA animation reassertion guard
+        run: lua5.4 tests/test_animation_runtime_guard.lua
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
