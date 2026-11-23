@@ -1020,8 +1020,12 @@ def main():
     # The armature GeoLayout operator still exists, but it now reads from
     # scene.fast64.sm64.combined_export instead of the legacy geo* Scene props.
     mod_dir = output_dir / "CJ64-Rigged-Test"
-    actor_root = mod_dir / "actors"
-    actor_root.mkdir(parents=True, exist_ok=True)
+    pack_dir = output_dir / "CJ64"
+    mod_dir.mkdir(parents=True, exist_ok=True)
+    pack_dir.mkdir(parents=True, exist_ok=True)
+    # DynOS scans folders under dynos/packs as independent packs. Keep the
+    # actor sources in pack_dir/Assets so DynOS generates the .bin in pack_dir.
+    actor_root = pack_dir
     scene = bpy.context.scene
     scene.gameEditorMode = "SM64"
     # gameEditorMode's update callback restores the legacy F3D default; reset
@@ -1045,8 +1049,8 @@ def main():
     combined = scene.fast64.sm64.combined_export
     combined.export_header_type = "Custom"
     combined.custom_export_path = str(actor_root.resolve())
-    combined.custom_include_directory = "actors/cj/"
-    combined.object_name = "cj"
+    combined.custom_include_directory = "Assets/"
+    combined.object_name = "Assets"
     combined.group_name = "group0"
     combined.export_gfx = True
     combined.export_col = False
@@ -1097,7 +1101,7 @@ def main():
     export_result = bpy.ops.object.sm64_export_geolayout_armature(export_obj=target_arm.name)
     require("FINISHED" in export_result,
             f"Fast64-Gart armature export did not finish: {export_result}")
-    actor_dir = actor_root / "cj"
+    actor_dir = actor_root / "Assets"
     require((actor_dir / "geo.inc.c").is_file() and
             (actor_dir / "model.inc.c").is_file(),
             "Fast64 did not create the CJ DynOS actor files")
@@ -1124,13 +1128,14 @@ def main():
         "CJ64 = CJ64 or {}\nCJ64.riggedActor = true\n", encoding="utf-8"
     )
     (mod_dir / "README-INSTALL.txt").write_text(
-        "CJ64 experimental skinned actor. DynOS modfs actor binary path: actors/cj64_cj_geo.bin; root GeoLayout symbol: cj64_cj_geo. "
-        "It uses the Mario/Fast64 armature, one deform bone per vertex at weight 1.0, "
-        "and a 280 SM64-unit model. SM64CoopDX generates actors/cj64_cj_geo.bin "
-        "from these C sources when the mod is refreshed; the generated .bin is "
-        "intentionally not shipped. Before replacing an older test installation, "
-        "delete any old actors/cj64_cj_geo.bin so DynOS rebuilds it. "
-        "The private cj64_gta_animations.lua module is not included. "
+        "CJ64 experimental player-model test. Root GeoLayout symbol: cj64_cj_geo. "
+        "Install this Lua folder as mods/CJ64-Rigged-Test and the separate CJ64 "
+        "folder as dynos/packs/CJ64. The pack contains Assets/model.inc.c, "
+        "Assets/geo.inc.c and its textures. SM64CoopDX scans dynos/packs at startup "
+        "and generates CJ64/cj64_cj_geo.bin from those sources. The Lua controller "
+        "enables the CJ64 DynOS pack before requesting the model by its GeoLayout "
+        "name. Do not put the CJ64 pack inside mods. The private "
+        "cj64_gta_animations.lua module is not included in this export. "
         "Test the actor in SM64CoopDX before treating this as a release.\\n",
         encoding="utf-8"
     )
@@ -1187,7 +1192,9 @@ def main():
         "generated_fallback_materials": fallback_materials,
         "fast64_export_result": str(export_result),
         "dynos_geolayout_name": dynos_geo_name,
-        "actor_files": [str(path.relative_to(mod_dir)) for path in actor_dir.rglob("*") if path.is_file()],
+        "dynos_pack_name": "CJ64",
+        "dynos_pack_actor_folder": "Assets",
+        "actor_files": [str(path.relative_to(pack_dir)) for path in actor_dir.rglob("*") if path.is_file()],
         "bounds_after_armature_evaluation": bounds,
         "preview_image": "CJ64-Rigged-Rest-Preview.png",
         "notes": [
@@ -1257,14 +1264,9 @@ def main():
 
     scene_path = output_dir / "CJ64-CJ-Rig-Transfer.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(scene_path))
-    archive = output_dir / "CJ64-Rigged-Test.zip"
-    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=8) as package:
-        for path in sorted(mod_dir.rglob("*")):
-            if path.is_file():
-                package.write(path, path.relative_to(output_dir))
     print(json.dumps({
         "scene": str(scene_path), "report": str(report_path),
-        "package": str(archive), **report
+        "lua_mod_dir": str(mod_dir), "dynos_pack_dir": str(pack_dir), **report
     }, indent=2))
 
 
