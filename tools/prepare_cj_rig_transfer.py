@@ -446,8 +446,36 @@ def main():
     rigged_mesh.matrix_world = Matrix.Identity(4)
     target_arm.matrix_world = Matrix.Identity(4)
 
-    # At this point the source rig and mesh are gone, and the target node map
-    # is already saved. Bind the finished skin in one final step.
+    # Keep the skin disconnected while the material converter and UV-island
+    # builder alter the mesh/material datablocks. Fast64 exports only after
+    # those operations finish, so the armature link can safely be added later.
+    checkpoint("source-rig-removed-and-node-map-saved")
+
+    # Prepare TMEM-safe textures and convert materials for Fast64.
+    checkpoint("before-ensure-base-color-textures")
+    fallback_materials = [
+        material.name for material in rigged_mesh.data.materials
+        if material is not None and shared.ensure_base_color_texture(material)
+    ]
+    checkpoint(f"base-color-textures-ensured-{len(fallback_materials)}")
+    checkpoint("before-splitting-tmem-uv-islands")
+    texture_islands = shared.split_materials_into_tmem_uv_islands(
+        rigged_mesh, max_texels=2048
+    )
+    checkpoint(f"tmem-uv-islands-split-{texture_islands.get('island_count', 0)}")
+    import fast64.fast64_internal.f3d_material_converter as converter
+    checkpoint("before-fast64-material-conversion")
+    converter.convertAllBSDFtoF3D([rigged_mesh], True)
+    checkpoint("fast64-material-conversion-completed")
+    unresolved_materials = [
+        material.name for material in rigged_mesh.data.materials
+        if material and not bool(getattr(material, "is_f3d", False))
+    ]
+    require(not unresolved_materials,
+            "Fast64 material conversion failed: " + ", ".join(unresolved_materials))
+    checkpoint("fast64-materials-validated")
+
+    # Bind the completed, texture-converted mesh only now.
     for old_modifier in list(rigged_mesh.modifiers):
         rigged_mesh.modifiers.remove(old_modifier)
     arm_mod = rigged_mesh.modifiers.new("CJ64_Mario_Skin", "ARMATURE")
@@ -455,24 +483,7 @@ def main():
     arm_mod.use_vertex_groups = True
     arm_mod.use_bone_envelopes = False
     rigged_mesh.parent = target_arm
-    checkpoint("finished-skin-bound-to-target-armature")
-
-    # Prepare TMEM-safe textures and convert materials for Fast64.
-    fallback_materials = [
-        material.name for material in rigged_mesh.data.materials
-        if material is not None and shared.ensure_base_color_texture(material)
-    ]
-    texture_islands = shared.split_materials_into_tmem_uv_islands(
-        rigged_mesh, max_texels=2048
-    )
-    import fast64.fast64_internal.f3d_material_converter as converter
-    converter.convertAllBSDFtoF3D([rigged_mesh], True)
-    unresolved_materials = [
-        material.name for material in rigged_mesh.data.materials
-        if material and not bool(getattr(material, "is_f3d", False))
-    ]
-    require(not unresolved_materials,
-            "Fast64 material conversion failed: " + ", ".join(unresolved_materials))
+    checkpoint("finished-skin-bound-after-material-conversion")
 
     # Export through Fast64-Gart's current Combined Exporter settings.
     # The armature GeoLayout operator still exists, but it now reads from
