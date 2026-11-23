@@ -174,10 +174,6 @@ def main():
 
     mario_arm = find_object("Mario", "ARMATURE")
     checkpoint("mario-armature-found")
-    require(mario_arm.data.bones.get("Body") is not None,
-            "Mario template is missing the Body root bone")
-    mario_body_rest_matrix = mario_arm.data.bones["Body"].matrix_local.copy()
-    checkpoint("mario-native-body-root-rest-cached")
 
     target_arm = mario_arm.copy()
     target_arm.data = mario_arm.data.copy()
@@ -296,106 +292,33 @@ def main():
         "Right Shoe": "leg right ankle",
         "Right Shoe DL": "leg right ankle",
     }
-    # Snapshot source rest transforms before entering edit mode. Do not read
-    # another armature's RNA bones while Blender is editing the target armature:
-    # this avoids cross-datablock dependency evaluation in the background runner.
-    source_rest_bones = {}
-    for source_name in set(target_bone_sources.values()):
-        source_bone = source_arm.data.bones.get(source_name)
-        if source_bone is not None:
-            source_rest_bones[source_name] = (
-                source_bone.matrix_local.copy(),
-                float(source_bone.length),
-            )
-    checkpoint(f"source-rest-bones-cached-{len(source_rest_bones)}")
-    require("root ground" in source_rest_bones,
-            "CJ source armature is missing its root ground bone")
-
-    # Normalize the imported CJ root frame to Mario's native Body rest frame.
-    # Without this correction the FBX root's rest rotation is copied verbatim
-    # into mario_geo; DynOS then combines it with Mario's player-space root
-    # transforms and the whole character can lie sideways in game. Apply only
-    # a rigid rotation/translation here (never scale), so the requested 280-unit
-    # model size and all per-bone dimensions remain unchanged.
-    source_root_target = source_to_target @ source_rest_bones["root ground"][0]
-    source_root_rotation = (
-        source_root_target.to_3x3().to_quaternion().to_matrix().to_4x4()
-    )
-    mario_root_rotation = (
-        mario_body_rest_matrix.to_3x3().to_quaternion().to_matrix().to_4x4()
-    )
-    root_rotation_correction = mario_root_rotation @ source_root_rotation.inverted()
-    root_correction = (
-        Matrix.Translation(mario_body_rest_matrix.translation)
-        @ root_rotation_correction
-        @ Matrix.Translation(-source_root_target.translation)
-    )
-    source_to_target = root_correction @ source_to_target
-    mesh_to_target = root_correction @ mesh_to_target
-    aligned_source_root = source_to_target @ source_rest_bones["root ground"][0]
-    require(
-        (aligned_source_root.translation - mario_body_rest_matrix.translation).length < 1e-4,
-        "CJ root translation did not align with Mario's native Body root",
-    )
-    aligned_root_quat = aligned_source_root.to_3x3().to_quaternion()
-    mario_root_quat = mario_body_rest_matrix.to_3x3().to_quaternion()
-    require(
-        abs(abs(aligned_root_quat.dot(mario_root_quat)) - 1.0) < 1e-5,
-        "CJ root orientation did not align with Mario's native Body root",
-    )
-    root_alignment_report = {
-        "source_root_rotation_wxyz_before": [
-            round(float(x), 7) for x in
-            (source_root_target.to_3x3().to_quaternion().w,
-             source_root_target.to_3x3().to_quaternion().x,
-             source_root_target.to_3x3().to_quaternion().y,
-             source_root_target.to_3x3().to_quaternion().z)
-        ],
-        "mario_body_rotation_wxyz": [
-            round(float(x), 7) for x in
-            (mario_root_quat.w, mario_root_quat.x, mario_root_quat.y, mario_root_quat.z)
-        ],
-        "aligned_root_translation_error": (
-            aligned_source_root.translation - mario_body_rest_matrix.translation
-        ).length,
-        "aligned_root_rotation_dot": abs(aligned_root_quat.dot(mario_root_quat)),
+    # Cache the complete CJ source rest skeleton, but keep the copied Mario
+    # armature's native rest matrices unchanged. The game applies Mario's stock
+    # animation channels to mario_geo; replacing those rest matrices with CJ's
+    # FBX bind pose makes every stock animation act on the wrong coordinate
+    # frame and produces a collapsed/sideways character.
+    source_rest_bones = {
+        bone.name: (bone.matrix_local.copy(), float(bone.length))
+        for bone in source_arm.data.bones
     }
-    checkpoint("cj-root-frame-aligned-to-native-mario-body")
-
-    # Avoid a global selection operator after FBX import. Clear selection
-    # directly, then make the duplicated Mario armature the sole active object.
-    for obj in bpy.context.view_layer.objects:
-        if obj.select_get():
-            obj.select_set(False)
-    checkpoint("all-scene-objects-deselected")
-    target_arm.select_set(True)
-    bpy.context.view_layer.objects.active = target_arm
-    checkpoint("target-armature-made-active")
-    bpy.ops.object.mode_set(mode="EDIT")
-    checkpoint("target-armature-entered-edit-mode")
-
-    missing_target_bones = []
-    missing_source_bones = []
-    for target_name, source_name in target_bone_sources.items():
-        edit_bone = target_arm.data.edit_bones.get(target_name)
-        source_rest = source_rest_bones.get(source_name)
-        if edit_bone is None:
-            missing_target_bones.append(target_name)
-            continue
-        if source_rest is None:
-            missing_source_bones.append(source_name)
-            continue
-        set_edit_bone_from_source(
-            edit_bone, source_rest[0], source_rest[1], source_to_target
-        )
-    checkpoint("target-bone-rest-transforms-applied")
-    bpy.ops.object.mode_set(mode="OBJECT")
-    checkpoint("target-armature-returned-to-object-mode")
+    native_target_rest_bones = {
+        bone.name: bone.matrix_local.copy()
+        for bone in target_arm.data.bones
+    }
+    checkpoint(f"source-rest-bones-cached-{len(source_rest_bones)}")
+    missing_target_bones = [
+        name for name in target_bone_sources
+        if target_arm.data.bones.get(name) is None
+    ]
+    missing_source_bones = [
+        name for name in set(target_bone_sources.values())
+        if source_arm.data.bones.get(name) is None
+    ]
     require(not missing_target_bones,
             "Mario template is missing expected bones: " + ", ".join(missing_target_bones))
     require(not missing_source_bones,
             "CJ source armature is missing expected bones: " + ", ".join(missing_source_bones))
-    checkpoint("rest-pose-transfer-validated")
+    checkpoint("native-mario-rest-pose-preserved")
 
     # Preserve original FBX vertex-group assignments before creating the target groups.
     source_group_names = {
@@ -417,20 +340,10 @@ def main():
     checkpoint("clean-rigged-mesh-object-linked")
     checkpoint("before-transforming-cj-mesh-vertices")
     vertex_count = len(rigged_mesh.data.vertices)
-    coordinates = [0.0] * (vertex_count * 3)
-    rigged_mesh.data.vertices.foreach_get("co", coordinates)
-    for offset in range(0, len(coordinates), 3):
-        transformed_point = mesh_to_target @ Vector((
-            coordinates[offset],
-            coordinates[offset + 1],
-            coordinates[offset + 2],
-        ))
-        coordinates[offset] = float(transformed_point.x)
-        coordinates[offset + 1] = float(transformed_point.y)
-        coordinates[offset + 2] = float(transformed_point.z)
-    rigged_mesh.data.vertices.foreach_set("co", coordinates)
-    rigged_mesh.data.update()
-    checkpoint(f"cj-mesh-vertices-transformed-{vertex_count}")
+    source_points_target = []
+    for vertex in rigged_mesh.data.vertices:
+        source_points_target.append(mesh_to_target @ vertex.co.copy())
+    checkpoint(f"cj-source-bind-vertices-converted-to-target-axes-{vertex_count}")
     rigged_mesh.matrix_world = Matrix.Identity(4)
     checkpoint("cj-mesh-world-matrix-reset")
     # Defer parenting and the Armature modifier until all vertex groups
@@ -465,27 +378,48 @@ def main():
     checkpoint(f"target-vertex-groups-created-{len(groups)}")
     segments = []
     for bone in deform_bones:
-        head = bone.head_local.copy()
-        tail = bone.tail_local.copy()
+        source_name = target_bone_sources.get(bone.name)
+        source_bone = source_arm.data.bones.get(source_name) if source_name else None
+        if source_bone is not None:
+            head = source_to_target @ source_bone.head_local
+            tail = source_to_target @ source_bone.tail_local
+        else:
+            head = bone.head_local.copy()
+            tail = bone.tail_local.copy()
         axis_vec = tail - head
         axis_len_sq = max(axis_vec.length_squared, 1e-10)
         segments.append((bone.name, head, axis_vec, axis_len_sq))
 
+    source_name_by_folded = {
+        name.strip().casefold(): name for name in source_rest_bones
+    }
     source_weighted_vertices = 0
     fallback_weight_vertices = 0
+    vertex_bind_source_bones = [None] * vertex_count
     for vertex in rigged_mesh.data.vertices:
         mapped_weights = {}
+        strongest_source_for_target = {}
         source_vertex = source_mesh.data.vertices[vertex.index]
         for assignment in source_vertex.groups:
-            source_name = source_group_names.get(assignment.group)
-            target_name = SOURCE_WEIGHT_TO_TARGET.get(source_name)
+            source_key = source_group_names.get(assignment.group)
+            target_name = SOURCE_WEIGHT_TO_TARGET.get(source_key)
             if target_name in groups:
-                mapped_weights[target_name] = mapped_weights.get(target_name, 0.0) + float(assignment.weight)
+                weight = float(assignment.weight)
+                mapped_weights[target_name] = mapped_weights.get(target_name, 0.0) + weight
+                if weight > strongest_source_for_target.get(target_name, -1.0):
+                    strongest_source_for_target[target_name] = weight
+                    strongest_source_for_target[target_name + "__source"] = (
+                        source_name_by_folded.get(source_key)
+                    )
         if mapped_weights:
             target_name = max(mapped_weights, key=mapped_weights.get)
             source_weighted_vertices += 1
+            vertex_bind_source_bones[vertex.index] = (
+                strongest_source_for_target.get(target_name + "__source")
+                or target_bone_sources.get(target_name)
+            )
         else:
-            point = vertex.co
+            point = source_points_target[vertex.index]
             distances = []
             for name, head, axis_vec, axis_len_sq in segments:
                 amount = max(0.0, min(1.0, (point - head).dot(axis_vec) / axis_len_sq))
@@ -493,6 +427,9 @@ def main():
                 distances.append(((point - nearest).length, name))
             _, target_name = min(distances)
             fallback_weight_vertices += 1
+            vertex_bind_source_bones[vertex.index] = target_bone_sources.get(target_name)
+        require(vertex_bind_source_bones[vertex.index] is not None,
+                f"No CJ bind bone is available for vertex {vertex.index} ({target_name})")
         groups[target_name].add([vertex.index], 1.0, "REPLACE")
 
     # Fast64 partitions skinned triangles along the deform-bone tree. It
@@ -531,6 +468,7 @@ def main():
         groups[old_bone_name].remove([vertex_index])
         groups[new_bone_name].add([vertex_index], 1.0, "REPLACE")
         labels[vertex_index] = new_bone_name
+        vertex_bind_source_bones[vertex_index] = target_bone_sources.get(new_bone_name)
         return True
 
     rigged_mesh.data.calc_loop_triangles()
@@ -621,6 +559,47 @@ def main():
         f"fast64-face-weights-repaired-{face_weight_repairs}-changes-"
         f"{face_weight_repair_passes}-passes-{len(used_deform_groups)}-active-bones"
     )
+
+    # Convert each CJ vertex from its chosen CJ source-bone bind frame into
+    # the corresponding *native Mario* target-bone bind frame. This lets the
+    # untouched Mario animation channels deform a mesh that has been fitted
+    # to Mario's rest pose. Keeping the vertex's original selected source bone
+    # is important for groups such as jaw/fingers that share a target display
+    # list but do not share the same source bind transform.
+    native_bind_transforms = {}
+    for target_name in groups:
+        target_rest = native_target_rest_bones[target_name]
+        source_name = target_bone_sources.get(target_name)
+        source_rest = source_rest_bones.get(source_name) if source_name else None
+        if source_rest is not None:
+            source_rest_target = source_to_target @ source_rest[0]
+            native_bind_transforms[target_name] = target_rest @ source_rest_target.inverted()
+
+    corrected_coordinates = [0.0] * (vertex_count * 3)
+    corrected_bind_vertices = 0
+    for vertex_index, source_point in enumerate(source_points_target):
+        target_name = labels[vertex_index]
+        source_name = vertex_bind_source_bones[vertex_index]
+        source_rest = source_rest_bones.get(source_name) if source_name else None
+        if source_rest is None:
+            source_name = target_bone_sources.get(target_name)
+            source_rest = source_rest_bones.get(source_name) if source_name else None
+        require(source_rest is not None,
+                f"No source bind transform for vertex {vertex_index} assigned to {target_name}")
+        source_rest_target = source_to_target @ source_rest[0]
+        target_rest = native_target_rest_bones[target_name]
+        bind_transform = target_rest @ source_rest_target.inverted()
+        corrected_point = bind_transform @ source_point
+        offset = vertex_index * 3
+        corrected_coordinates[offset] = float(corrected_point.x)
+        corrected_coordinates[offset + 1] = float(corrected_point.y)
+        corrected_coordinates[offset + 2] = float(corrected_point.z)
+        corrected_bind_vertices += 1
+    rigged_mesh.data.vertices.foreach_set("co", corrected_coordinates)
+    rigged_mesh.data.update()
+    require(corrected_bind_vertices == vertex_count,
+            "Not all CJ vertices were converted into the native Mario bind pose")
+    checkpoint(f"cj-mesh-converted-to-native-mario-bind-pose-{corrected_bind_vertices}-vertices")
 
     # Keep the new mesh disconnected from the armature while its animation
     # node map is read. The Armature modifier and parent link are added only
@@ -1247,8 +1226,10 @@ def main():
         "target_height_blender_units": target_height,
         "target_height_sm64_units": target_height * 100.0,
         "visual_scale_factor": visual_scale,
-        "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees), followed by rigid CJ-root to native Mario Body alignment",
-        "root_alignment": root_alignment_report,
+        "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
+        "native_mario_rest_pose_preserved": True,
+        "mesh_bind_pose_retarget": "per-vertex CJ source bone bind frame to native Mario target bone bind frame",
+        "bind_pose_retargeted_vertices": corrected_bind_vertices,
         "source_to_target_bone_map": target_bone_sources,
         "target_vertex_groups": sorted(group.name for group in rigged_mesh.vertex_groups),
         "weighted_vertices": weighted_vertices,
