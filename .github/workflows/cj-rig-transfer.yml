@@ -90,6 +90,24 @@ jobs:
           assert d["fast64_addon"]=="Fast64 Gart Edition"
           assert d["fast64_version"]==[2,5,3]
           assert d["target_animation_node_count"]==20
+          assert d["shoulder_weight_targets"] == {
+              "arm left shoulder 1": "Left Arm",
+              "arm left shoulder 2": "Left Arm Color",
+              "arm right shoulder 1": "Right Arm",
+              "arm right shoulder 2": "Right Arm Color",
+          }
+          assert d["deformable_shoulder_pivots"] == {"Left Arm": True, "Right Arm": True}
+          for group in ("Left Arm", "Left Arm Color", "Right Arm", "Right Arm Color"):
+              assert group in d["target_vertex_groups"], group
+          anim_nodes = {node["name"]: node for node in d["target_animation_nodes"]}
+          assert anim_nodes["Left Arm"]["use_deform"] is True
+          assert anim_nodes["Right Arm"]["use_deform"] is True
+          assert mapping["source_parent_by_bone"]["arm left shoulder 1"] == "head neck lower"
+          assert mapping["source_parent_by_bone"]["arm right shoulder 1"] == "head neck lower"
+          assert mapping["source_parent_by_bone"]["spine lower"] == "pelvis"
+          assert mapping["target_parent_animation_node"]["Left Arm"] == "Torso"
+          assert mapping["target_parent_animation_node"]["Right Arm"] == "Torso"
+          assert set(mapping["target_parent_rest_rotation_wxyz"]) == set(mapping["target_node_order"])
           assert len(d["source_cj"]["armatures"])==1
           assert len(d["source_cj"]["meshes"])>=1
           print("Inspected actual CJ and Mario/Fast64-Gart rigs")
@@ -128,9 +146,10 @@ jobs:
 
       - name: Validate exported actor and single-bone skinning
         run: |
-          python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" <<'PY'
+          python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
+          mapping=json.load(open(sys.argv[2],encoding="utf-8"))
           assert d["status"]=="MOD_EMBEDDED_DYNOS_ACTOR_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
           assert d["actor_is_embedded_in_mod"] is True
           assert d["dynos_actor_install_path"]=="mods/CJ64-Rigged-Test/actors"
