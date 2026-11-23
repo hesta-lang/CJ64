@@ -645,6 +645,12 @@ def main():
             + str(sorted(required_sources - set(source_rest))))
     retarget_map["source_rest_rotation_wxyz"] = source_rest
     retarget_map["source_parent_by_bone"] = source_parents
+    source_roots = [name for name, parent in source_parents.items() if parent is None]
+    require("root ground" in source_roots or len(source_roots) == 1,
+            "Cannot identify a unique GTA root bone: " + str(source_roots))
+    retarget_map["source_root_bone"] = (
+        "root ground" if "root ground" in source_roots else source_roots[0]
+    )
     retarget_map["target_parent_animation_node"] = {
         node["name"]: node["parent_animation_node"] for node in animation_nodes
     }
