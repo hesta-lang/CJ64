@@ -1,0 +1,41 @@
+name: Scale CS CJ DynOS actors
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/scale-cs-cj-actor.yml"
+      - "tools/scale_cs_cj_actor.py"
+
+permissions:
+  contents: write
+
+jobs:
+  scale-cj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch base CJ and Jetpack accessory to 1.5x source scale
+        run: python tools/scale_cs_cj_actor.py --scale 0.39
+
+      - name: Commit updated actor binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add actors/cj/mario_geo.bin actors/cj/mario_wingcap_geo.bin build/cs-cj-scale-report.json
+          if git diff --cached --quiet; then
+            echo "Actor binaries already use the requested scale."
+            exit 0
+          fi
+          git commit -m "Scale CS CJ actor and Jetpack accessory"
+          git push
+
+      - name: Upload scale report
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-CS-Actor-Scale-Report
+          path: build/cs-cj-scale-report.json
+          if-no-files-found: error
