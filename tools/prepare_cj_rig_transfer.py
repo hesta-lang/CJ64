@@ -698,6 +698,37 @@ def main():
     combined.graphics_object = rigged_mesh
     combined.context_obj = rigged_mesh
 
+    # The copied Mario geolayout has optional cap-state mesh switches pointing
+    # to auxiliary armatures removed during template isolation. CJ is a single
+    # skinned mesh and does not use Mario's cap variants, so remove only orphaned
+    # Mesh options while preserving the base Switch bone and its normal children.
+    removed_orphan_switch_options = []
+    for bone in target_arm.data.bones:
+        if bone.geo_cmd != "Switch":
+            continue
+        for option_index in reversed(range(len(bone.switch_options))):
+            switch_option = bone.switch_options[option_index]
+            if (switch_option.switchType == "Mesh"
+                    and switch_option.optionArmature is None):
+                removed_orphan_switch_options.append(
+                    {"bone": bone.name, "option_index": option_index}
+                )
+                bone.switch_options.remove(option_index)
+    checkpoint(
+        f"orphaned-mario-mesh-switch-options-removed-{len(removed_orphan_switch_options)}"
+    )
+    require(
+        not any(
+            bone.geo_cmd == "Switch"
+            and any(
+                option.switchType == "Mesh" and option.optionArmature is None
+                for option in bone.switch_options
+            )
+            for bone in target_arm.data.bones
+        ),
+        "The target armature still contains orphaned mesh switch options",
+    )
+
     bpy.ops.object.select_all(action="DESELECT")
     target_arm.select_set(True)
     bpy.context.view_layer.objects.active = target_arm
