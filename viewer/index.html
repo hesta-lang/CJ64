@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111820">
+  <title>CJ64 · Comparador de animaciones GTA / SM64CoopDX</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">CJ64 · HERRAMIENTA DE VALIDACIÓN</p>
+        <h1>Comparador de animaciones</h1>
+        <p class="subtitle">La misma animación de ped.ifp reproducida en el rig GTA original y en el rig retargeteado de SM64CoopDX.</p>
+      </div>
+      <div class="version-tag">PRUEBA VISUAL</div>
+    </header>
+
+    <section class="file-panel" aria-labelledby="ifp-title">
+      <div class="file-intro">
+        <h2 id="ifp-title">1. Selecciona el ped.ifp original</h2>
+        <p>El archivo se procesa localmente en este navegador; no se sube al repositorio ni al servidor.</p>
+      </div>
+      <label class="file-picker">
+        <span>Elegir archivo .ifp</span>
+        <input id="ifp-file" type="file" accept=".ifp,application/octet-stream">
+      </label>
+      <label class="clip-picker">
+        <span>Animación</span>
+        <select id="clip-select" disabled><option>Selecciona primero un IFP</option></select>
+      </label>
+    </section>
+
+    <section class="comparison-section" aria-label="Comparación simultánea de los modelos">
+      <article class="model-card">
+        <div class="model-heading">
+          <div>
+            <span class="model-kicker">ORIGINAL</span>
+            <h2>GTA San Andreas</h2>
+            <p>Rig original de 58 huesos</p>
+          </div>
+          <span class="model-state" id="source-status">Cargando modelo…</span>
+        </div>
+        <div class="viewport-wrap"><canvas id="source-canvas" aria-label="Modelo GTA original"></canvas></div>
+      </article>
+      <article class="model-card">
+        <div class="model-heading">
+          <div>
+            <span class="model-kicker">RETARGET</span>
+            <h2>SM64CoopDX</h2>
+            <p>Rig Fast64 · 20 nodos animables</p>
+          </div>
+          <span class="model-state" id="target-status">Cargando modelo…</span>
+        </div>
+        <div class="viewport-wrap"><canvas id="target-canvas" aria-label="Modelo retargeteado para SM64CoopDX"></canvas></div>
+      </article>
+    </section>
+
+    <section class="transport-panel" aria-label="Controles de animación">
+      <div class="transport-buttons">
+        <button id="step-back" type="button" aria-label="Fotograma anterior">−1 fotograma</button>
+        <button id="play-button" class="primary-button" type="button">Reproducir</button>
+        <button id="step-forward" type="button" aria-label="Fotograma siguiente">+1 fotograma</button>
+        <button id="reset-button" type="button">Reiniciar</button>
+      </div>
+      <div class="timeline-row">
+        <input id="timeline" type="range" min="0" max="1" value="0" step="0.001" aria-label="Posición de la animación">
+        <output id="time-label">0.00 / 0.00 s</output>
+        <label class="speed-picker"><span>Velocidad</span>
+          <select id="speed-select">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
+      </div>
+      <p id="clip-details" class="clip-details">Carga el archivo IFP para habilitar las animaciones y comparar las poses.</p>
+    </section>
+
+    <section class="status-panel" aria-live="polite">
+      <span id="status-dot" class="status-dot"></span>
+      <p id="status">Preparando los modelos 3D…</p>
+    </section>
+
+    <section class="notes-panel">
+      <h2>Qué representa esta prueba</h2>
+      <p><strong>GTA original:</strong> las rotaciones de ped.ifp se reconstruyen con la jerarquía real del FBX. <strong>SM64CoopDX:</strong> se aplica el mismo conversor de quaterniones, jerarquía y cuantización Euler de 16 bits que genera los canales Lua.</p>
+      <p>El canal raíz <code>Normal</code> y las traslaciones globales se excluyen de ambos modelos, porque el juego controla la posición y orientación mundial mediante MarioState. La vista no reemplaza la comprobación final del actor DynOS en el juego.</p>
+      <p>Arrastra con un dedo para girar cada modelo y pellizca para acercar. Puedes mover ambos visores por separado.</p>
+    </section>
+    <footer>Modelo y mapa generados por GitHub Actions · IFP procesado en el dispositivo · Three.js r187</footer>
+  </main>
+</body>
+</html>
