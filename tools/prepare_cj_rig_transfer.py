@@ -567,17 +567,38 @@ def main():
     # Rebuild the animation retarget map from the actual retargeted armatures.
     from fast64.fast64_internal.utility import findStartBones
     from fast64.fast64_internal.sm64.sm64_geolayout_utility import is_bone_animatable
+    animated_bone_names = {
+        bone.name for bone in target_arm.data.bones if is_bone_animatable(bone)
+    }
     node_queue = findStartBones(target_arm)
     animation_nodes = []
     while node_queue:
         bone_name = node_queue.pop(0)
         bone = target_arm.data.bones[bone_name]
-        if is_bone_animatable(bone):
+        if bone.name in animated_bone_names:
             q = bone.matrix_local.to_3x3().to_quaternion()
+            direct_parent = bone.parent
+            nearest_animated_parent = direct_parent
+            while nearest_animated_parent is not None and nearest_animated_parent.name not in animated_bone_names:
+                nearest_animated_parent = nearest_animated_parent.parent
+            parent_rest = (
+                direct_parent.matrix_local.to_3x3().to_quaternion()
+                if direct_parent is not None else None
+            )
             animation_nodes.append({
                 "index": len(animation_nodes),
                 "name": bone.name,
-                "parent": bone.parent.name if bone.parent else None,
+                "parent": direct_parent.name if direct_parent else None,
+                "parent_animation_node": (
+                    nearest_animated_parent.name if nearest_animated_parent else None
+                ),
+                "parent_rest_rotation_wxyz": (
+                    [round(float(x), 7) for x in (
+                        parent_rest.w, parent_rest.x, parent_rest.y, parent_rest.z
+                    )] if parent_rest is not None else [1.0, 0.0, 0.0, 0.0]
+                ),
+                "geo_cmd": getattr(bone, "geo_cmd", None),
+                "use_deform": bool(bone.use_deform),
                 "rest_rotation_wxyz": [round(float(x), 7) for x in (q.w, q.x, q.y, q.z)],
             })
         node_queue = sorted(child.name for child in bone.children) + node_queue
@@ -601,15 +622,36 @@ def main():
     retarget_map["target_source_chains"]["Head"] = [
         "spine upper", "head neck lower", "head neck upper"
     ]
+    # Capture every source rest transform and the original parent tree.
+    # Local IFP rotations must be accumulated through this hierarchy before
+    # being converted to Mario's different animated-part parent tree.
     source_rest = {}
-    for chain in retarget_map["target_source_chains"].values():
-        for source_name in chain:
-            source_bone = source_arm.data.bones.get(source_name)
-            if source_bone is not None:
-                q = source_bone.matrix_local.to_3x3().to_quaternion()
-                source_rest[source_name] = [round(float(x), 7) for x in (q.w, q.x, q.y, q.z)]
-    require(source_rest, "No source rest rotations were read from the CJ armature")
+    source_parents = {}
+    for source_bone in source_arm.data.bones:
+        q = source_bone.matrix_local.to_3x3().to_quaternion()
+        source_rest[source_bone.name] = [
+            round(float(x), 7) for x in (q.w, q.x, q.y, q.z)
+        ]
+        source_parents[source_bone.name] = (
+            source_bone.parent.name if source_bone.parent else None
+        )
+    required_sources = {
+        source_name
+        for chain in retarget_map["target_source_chains"].values()
+        for source_name in chain
+    }
+    require(required_sources.issubset(source_rest),
+            "Source armature lacks retarget bones: "
+            + str(sorted(required_sources - set(source_rest))))
     retarget_map["source_rest_rotation_wxyz"] = source_rest
+    retarget_map["source_parent_by_bone"] = source_parents
+    retarget_map["target_parent_animation_node"] = {
+        node["name"]: node["parent_animation_node"] for node in animation_nodes
+    }
+    retarget_map["target_parent_rest_rotation_wxyz"] = {
+        node["name"]: node["parent_rest_rotation_wxyz"] for node in animation_nodes
+    }
+    retarget_map["target_animation_node_metadata"] = animation_nodes
     align_q = source_to_target.to_3x3().to_quaternion()
     retarget_map["axis_alignment"] = {
         "quaternion_xyzw": [round(float(x), 8) for x in
