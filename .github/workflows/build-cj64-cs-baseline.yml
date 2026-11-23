@@ -115,10 +115,9 @@ jobs:
           that the actor renders correctly on Android.
           EOF
 
-          python3 - <<'PY'
+          python3 - "$MOD" <<'PY'
           import pathlib
           import zipfile
-
           import sys
           source = pathlib.Path(sys.argv[1])
           output = pathlib.Path("CJ64-CS-Baseline-0.1.3-alpha.zip")
