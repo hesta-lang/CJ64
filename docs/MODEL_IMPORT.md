@@ -1,27 +1,48 @@
 # CJ model import
 
-Source file: `CarlJohnson-GTASA.FBX`, accompanied by `head.png`, `upper body.png`, `legs.png` and `shoes.png`. The FBX contains a 58-bone rig and skin clusters. It is an authoring source, not a DynOS actor.
+Source file: `CarlJohnson-GTASA.FBX`, accompanied by `head.png`, `upper body.png`, `legs.png` and `shoes.png`. The source FBX contains a 58-bone GTA rig and skin clusters; it is not loaded directly by the game.
 
-## Target for the first playable version
+## Runtime model
 
-The first version uses the **existing SM64CoopDX Mario animations**. The CJ mesh therefore has to use the native Mario Armature rather than keeping its original GTA skeleton as the in-game rig.
+The CJ mesh is transferred onto SM64CoopDX's native Mario/Fast64-Gart 20-node armature. This keeps the original game player entity and its animation node layout intact. The current rig-transfer export validates:
 
-The official [SM64CoopDX character template](https://github.com/coop-deluxe/character-template) documents the intended process: use the Mario Armature, parent the mesh to it, assign the correct vertex groups, and export the Armature GeoLayout with Fast64. Its README recommends Blender 3.6 LTS and a compatible Fast64 fork.
+- 1,630 weighted vertices.
+- Exactly one deform influence per vertex, with weight 1.0.
+- No invalid or unweighted vertices.
+- Native Mario rest matrices preserved.
+- A 280 SM64-unit target height.
 
-## Required conversion work
+These checks are structural and do not substitute for visual or in-game verification.
 
-1. Open the SM64CoopDX character template in a compatible Blender/Fast64 setup.
-2. Import the CJ FBX and preserve its mesh and texture material data.
-3. Fit the CJ mesh to the Mario Armature. The GTA FBX's 58-bone hierarchy is not a drop-in replacement for Mario's skeleton.
-4. Transfer/reassign skin weights to the matching Mario vertex groups. Check every body part for unweighted vertices, incorrect groups and duplicate armature modifiers.
-5. Parent the CJ mesh to the Mario Armature and verify the mesh deforms correctly when testing Mario's idle, walk, run, jump and fall poses.
-6. Export the **Mario Armature GeoLayout** into this actor folder, using the runtime model name `cj_geo` expected by `character.lua`.
-7. Rebuild the actor in-game after deleting any stale generated `.bin` for the previous model export.
+## Embedded actor layout
 
-Do not solve rig mismatches by spawning a second CJ object or by replacing MarioState. That would break the chosen single-player-entity architecture.
+The generated model source and textures are copied into the mod:
 
-## Future original animations
+```
+mods/CJ64-Rigged-Test/actors/Assets/
+  geo.inc.c
+  geo_header.h
+  model.inc.c
+  *.png
+```
 
-When the original GTA animation source becomes available, its tracks can be applied to the source rig, then retargeted and baked onto the Mario Armature. The model's first playable version does not depend on those clips. See [ANIMATIONS.md](ANIMATIONS.md).
+SM64CoopDX's own mod-loading path scans `<mod>/actors`, compiles the actor to `<mod>/actors/mario_geo.bin`, and registers that binary as a custom actor owned by the mod. The Lua controller requests the GeoLayout name `mario_geo`.
 
-Source credit: Carl Johnson (CJ), by Tsaphnat (Tsaphnat Mbuyi), Sketchfab, CC BY 4.0. See [assets/cj/source/README.md](../assets/cj/source/README.md).
+The actor is therefore self-contained in the CJ64 mod. It does not need a separate folder under `dynos/packs/`. The engine still uses its DynOS compiler internally; that does not make this an independently installed pack.
+
+## Export pipeline
+
+1. Inspect the actual CJ FBX and SM64CoopDX Mario target armatures.
+2. Transfer the CJ skin weights to the Mario-compatible armature.
+3. Export the actor source with Fast64-Gart.
+4. Normalize texture include paths and strip unsupported empty `CUSTOM_CMD()` placeholders.
+5. Copy `Assets/` into the mod's `actors/` folder.
+6. Validate that the ZIP contains only the mod folder, with all texture references resolved and no standalone DynOS pack directory.
+
+The export target root GeoLayout is `mario_geo`, with a root scale of 1.0 (the 280-unit target).
+
+## Animations and physics
+
+Original GTA: San Andreas animation tracks need to be retargeted to the 20-node runtime armature. The user-provided `ped.ifp` is processed into private animation tables; those derived tables are not committed publicly. Until the retargeted clips have been reviewed in-game, the model can fall back to the game's native Mario animation system.
+
+MarioState, collision, movement, physics and camera remain unchanged.
