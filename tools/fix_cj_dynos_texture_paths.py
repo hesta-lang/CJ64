@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -40,6 +41,8 @@ def main() -> None:
     package_root = mod_root.name
     pack_name = pack_root.name
     actor_dir = pack_root / "Assets"
+    mod_actor_dir = mod_root / "actors"
+    mod_actor_assets_dir = mod_actor_dir / "Assets"
     model_file = actor_dir / "model.inc.c"
     geo_file = actor_dir / "geo.inc.c"
     header_file = actor_dir / "geo_header.h"
@@ -152,16 +155,30 @@ def main() -> None:
         "Generic cj_geo root still exists; DynOS name was not namespaced",
     )
 
-    # The game creates this file on startup from dynos/packs/CJ64/Assets.
-    generated_binary = pack_root / f"{expected_geo_name}.bin"
+    # Embed the actor source tree inside this mod. CoopDX scans <mod>/actors
+    # at startup, generates actors/mario_geo.bin there, and registers it as a
+    # custom actor owned by this mod.
+    mod_actor_dir.mkdir(parents=True, exist_ok=True)
+    if mod_actor_assets_dir.exists():
+        shutil.rmtree(mod_actor_assets_dir)
+    shutil.copytree(actor_dir, mod_actor_assets_dir)
+    require((mod_actor_assets_dir / "model.inc.c").is_file(),
+            "Embedded actor is missing model.inc.c")
+    require((mod_actor_assets_dir / "geo.inc.c").is_file(),
+            "Embedded actor is missing geo.inc.c")
+    require(len(list(mod_actor_assets_dir.glob("*.png"))) >= 40,
+            "Embedded actor is missing its texture PNGs")
+
+    # CoopDX generates the actor binary in this mod's actors/ folder.
+    generated_binary = mod_actor_dir / f"{expected_geo_name}.bin"
     if generated_binary.exists():
         generated_binary.unlink()
 
-    # This file stays out of the source tree scanned by DynOS.
-    (pack_root / "README-INSTALL.txt").write_text(
-        "Copy this CJ64 folder into the game's dynos/packs/ directory. "
-        "SM64CoopDX scans packs at startup, builds mario_geo.bin from Assets/, "
-        "and makes the pack available to the CJ64 Lua replacement mod.\n",
+    (mod_root / "README-INSTALL.txt").write_text(
+        "CJ64 is a self-contained SM64CoopDX mod. Install only this folder in mods/. "
+        "Its model sources and textures are embedded in actors/Assets. At startup, "
+        "SM64CoopDX generates actors/mario_geo.bin inside this mod and registers it "
+        "automatically. No separate DynOS pack installation is required.\n",
         encoding="utf-8",
     )
 
@@ -188,50 +205,77 @@ def main() -> None:
         for path in sorted(mod_root.rglob("*"))
         if path.is_file()
     ]
+    report = json.loads(report_file.read_text(encoding="utf-8"))
+    report["status"] = "MOD_EMBEDDED_DYNOS_ACTOR_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
+    report["dynos_geolayout_name"] = expected_geo_name
+    report["dynos_pack_name"] = None
+    report["dynos_pack_install_path"] = None
+    report["dynos_actor_install_path"] = "mods/CJ64-Rigged-Test/actors"
+    report["dynos_binary_generation"] = "SM64CoopDX DynOS_Gfx_GenerateModPacks generates actors/mario_geo.bin inside this mod at startup"
+    report["actor_is_embedded_in_mod"] = True
+    report["unsupported_custom_geo_commands_removed"] = unsupported_custom_geo_commands_removed
+    report["unsupported_custom_geo_commands_remaining"] = geo_source.count("CUSTOM_CMD")
+    report["root_geolayout_scale"] = 1.0
+    report["root_geolayout_scale_fixed_from"] = 0.25
+    report["renamed_texture_files"] = renamed
+    report["dynos_texture_includes"] = checked
+    report["dynos_palette_placeholders"] = palettes
+    report["actor_files"] = [
+        {"path": str(path.relative_to(mod_actor_dir)), "size": path.stat().st_size}
+        for path in sorted(mod_actor_assets_dir.rglob("*"))
+        if path.is_file()
+    ]
+    report["lua_mod_files"] = [
+        {"path": str(path.relative_to(mod_root)), "size": path.stat().st_size}
+        for path in sorted(mod_root.rglob("*"))
+        if path.is_file()
+    ]
     report_file.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    pack_archive = output_dir / "CJ64-Dynos-Pack.zip"
     mod_archive = output_dir / "CJ64-Rigged-Test.zip"
     install_archive = output_dir / "CJ64-Install-Package.zip"
-    for archive in (pack_archive, mod_archive, install_archive):
+    for archive in (mod_archive, install_archive):
         if archive.exists():
             archive.unlink()
 
-    with zipfile.ZipFile(pack_archive, "w", zipfile.ZIP_DEFLATED, compresslevel=8) as zf:
-        add_tree(zf, pack_root, "CJ64")
     with zipfile.ZipFile(mod_archive, "w", zipfile.ZIP_DEFLATED, compresslevel=8) as zf:
         add_tree(zf, mod_root, package_root)
     with zipfile.ZipFile(install_archive, "w", zipfile.ZIP_DEFLATED, compresslevel=8) as zf:
         add_tree(zf, mod_root, "mods/CJ64-Rigged-Test")
-        add_tree(zf, pack_root, "dynos/packs/CJ64")
 
     with zipfile.ZipFile(install_archive, "r") as zf:
         members = set(zf.namelist())
-        for rel in (
+        required = (
             "mods/CJ64-Rigged-Test/main.lua",
             "mods/CJ64-Rigged-Test/character.lua",
-            "dynos/packs/CJ64/Assets/model.inc.c",
-            "dynos/packs/CJ64/Assets/geo.inc.c",
-            "dynos/packs/CJ64/Assets/geo_header.h",
-            "dynos/packs/CJ64/README-INSTALL.txt",
-        ):
+            "mods/CJ64-Rigged-Test/rigged_actor.lua",
+            "mods/CJ64-Rigged-Test/actors/Assets/model.inc.c",
+            "mods/CJ64-Rigged-Test/actors/Assets/geo.inc.c",
+            "mods/CJ64-Rigged-Test/actors/Assets/geo_header.h",
+            "mods/CJ64-Rigged-Test/README-INSTALL.txt",
+        )
+        for rel in required:
             require(rel in members, f"Install archive is missing {rel}")
         for include in checked:
-            expected = f"dynos/packs/CJ64/{include}"
-            require(expected in members, f"Install archive is missing texture {expected}")
+            expected = f"mods/CJ64-Rigged-Test/actors/{include}"
+            require(expected in members, f"Install archive is missing embedded texture {expected}")
+        require(
+            not any(name.startswith("dynos/packs/") for name in members),
+            "Install archive must not contain a separate DynOS pack folder",
+        )
         require(
             not any(name.endswith(".bin") for name in members),
-            "A stale/precompiled DynOS .bin leaked into the install archive",
+            "A precompiled actor .bin leaked into the archive; CoopDX generates it inside the mod",
         )
         with zf.open("mods/CJ64-Rigged-Test/character.lua") as fh:
             lua_source = fh.read().decode("utf-8")
         require('modelName = "mario_geo"' in lua_source,
-                "Lua controller must request the DynOS GeoLayout symbol, not a file path")
-        require('pcall(dynos_pack_set_enabled, index, true)' in lua_source,
-                "Lua controller does not enable the CJ64 DynOS pack")
-        with zf.open("dynos/packs/CJ64/Assets/geo.inc.c") as fh:
+                "Lua controller must request the embedded actor by GeoLayout name")
+        require("dynos_pack_" not in lua_source,
+                "Lua controller still depends on external DynOS pack APIs")
+        with zf.open("mods/CJ64-Rigged-Test/actors/Assets/geo.inc.c") as fh:
             zipped_geo = fh.read().decode("utf-8")
-        require(expected_geo_name in zipped_geo, "Install archive contains wrong DynOS root GeoLayout")
+        require(expected_geo_name in zipped_geo, "Install archive contains wrong GeoLayout root")
         require("CUSTOM_CMD" not in zipped_geo, "Install archive still contains unsupported CUSTOM_CMD placeholders")
         require(
             re.search(r"GEO_SCALE\s*\(\s*LAYER_FORCE\s*,\s*65536\s*\)", zipped_geo),
@@ -240,10 +284,10 @@ def main() -> None:
 
     print(json.dumps({
         "install_archive": str(install_archive),
-        "dynos_pack_archive": str(pack_archive),
         "lua_mod_archive": str(mod_archive),
         "dynos_root": expected_geo_name,
-        "dynos_pack": "CJ64",
+        "actor_is_embedded_in_mod": True,
+        "actor_install_path": "mods/CJ64-Rigged-Test/actors/Assets",
         "texture_includes_verified": len(checked),
         "palette_placeholders_normalized": len(palettes),
         "unsupported_custom_geo_commands_removed": unsupported_custom_geo_commands_removed,
@@ -252,7 +296,6 @@ def main() -> None:
         "install_archive_bytes": install_archive.stat().st_size,
         "status": report["status"],
     }, indent=2))
-
 
 if __name__ == "__main__":
     main()
