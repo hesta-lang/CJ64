@@ -1124,7 +1124,7 @@ def main():
         "CJ64 = CJ64 or {}\nCJ64.riggedActor = true\n", encoding="utf-8"
     )
     (mod_dir / "README-INSTALL.txt").write_text(
-        "CJ64 experimental skinned actor. DynOS root model: cj64_cj_geo. "
+        "CJ64 experimental skinned actor. DynOS modfs actor binary path: actors/cj64_cj_geo.bin; root GeoLayout symbol: cj64_cj_geo. "
         "It uses the Mario/Fast64 armature, one deform bone per vertex at weight 1.0, "
         "and a 280 SM64-unit model. SM64CoopDX generates actors/cj64_cj_geo.bin "
         "from these C sources when the mod is refreshed; the generated .bin is "
