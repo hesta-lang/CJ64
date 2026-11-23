@@ -1108,7 +1108,7 @@ def main():
 
     # Namespace the exported root GeoLayout. Generic names such as cj_geo can
     # collide with another mod or a stale DynOS cache entry on Android.
-    dynos_geo_name = "cj64_cj_geo"
+    dynos_geo_name = "mario_geo"
     for source_path in (actor_dir / "geo.inc.c", actor_dir / "geo_header.h"):
         require(source_path.is_file(), f"Fast64 did not create {source_path.name}")
         source_text = source_path.read_text(encoding="utf-8")
@@ -1128,11 +1128,11 @@ def main():
         "CJ64 = CJ64 or {}\nCJ64.riggedActor = true\n", encoding="utf-8"
     )
     (mod_dir / "README-INSTALL.txt").write_text(
-        "CJ64 experimental player-model test. Root GeoLayout symbol: cj64_cj_geo. "
+        "CJ64 experimental player-model test. Root GeoLayout symbol: mario_geo. "
         "Install this Lua folder as mods/CJ64-Rigged-Test and the separate CJ64 "
         "folder as dynos/packs/CJ64. The pack contains Assets/model.inc.c, "
         "Assets/geo.inc.c and its textures. SM64CoopDX scans dynos/packs at startup "
-        "and generates CJ64/cj64_cj_geo.bin from those sources. The Lua controller "
+        "and generates CJ64/mario_geo.bin from those sources. The Lua controller "
         "enables the CJ64 DynOS pack before requesting the model by its GeoLayout "
         "name. Do not put the CJ64 pack inside mods. The private "
         "cj64_gta_animations.lua module is not included in this export. "
