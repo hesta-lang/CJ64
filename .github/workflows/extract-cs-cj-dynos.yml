@@ -1,0 +1,37 @@
+name: Extract CS CJ DynOS actor
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tools/extract_cs_cj_dynos.py"
+      - ".github/workflows/extract-cs-cj-dynos.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract original CS actor and inspect its assets
+        run: python tools/extract_cs_cj_dynos.py
+
+      - name: Upload extracted DynOS source and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: CS-CJ-Dynos-Source
+          path: |
+            build/CS-CJ-Dynos-Extracted.zip
+            build/cs-cj-dynos/MANIFEST.md
+            build/cs-cj-dynos/summary.json
+          if-no-files-found: error
+          compression-level: 0
