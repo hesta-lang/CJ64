@@ -41,9 +41,9 @@ jobs:
           import pathlib, re, sys
           source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
           registration = re.compile(
-              r'smlua_anim_util_register_animation\\(\\s*"(?P<name>[^"]+)"\\s*,\\s*'
-              r'(?P<header>.*?)\\s*,\\s*\\{\\s*(?P<values>.*?)\\s*\\},\\s*'
-              r'\\{\\s*(?P<indices>.*?)\\s*\\}\\s*\\)', re.S
+              r'smlua_anim_util_register_animation\(\s*"(?P<name>[^"]+)"\s*,\s*'
+              r'(?P<header>.*?)\s*,\s*\{\s*(?P<values>.*?)\s*\},\s*'
+              r'\{\s*(?P<indices>.*?)\s*\}\s*\)', re.S
           )
           expected = {
               "cj64_anim_idle", "cj64_anim_walk_start", "cj64_anim_walk",
