@@ -125,3 +125,13 @@ test('composes animation delta after the bind-pose local rotation', async () => 
   quatNear(actual,expected);
   assert.ok(Math.max(...actual.map((v,i)=>Math.abs(v-wrong[i])))>0.1);
 });
+
+test('samples ANP3 type-4 local translations without inventing translation for rotation-only tracks', async () => {
+  const { sampleTrackTranslation } = await import('./core.js');
+  const track={frames:[
+    {timeSeconds:0,rotation:identity,translation:[0,0,0]},
+    {timeSeconds:1,rotation:identity,translation:[2,-4,6]},
+  ]};
+  assert.deepEqual(sampleTrackTranslation(track,0.5),[1,-2,3]);
+  assert.equal(sampleTrackTranslation({frames:[{timeSeconds:0,rotation:identity,translation:null}]},0),null);
+});
