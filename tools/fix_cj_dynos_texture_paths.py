@@ -43,7 +43,7 @@ def main() -> None:
     model_file = actor_dir / "model.inc.c"
     geo_file = actor_dir / "geo.inc.c"
     header_file = actor_dir / "geo_header.h"
-    expected_geo_name = "cj64_cj_geo"
+    expected_geo_name = "mario_geo"
 
     require(mod_root.is_dir(), f"Lua mod folder not found: {mod_root}")
     require(pack_root.is_dir(), f"DynOS pack folder not found: {pack_root}")
@@ -123,7 +123,7 @@ def main() -> None:
     # This file stays out of the source tree scanned by DynOS.
     (pack_root / "README-INSTALL.txt").write_text(
         "Copy this CJ64 folder into the game's dynos/packs/ directory. "
-        "SM64CoopDX scans packs at startup, builds cj64_cj_geo.bin from Assets/, "
+        "SM64CoopDX scans packs at startup, builds mario_geo.bin from Assets/, "
         "and makes the pack available to the CJ64 Lua replacement mod.\n",
         encoding="utf-8",
     )
@@ -133,7 +133,7 @@ def main() -> None:
     report["dynos_geolayout_name"] = expected_geo_name
     report["dynos_pack_name"] = "CJ64"
     report["dynos_pack_install_path"] = "dynos/packs/CJ64"
-    report["dynos_binary_generation"] = "SM64CoopDX DynOS_Gfx_Init generates CJ64/cj64_cj_geo.bin on startup"
+    report["dynos_binary_generation"] = "SM64CoopDX DynOS_Gfx_Init generates CJ64/mario_geo.bin on startup"
     report["renamed_texture_files"] = renamed
     report["dynos_texture_includes"] = checked
     report["dynos_palette_placeholders"] = palettes
@@ -184,7 +184,7 @@ def main() -> None:
         )
         with zf.open("mods/CJ64-Rigged-Test/character.lua") as fh:
             lua_source = fh.read().decode("utf-8")
-        require('modelName = "cj64_cj_geo"' in lua_source,
+        require('modelName = "mario_geo"' in lua_source,
                 "Lua controller must request the DynOS GeoLayout symbol, not a file path")
         require('dynos_pack_set_enabled(index, true)' in lua_source,
                 "Lua controller does not enable the CJ64 DynOS pack")
