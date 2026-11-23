@@ -1,0 +1,150 @@
+name: Build CJ64 CS baseline test package
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "main.lua"
+      - "character.lua"
+      - "actors/cj/mario_geo.bin"
+      - "tools/scale_cs_cj_actor.py"
+      - ".github/workflows/build-cj64-cs-baseline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua validator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+
+      - name: Validate controller and CS actor
+        shell: bash
+        run: |
+          set -euo pipefail
+          luac5.4 -p main.lua character.lua
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import struct
+          import sys
+          import zlib
+
+          sys.path.insert(0, "tools")
+          from scale_cs_cj_actor import read_words, command_length
+
+          main = pathlib.Path("main.lua").read_text(encoding="utf-8")
+          character = pathlib.Path("character.lua").read_text(encoding="utf-8")
+          assert 'CJ64.useGTAAnimations = false' in main
+          assert 'CJ64.useGTAAnimations ~= true' in character
+          assert 'require, "cj64_gta_animations"' in main
+          assert 'if CJ64.useGTAAnimations == true then' in main
+
+          actor_path = pathlib.Path("actors/cj/mario_geo.bin")
+          data = actor_path.read_bytes()
+          assert data[:8] == b"DYNOSBIN", "Actor is not a DynOS binary"
+          raw = zlib.decompress(data[16:])
+          assert len(raw) == struct.unpack_from("<I", data, 8)[0], "DynOS size header mismatch"
+          assert b"cj_geo" in raw, "Expected CS CJ GeoLayout not found"
+
+          words, offsets, _ = read_words(raw, "cj_geo")
+          animated_parts = 0
+          root_scale = None
+          i = 0
+          while i < len(words):
+              if words[i][0] != "WORD":
+                  i += 1
+                  continue
+              command = words[i][1]
+              op, params = command & 0xFF, (command >> 8) & 0xFF
+              length = command_length(op, params)
+              if op == 0x13:
+                  animated_parts += 1
+              if op == 0x1D and root_scale is None:
+                  root_scale = words[i + 1][1] / 65536.0
+              i += length
+
+          assert animated_parts == 20, f"Expected 20 animated parts, got {animated_parts}"
+          assert root_scale is not None and abs(root_scale - 0.39) < 0.001, root_scale
+          print(json.dumps({
+              "actor": str(actor_path),
+              "actor_bytes": len(data),
+              "internal_geolayout": "cj_geo",
+              "registered_filename": "mario_geo.bin",
+              "animated_part_nodes": animated_parts,
+              "root_scale": root_scale,
+              "custom_gta_animations": "disabled_pending_rig_validation",
+              "status": "STRUCTURAL_BASELINE_PACKAGE_READY_NOT_RUNTIME_VALIDATED"
+          }, indent=2))
+          PY
+
+      - name: Assemble self-contained SM64CoopDX mod folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD="$RUNNER_TEMP/CJ64-CS-Baseline"
+          mkdir -p "$MOD/actors"
+          cp main.lua character.lua "$MOD/"
+          cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
+          cat > "$MOD/README-INSTALL.txt" <<'EOF'
+          CJ64 CS BASELINE - 0.1.3-alpha
+
+          Install this folder under the SM64CoopDX mods/ directory.
+          The installed path must be:
+            mods/CJ64-CS-Baseline/main.lua
+            mods/CJ64-CS-Baseline/character.lua
+            mods/CJ64-CS-Baseline/actors/mario_geo.bin
+
+          This baseline uses the Character Select CJ DynOS actor embedded in the mod.
+          It deliberately disables the experimental GTA San Andreas animation tables.
+          SM64CoopDX's native player animation state is retained so the model's
+          orientation and mesh can be checked separately from the unverified GTA rig.
+
+          Disable/remove other CJ64 test mods and any older copy that registers another
+          mario_geo actor before testing. Do not install this actor as a separate
+          dynos/packs/CJ64 pack.
+
+          This is a diagnostic baseline, not a final animation release. A green CI
+          workflow confirms package structure and Lua syntax only; it does not prove
+          that the actor renders correctly on Android.
+          EOF
+
+          python3 - <<'PY'
+          import pathlib
+          import zipfile
+
+          source = pathlib.Path("$RUNNER_TEMP/CJ64-CS-Baseline")
+          output = pathlib.Path("CJ64-CS-Baseline-0.1.3-alpha.zip")
+          prefix = "mods/CJ64-CS-Baseline"
+          expected = {
+              f"{prefix}/main.lua",
+              f"{prefix}/character.lua",
+              f"{prefix}/actors/mario_geo.bin",
+              f"{prefix}/README-INSTALL.txt",
+          }
+          with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              for path in sorted(source.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, f"{prefix}/{path.relative_to(source).as_posix()}")
+          with zipfile.ZipFile(output) as archive:
+              assert archive.testzip() is None
+              actual = set(archive.namelist())
+              assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
+              assert archive.getinfo(f"{prefix}/actors/mario_geo.bin").file_size > 1000
+          print(f"Created {output} ({output.stat().st_size} bytes)")
+          print("\n".join(sorted(expected)))
+          PY
+
+      - name: Upload baseline test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-CS-Baseline-0.1.3-alpha
+          path: CJ64-CS-Baseline-0.1.3-alpha.zip
+          if-no-files-found: error
+          retention-days: 14
