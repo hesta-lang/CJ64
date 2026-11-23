@@ -313,8 +313,10 @@ def main():
     checkpoint(f"cj-mesh-vertices-transformed-{vertex_count}")
     rigged_mesh.matrix_world = Matrix.Identity(4)
     checkpoint("cj-mesh-world-matrix-reset")
-    rigged_mesh.parent = target_arm
-    checkpoint("cj-mesh-parented-to-target-armature")
+    # Defer parenting and the Armature modifier until all vertex groups
+    # have been populated; this prevents dependency evaluation of a half-built
+    # skin while weights are being created.
+    checkpoint("cj-mesh-parenting-deferred")
 
     # Fast64/SM64 supports one deform-bone influence per vertex. Collapse the
     # original GTA FBX weights to the strongest mapped Mario deform group;
@@ -323,13 +325,17 @@ def main():
         bone = target_arm.data.bones.get(bone_name)
         if bone is not None:
             bone.use_deform = False
+    checkpoint("non-deforming-wing-bones-disabled")
     for group in list(rigged_mesh.vertex_groups):
         rigged_mesh.vertex_groups.remove(group)
+    checkpoint("existing-rigged-mesh-groups-cleared")
     deform_bones = [bone for bone in target_arm.data.bones if bone.use_deform]
+    checkpoint(f"target-deform-bones-collected-{len(deform_bones)}")
     require(len(deform_bones) >= 15,
             f"Expected at least 15 Mario deform bones, found {len(deform_bones)}")
     groups = {bone.name: rigged_mesh.vertex_groups.new(name=bone.name)
               for bone in deform_bones}
+    checkpoint(f"target-vertex-groups-created-{len(groups)}")
     segments = []
     for bone in deform_bones:
         head = bone.head_local.copy()
@@ -370,7 +376,9 @@ def main():
     arm_mod.object = target_arm
     arm_mod.use_vertex_groups = True
     arm_mod.use_bone_envelopes = False
+    checkpoint("armature-modifier-configured")
     rigged_mesh.parent = target_arm
+    checkpoint("cj-mesh-parented-after-weights")
 
     # Rebuild the animation retarget map from the actual retargeted armatures.
     from fast64.fast64_internal.utility import findStartBones
