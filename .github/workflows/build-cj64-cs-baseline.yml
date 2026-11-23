@@ -1,4 +1,4 @@
-# Manual rerun requested for the current CS baseline package.
+# Rebuild the known-good Character Select rig package; never substitute the experimental FBX/Fast64 actor.
 name: Build CJ64 Character Select actor baseline
 
 on:
@@ -125,24 +125,29 @@ jobs:
             mods/CJ64-CS-Baseline/character.lua
             mods/CJ64-CS-Baseline/actors/mario_geo.bin
 
-          This baseline uses the Character Select CJ DynOS actor embedded in the mod.
-          It deliberately disables the experimental GTA San Andreas animation tables.
-          SM64CoopDX's native player animation state is retained so the model's
-          orientation and mesh can be checked separately from the unverified GTA rig.
+          This package embeds the PRE-RIGGED Character Select CJ DynOS actor from
+          actors/cj/mario_geo.bin. It preserves that actor's Mario-compatible
+          20-node hierarchy and disables the experimental GTA animation tables.
 
-          Disable/remove other CJ64 test mods and any older copy that registers another
-          mario_geo actor before testing. Do not install this actor as a separate
-          dynos/packs/CJ64 pack.
+          IMPORTANT: Do NOT install CJ64-Rigged-Test.zip or CJ64-Install-Package.zip
+          from the experimental FBX/Fast64 rig-transfer workflow. That FBX actor uses
+          CJ source-rest pivots and is not compatible with native Mario animations.
 
-          This is a diagnostic baseline, not a final animation release. A green CI
-          workflow confirms package structure and Lua syntax only; it does not prove
-          that the actor renders correctly on Android.
+          Install this folder under mods/. Before testing, remove/disable
+          mods/CJ64-Rigged-Test and every older CJ64 copy that also registers
+          mario_geo. Keep only this CS baseline enabled. Do not install it as a
+          separate dynos/packs/CJ64 pack.
+
+          This remains an alpha diagnostic baseline. CI checks package structure,
+          Lua syntax, actor integrity and the source-binary identity; Android
+          rendering still needs an in-game check.
           EOF
 
           python3 - "$MOD" <<'PY'
           import pathlib
           import zipfile
           import sys
+          import hashlib
           source = pathlib.Path(sys.argv[1])
           output = pathlib.Path("CJ64-CS-Baseline-0.1.8-alpha.zip")
           prefix = "mods/CJ64-CS-Baseline"
@@ -160,7 +165,12 @@ jobs:
               assert archive.testzip() is None
               actual = set(archive.namelist())
               assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
+              packed_actor = archive.read(f"{prefix}/actors/mario_geo.bin")
+              source_actor = pathlib.Path("actors/cj/mario_geo.bin").read_bytes()
+              assert packed_actor == source_actor, "Package does not contain the original CS actor binary"
+              assert hashlib.sha256(packed_actor).digest() == hashlib.sha256(source_actor).digest()
               assert archive.getinfo(f"{prefix}/actors/mario_geo.bin").file_size > 1000
+          print(f"CS actor SHA256: {hashlib.sha256(source_actor).hexdigest()}")
           print(f"Created {output} ({output.stat().st_size} bytes)")
           print("\n".join(sorted(expected)))
           PY
