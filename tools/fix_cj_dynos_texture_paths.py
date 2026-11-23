@@ -120,6 +120,24 @@ def main() -> None:
         "CUSTOM_CMD" not in geo_source,
         "Unsupported CUSTOM_CMD placeholder remains in geo.inc.c",
     )
+
+    # Fast64 exports the stock Mario actor with a 0.25 root scale (16384).
+    # That factor is appropriate for Nintendo's original Mario mesh, whose
+    # source dimensions are four times larger than the SM64 target space.
+    # CJ has already been normalized to 280 SM64 units before export, so
+    # retaining 0.25 shrinks it to 70 units in game. Promote only the root
+    # GeoLayout scale to 1.0; leave hand/foot animation scales untouched.
+    root_scale_pattern = re.compile(
+        r"(GEO_SCALE\\s*\\(\\s*LAYER_FORCE\\s*,\\s*)16384(\\s*\\))"
+    )
+    root_scale_matches = list(root_scale_pattern.finditer(geo_source))
+    require(len(root_scale_matches) == 1,
+            f"Expected exactly one stock Mario root scale 16384, found {len(root_scale_matches)}")
+    geo_source = root_scale_pattern.sub(r"\\g<1>65536\\g<2>", geo_source, count=1)
+    require(
+        re.search(r"GEO_SCALE\\s*\\(\\s*LAYER_FORCE\\s*,\\s*65536\\s*\\)", geo_source),
+        "CJ root GeoLayout scale was not normalized to 1.0",
+    )
     geo_file.write_text(geo_source, encoding="utf-8")
     require(
         re.search(r"\bGeoLayout\s+" + re.escape(expected_geo_name) + r"\s*\[\s*\]", geo_source),
@@ -155,6 +173,8 @@ def main() -> None:
     report["dynos_binary_generation"] = "SM64CoopDX DynOS_Gfx_Init generates CJ64/mario_geo.bin on startup"
     report["unsupported_custom_geo_commands_removed"] = unsupported_custom_geo_commands_removed
     report["unsupported_custom_geo_commands_remaining"] = geo_source.count("CUSTOM_CMD")
+    report["root_geolayout_scale"] = 1.0
+    report["root_geolayout_scale_fixed_from"] = 0.25
     report["renamed_texture_files"] = renamed
     report["dynos_texture_includes"] = checked
     report["dynos_palette_placeholders"] = palettes
@@ -213,6 +233,10 @@ def main() -> None:
             zipped_geo = fh.read().decode("utf-8")
         require(expected_geo_name in zipped_geo, "Install archive contains wrong DynOS root GeoLayout")
         require("CUSTOM_CMD" not in zipped_geo, "Install archive still contains unsupported CUSTOM_CMD placeholders")
+        require(
+            re.search(r"GEO_SCALE\\s*\\(\\s*LAYER_FORCE\\s*,\\s*65536\\s*\\)", zipped_geo),
+            "Install archive still has the stock 0.25 Mario root scale",
+        )
 
     print(json.dumps({
         "install_archive": str(install_archive),
@@ -223,6 +247,7 @@ def main() -> None:
         "texture_includes_verified": len(checked),
         "palette_placeholders_normalized": len(palettes),
         "unsupported_custom_geo_commands_removed": unsupported_custom_geo_commands_removed,
+        "root_geolayout_scale": 1.0,
         "renamed_texture_files": renamed,
         "install_archive_bytes": install_archive.stat().st_size,
         "status": report["status"],
