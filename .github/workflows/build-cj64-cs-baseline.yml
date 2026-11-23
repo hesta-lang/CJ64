@@ -1,3 +1,4 @@
+# Manual rerun requested for the current CS baseline package.
 name: Build CJ64 CS baseline test package
 
 on:
