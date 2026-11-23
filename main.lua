@@ -1,12 +1,12 @@
--- CJ64 - CS DynOS model port for SM64CoopDX
+-- CJ64 - Character Select DynOS actor baseline for SM64CoopDX
 CJ64 = CJ64 or {}
 CJ64.name = "CJ64"
-CJ64.version = "0.1.3-alpha"
+CJ64.version = "0.1.8-alpha"
 CJ64.csActor = true
 
--- GTA tables currently target the experimental FBX/Fast64 Mario skeleton.
--- A 20-node count does not prove that the CS binary has the same node order
--- or rest pose, so custom GTA playback stays disabled until that is verified.
+-- Use the original Character Select DynOS actor, which was confirmed in-game
+-- with native Mario animations. Do not substitute the experimental FBX export.
+-- GTA playback remains disabled until the CS actor local rotation basis is calibrated.
 CJ64.useGTAAnimations = false
 CJ64.animationTablesLoaded = false
 CJ64.animationStatus = "disabled_unverified_cs_node_order_and_rest_pose"
