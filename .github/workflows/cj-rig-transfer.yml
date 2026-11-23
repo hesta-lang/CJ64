@@ -105,7 +105,11 @@ jobs:
             "$RUNNER_TEMP/cj-rig-input/Mario-Coop-Template.blend" \
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-rig-output"
-          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test.zip"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test/main.lua"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test/character.lua"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64/Assets/geo.inc.c"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64/Assets/model.inc.c"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64/Assets/geo_header.h"
           test -s "$RUNNER_TEMP/cj-rig-output/CJ64-CJ-Rig-Transfer.blend"
           test -s "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json"
           test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Rest-Preview.png"
@@ -116,15 +120,19 @@ jobs:
         run: |
           python3 tools/fix_cj_dynos_texture_paths.py \
             "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test" \
+            "$RUNNER_TEMP/cj-rig-output/CJ64" \
             "$RUNNER_TEMP/cj-rig-output" \
-            CJ64-Rigged-Test.zip cj64_rig_transfer_report.json
+            cj64_rig_transfer_report.json
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Install-Package.zip"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Dynos-Pack.zip"
+          test -s "$RUNNER_TEMP/cj-rig-output/CJ64-Rigged-Test.zip"
 
       - name: Validate exported actor and single-bone skinning
         run: |
           python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
-          assert d["status"]=="DYNOS_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
+          assert d["status"]=="DYNOS_PACK_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
           assert d["fast64_addon"]=="Fast64 Gart Edition"
           assert d["fast64_version"]==[2,5,3]
           assert d["source_vertices"]>1000
@@ -135,10 +143,13 @@ jobs:
           assert d["vertices_using_nearest_bone_fallback"]<=d["source_vertices"]*0.05
           assert d["target_animation_node_count"]==20
           assert d["dynos_geolayout_name"]=="cj64_cj_geo"
+          assert d["dynos_pack_name"]=="CJ64"
+          assert d["dynos_pack_install_path"]=="dynos/packs/CJ64"
+          assert d["dynos_pack_actor_folder"]=="Assets"
           assert abs(d["target_height_sm64_units"]-280.0)<0.1
           assert abs(d["bounds_after_armature_evaluation"][0]-2.8)<0.03
-          assert any(p["path"].endswith("geo.inc.c") for p in d["actor_files"])
-          assert any(p["path"].endswith("model.inc.c") for p in d["actor_files"])
+          assert any(p["path"]=="Assets/geo.inc.c" for p in d["actor_files"])
+          assert any(p["path"]=="Assets/model.inc.c" for p in d["actor_files"])
           print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
           PY
 
@@ -147,6 +158,8 @@ jobs:
         with:
           name: CJ64-rigged-actor
           path: |
+            ${{ runner.temp }}/cj-rig-output/CJ64-Install-Package.zip
+            ${{ runner.temp }}/cj-rig-output/CJ64-Dynos-Pack.zip
             ${{ runner.temp }}/cj-rig-output/CJ64-Rigged-Test.zip
             ${{ runner.temp }}/cj-rig-output/CJ64-CJ-Rig-Transfer.blend
             ${{ runner.temp }}/cj-rig-output/cj64_rig_transfer_report.json
