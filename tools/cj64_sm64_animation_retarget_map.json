@@ -1,15 +1,15 @@
 {
-  "format": "cj64-sm64-animation-retarget-map-v1",
+  "format": "cj64-sm64-animation-retarget-map-v2",
   "source_armature": "CJ_SRC__Armature",
-  "target_armature": "Mario",
+  "target_armature": "CJ64_Mario_Armature",
   "axis_alignment": {
     "quaternion_xyzw": [
       0,
       0,
-      -0.7071067811865476,
-      0.7071067811865476
+      -0.70710677,
+      0.70710677
     ],
-    "description": "Source X -> target -Y; source Y -> target X; source Z -> target Z (Rz -90 degrees), derived from corresponding rest-joint positions."
+    "description": "Computed from the actual FBX-to-Mario rest-space transform used for bone retargeting."
   },
   "target_node_order": [
     "Body",
@@ -143,42 +143,6 @@
       0.7051632,
       0.0523914
     ],
-    "leg left thigh": [
-      0.559527,
-      -0.4816709,
-      0.4323535,
-      -0.5176805
-    ],
-    "leg left knee": [
-      0.1058195,
-      -0.701351,
-      0.699144,
-      -0.0900374
-    ],
-    "leg left ankle": [
-      0.6258264,
-      -0.3364552,
-      -0.3291525,
-      -0.6219308
-    ],
-    "leg right thigh": [
-      0.51768,
-      0.4323539,
-      -0.4816714,
-      -0.5595267
-    ],
-    "leg right knee": [
-      0.0900207,
-      0.6991463,
-      -0.7013532,
-      -0.1058036
-    ],
-    "leg right ankle": [
-      0.6219311,
-      -0.3291512,
-      -0.336455,
-      -0.6258267
-    ],
     "spine lower": [
       0.0017443,
       -0.7071047,
@@ -190,6 +154,12 @@
       -0.0083067,
       0.0083076,
       0.7070581
+    ],
+    "spine upper": [
+      0.700509,
+      -0.0963701,
+      0.0963702,
+      0.700509
     ],
     "head neck lower": [
       0.1213727,
@@ -250,134 +220,172 @@
       -0.0331138,
       -0.6558629,
       -0.706331
+    ],
+    "leg left thigh": [
+      0.559527,
+      -0.4816709,
+      0.4323535,
+      -0.5176805
+    ],
+    "leg left knee": [
+      0.1058195,
+      -0.701351,
+      0.699144,
+      -0.0900374
+    ],
+    "leg left ankle": [
+      0.6258264,
+      -0.3364552,
+      -0.3291525,
+      -0.6219308
+    ],
+    "leg right thigh": [
+      0.51768,
+      0.4323539,
+      -0.4816714,
+      -0.5595267
+    ],
+    "leg right knee": [
+      0.0900207,
+      0.6991463,
+      -0.7013532,
+      -0.1058036
+    ],
+    "leg right ankle": [
+      0.6219311,
+      -0.3291512,
+      -0.336455,
+      -0.6258267
     ]
   },
   "target_rest_rotation_wxyz": {
     "Body": [
-      0.7071068,
-      0.7071068,
+      1e-7,
+      0.9991452,
       0,
-      0
+      0.0413397
     ],
     "Butt": [
-      0.7071068,
-      0.7071068,
+      0.0740926,
       0,
-      0
+      0.9972514,
+      -1e-7
     ],
     "Torso": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.999931,
+      0.000001,
+      0.0117482,
+      1e-7
     ],
     "Head": [
-      0.7071068,
-      0.7071068,
+      0.9906693,
       0,
+      0.1362879,
       0
     ],
     "Left Arm": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.5213336,
+      -0.5213336,
+      0.4777146,
+      -0.4777146
     ],
     "Left Arm Color": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.4926831,
+      -0.492683,
+      0.5072114,
+      -0.5072114
     ],
     "Left Forearm": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.4541691,
+      -0.5063581,
+      0.4894453,
+      -0.5456879
     ],
     "Left Hand": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.3125777,
+      -0.4871767,
+      0.4403538,
+      -0.6863255
     ],
     "Right Arm": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.5213338,
+      0.5213336,
+      0.4777145,
+      0.4777145
     ],
     "Right Arm Color": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.4926829,
+      0.4926829,
+      0.5072115,
+      0.5072116
     ],
     "Right Forearm": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.4541702,
+      0.5063554,
+      0.4894481,
+      0.5456869
     ],
     "Right Hand": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.3125788,
+      0.487179,
+      0.4403522,
+      0.6863243
     ],
     "Left Thigh": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0295899,
+      -0.0348727,
+      0.6463131,
+      -0.7617006
     ],
     "Left Thigh Color": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0295899,
+      -0.0348727,
+      0.6463128,
+      -0.7617008
     ],
     "Left Leg": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0111596,
+      -0.0015606,
+      0.9902995,
+      -0.1384917
     ],
     "Left Shoe": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0027547,
+      -0.4706602,
+      0.0051635,
+      -0.8822952
     ],
     "Right Thigh": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0295901,
+      0.0348728,
+      0.6463138,
+      0.7616999
     ],
     "Right Thigh Color": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0295901,
+      0.0348728,
+      0.6463135,
+      0.7617002
     ],
     "Right Leg": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0111601,
+      0.0015605,
+      0.9903027,
+      0.1384688
     ],
     "Right Shoe": [
-      0.7071068,
-      0.7071068,
-      0,
-      0
+      0.0027547,
+      0.4706426,
+      0.0051642,
+      0.8823045
     ]
   },
   "notes": [
-    "Starter map only: the current rig-transfer workflow overwrites target node order, rest rotations, source rest rotations and axis alignment from the actual Blender scene.",
+    "Generated from the actual Blender 4.5.16/Fast64-Gart 2.5.3 retargeted CJ/Mario armatures in workflow run 71 (45089345497).",
     "The workflow maps source spine lower/middle tracks to the Mario Torso node and spine upper/neck tracks to the Head node.",
-    "The workflow suppresses root translation in generated gameplay clips so MarioState remains authoritative.",
+    "Root translation is suppressed in generated gameplay clips so MarioState remains authoritative.",
     "SM64-compatible weights assign one deform bone per vertex at weight 1.0."
-  ]
+  ],
+  "generated_from_actual_rig": true,
+  "target_animation_node_count": 20
 }
