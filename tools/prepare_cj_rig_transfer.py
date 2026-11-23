@@ -517,8 +517,35 @@ def main():
         for name in ("Col", "Alpha")
     }
     checkpoint("fast64-color-attributes-normalized")
-    checkpoint("before-fast64-material-conversion")
-    converter.convertAllBSDFtoF3D([rigged_mesh], True)
+
+    # Fast64's batch converter calls Blender context-sensitive operators
+    # while adding F3D materials. Make this mesh the unambiguous active object
+    # and convert one material slot at a time so native crashes are localized.
+    for obj in bpy.context.view_layer.objects:
+        if obj.select_get():
+            obj.select_set(False)
+    rigged_mesh.select_set(True)
+    bpy.context.view_layer.objects.active = rigged_mesh
+    checkpoint("rigged-mesh-selected-for-material-conversion")
+    for uv_layer in rigged_mesh.data.uv_layers:
+        uv_layer.name = "UVMap"
+
+    material_dict = {}
+    checkpoint(f"before-fast64-material-conversion-{len(rigged_mesh.material_slots)}-slots")
+    for slot_index, slot in enumerate(rigged_mesh.material_slots):
+        material = slot.material
+        if material is None or material.is_f3d:
+            checkpoint(f"material-slot-{slot_index}-already-compatible")
+            continue
+        if material in material_dict:
+            slot.material = material_dict[material]
+            checkpoint(f"material-slot-{slot_index}-reused-{material.name}")
+            continue
+        checkpoint(f"before-material-slot-{slot_index}-{material.name}")
+        converter.convertBSDFtoF3D(
+            rigged_mesh, slot_index, material, material_dict
+        )
+        checkpoint(f"after-material-slot-{slot_index}-{material.name}")
     checkpoint("fast64-material-conversion-completed")
     unresolved_materials = [
         material.name for material in rigged_mesh.data.materials
