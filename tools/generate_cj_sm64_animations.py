@@ -240,12 +240,19 @@ def main():
             continue
         track_by_source = {}
         dropped = []
+        unsupported = []
         for track in clip.bones:
             source_bone = source_map.get(wrap_track_name(track.name))
             if source_bone is None:
                 dropped.append(track.name.strip())
-            else:
-                track_by_source[source_bone] = track
+                continue
+            # Only the core 21-joint GTA body hierarchy can influence the
+            # installed 20-part Character Select actor. Extra facial, finger,
+            # toe, breast and belly joints must not be reported as transferred.
+            if source_bone not in source_parents:
+                unsupported.append(track.name.strip())
+                continue
+            track_by_source[source_bone] = track
         frame_count = max(2, int(math.ceil(clip.duration * args.fps - 1e-8)) + 1)
         times = [frame / args.fps for frame in range(frame_count)]
         if times[-1] < clip.duration - 1e-6:
@@ -316,6 +323,7 @@ def main():
             "sampled_frames": len(times), "channels": len(channels),
             "index_entries": len(index), "values_entries": len(values),
             "dropped_tracks": dropped,
+            "unsupported_non_core_tracks": unsupported,
         })
 
     if missing:
