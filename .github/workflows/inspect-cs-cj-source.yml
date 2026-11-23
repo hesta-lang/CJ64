@@ -29,6 +29,8 @@ jobs:
               "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
               "entries": [],
               "relevant_source_lines": [],
+              "main_lua": "",
+              "binary_headers": [],
           }
           text_ext = {".lua", ".txt", ".json", ".xml", ".cfg", ".ini", ".md", ".yml", ".yaml"}
           keywords = ("character", "dynos", "mario_geo", "mario", "model", "animation",
@@ -40,6 +42,13 @@ jobs:
               for item in z.infolist():
                   name = item.filename
                   row = {"path": name, "size": item.file_size, "compressed": item.compress_size}
+                  if name.endswith("/main.lua"):
+                      report["main_lua"] = z.read(item).decode("utf-8", "replace")
+                  if name.endswith(".bin"):
+                      raw = z.read(item)
+                      row["sha256"] = hashlib.sha256(raw).hexdigest()
+                      row["first_32_bytes_hex"] = raw[:32].hex()
+                      report["binary_headers"].append(row)
                   report["entries"].append(row)
                   suffix = pathlib.PurePosixPath(name).suffix.lower()
                   if suffix in text_ext and item.file_size <= 2_000_000:
@@ -63,6 +72,8 @@ jobs:
               "entry_count": len(report["entries"]),
               "entries": report["entries"],
               "relevant_source_line_count": len(report["relevant_source_lines"]),
+              "main_lua": report["main_lua"],
+              "binary_headers": report["binary_headers"],
           }, indent=2))
           PY
       - name: Upload source inspection report
