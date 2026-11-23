@@ -241,10 +241,7 @@ def main():
                 source_parents,
                 source_rest,
                 source_pose_local,
-                root_bone=next(
-                    (name for name, parent in source_parents.items() if parent is None),
-                    "",
-                ),
+                root_bone=mapping.get("source_root_bone", "root ground"),
             )
             local_rotations, _target_global_deltas = retarget_global_deltas_to_mario(
                 node_order,
