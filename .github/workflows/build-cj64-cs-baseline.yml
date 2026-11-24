@@ -188,13 +188,11 @@ jobs:
           print(f"Created {output} ({output.stat().st_size} bytes)")
           PY
 
-      - name: Upload install ZIP and conversion report
+      - name: Upload install ZIP
         uses: actions/upload-artifact@v4
         with:
           name: CJ64-GTA-Animations-Test-0.2.8-alpha
-          path: |
-            CJ64-GTA-Animations-Test-0.2.8-alpha.zip
-            \${{ runner.temp }}/cj64_gta_animations.report.json
+          path: CJ64-GTA-Animations-Test-0.2.8-alpha.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 1
