@@ -39,6 +39,7 @@ jobs:
           set -euo pipefail
           cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
           test -s "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
+          sha256sum "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
           python3 tools/apply_native_cs_idle_pose.py "$RUNNER_TEMP/cj64_gta_animations-raw.lua" \
             --pose tools/native_mario_idle_pose.json \
             --output "$RUNNER_TEMP/cj64_gta_animations.lua"
