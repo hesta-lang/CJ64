@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Convert retargeted GTA rotations to the SM64 engine's Z-X-Y matrix order.
+"""LEGACY helper for the rejected ZXY animation experiment.
 
-The checked-in retarget table stores its intermediate local quaternion as XYZ
-Euler angles. SM64 does not interpret those values as an XYZ rotation: its
-animated-part matrix is built by applying Z, then X, then Y
-(mtxf_rotate_zxy_and_translate). This tool decodes the intermediate quaternion,
-composes it with the exact anim_00 frame-zero pose, and writes channels that
-reconstruct the intended quaternion under SM64's ZXY convention.
-
-Root translation channels remain zero so MarioState keeps control of movement.
+Do not use this module to prepare GEO_ANIMATED_PART animation channels.
+SM64CoopDX geo_process_animated_part uses mtxf_rotate_xyz_and_translate;
+the active 0.2.9 pipeline preserves source XYZ channels and does not import
+or call this historical ZXY conversion helper.
 """
 from __future__ import annotations
 

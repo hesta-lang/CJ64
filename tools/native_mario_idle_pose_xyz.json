@@ -1,0 +1,192 @@
+{
+  "format": "cj64-native-cs-anim00-pose-xyz-v1",
+  "source_repository": "https://github.com/n64decomp/sm64",
+  "source_file": "assets/anims/anim_00.inc.c",
+  "source_animation": "MARIO_ANIM_IDLE (anim_00)",
+  "description": "Raw frame-zero XYZ rotation channels copied from native SM64 MARIO_ANIM_IDLE (anim_00). The runtime interpretation is mtxf_rotate_xyz_and_translate. Stored quaternion fields from the retired ZXY experiment are intentionally excluded.",
+  "rotation_function": "mtxf_rotate_xyz_and_translate",
+  "angle_format": "signed 16-bit turns; 65536 units per revolution",
+  "node_count": 20,
+  "nodes": [
+    {
+      "index": 0,
+      "node": "Body",
+      "first_frame_euler16": [
+        "0000",
+        "3FFF",
+        "0000"
+      ]
+    },
+    {
+      "index": 1,
+      "node": "Butt",
+      "first_frame_euler16": [
+        "FF94",
+        "0580",
+        "3F76"
+      ]
+    },
+    {
+      "index": 2,
+      "node": "Torso",
+      "first_frame_euler16": [
+        "FFDB",
+        "FC30",
+        "FC1C"
+      ]
+    },
+    {
+      "index": 3,
+      "node": "Head",
+      "first_frame_euler16": [
+        "01E1",
+        "FEFF",
+        "EC5B"
+      ]
+    },
+    {
+      "index": 4,
+      "node": "Left Arm",
+      "first_frame_euler16": [
+        "7FFF",
+        "7FFF",
+        "4171"
+      ]
+    },
+    {
+      "index": 5,
+      "node": "Left Arm Color",
+      "first_frame_euler16": [
+        "AAD0",
+        "956B",
+        "E0E1"
+      ]
+    },
+    {
+      "index": 6,
+      "node": "Left Forearm",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "F503"
+      ]
+    },
+    {
+      "index": 7,
+      "node": "Left Hand",
+      "first_frame_euler16": [
+        "17FE",
+        "FF33",
+        "F1E5"
+      ]
+    },
+    {
+      "index": 8,
+      "node": "Right Arm",
+      "first_frame_euler16": [
+        "7FFF",
+        "7FFF",
+        "4171"
+      ]
+    },
+    {
+      "index": 9,
+      "node": "Right Arm Color",
+      "first_frame_euler16": [
+        "4363",
+        "6F45",
+        "DC92"
+      ]
+    },
+    {
+      "index": 10,
+      "node": "Right Forearm",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "F8AB"
+      ]
+    },
+    {
+      "index": 11,
+      "node": "Right Hand",
+      "first_frame_euler16": [
+        "F32C",
+        "066E",
+        "F3C7"
+      ]
+    },
+    {
+      "index": 12,
+      "node": "Left Thigh",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "BF5F"
+      ]
+    },
+    {
+      "index": 13,
+      "node": "Left Thigh Color",
+      "first_frame_euler16": [
+        "E71E",
+        "E79C",
+        "9BA4"
+      ]
+    },
+    {
+      "index": 14,
+      "node": "Left Leg",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "4A2F"
+      ]
+    },
+    {
+      "index": 15,
+      "node": "Left Shoe",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "BA4D"
+      ]
+    },
+    {
+      "index": 16,
+      "node": "Right Thigh",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "BF5F"
+      ]
+    },
+    {
+      "index": 17,
+      "node": "Right Thigh Color",
+      "first_frame_euler16": [
+        "2333",
+        "170B",
+        "AA0A"
+      ]
+    },
+    {
+      "index": 18,
+      "node": "Right Leg",
+      "first_frame_euler16": [
+        "0000",
+        "0000",
+        "2741"
+      ]
+    },
+    {
+      "index": 19,
+      "node": "Right Shoe",
+      "first_frame_euler16": [
+        "FFEA",
+        "FF30",
+        "CE0B"
+      ]
+    }
+  ]
+}
