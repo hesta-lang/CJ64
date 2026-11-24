@@ -1,9 +1,9 @@
 {
-  "format": "cj64-native-mario-cs-pose-anchor-v1",
+  "format": "cj64-native-cs-pose-anchor-sm64-zxy-v2",
   "source_repository": "https://github.com/n64decomp/sm64",
   "source_file": "assets/anims/anim_00.inc.c",
   "source_animation": "MARIO_ANIM_IDLE (anim_00)",
-  "description": "Default SM64/Character Select idle frame-zero local rotations for the 20 animated-part nodes. GTA motion deltas are composed over this neutral gameplay idle pose, not the special head-centered anim_C5 pose.",
+  "description": "SM64 Character Select anim_00 frame-zero channels. Channel storage is X,Y,Z; the engine applies Z then X then Y (matrix Ry * Rx * Rz).",
   "channel_layout": "three root translation channels followed by XYZ rotation triplets for each animated node",
   "angle_format": "signed 16-bit turns; 65536 units per revolution",
   "node_count": 20,
@@ -44,8 +44,8 @@
         89.241943
       ],
       "base_rotation_xyzw": [
-        -0.0510494462,
-        0.0443756183,
+        0.0436963401,
+        0.0516320764,
         0.7010534112,
         0.7098935647
       ]
@@ -64,8 +64,8 @@
         -5.471191
       ],
       "base_rotation_xyzw": [
-        -0.0040018622,
-        -0.0466314168,
+        0.0004624533,
+        -0.0468005349,
         -0.0477575708,
         0.9977618506
       ]
@@ -84,8 +84,8 @@
         -27.625122
       ],
       "base_rotation_xyzw": [
-        0.0194467366,
-        -0.0174640607,
+        0.0253276309,
+        -0.0064560125,
         -0.2383889602,
         0.970817972
       ]
@@ -104,8 +104,8 @@
         92.026978
       ],
       "base_rotation_xyzw": [
-        -0.0000011991,
         0.0000677824,
+        -0.0000011991,
         -0.6944889985,
         0.7195033192
       ]
@@ -124,8 +124,8 @@
         -43.764038
       ],
       "base_rotation_xyzw": [
-        -0.3890910242,
-        -0.36565551,
+        -0.0280791347,
+        -0.5332047817,
         -0.8237959232,
         -0.1904324021
       ]
@@ -164,8 +164,8 @@
         -19.835815
       ],
       "base_rotation_xyzw": [
-        0.2842226288,
-        -0.0592430406,
+        0.2874620746,
+        0.0407160442,
         -0.1620082721,
         0.9431124425
       ]
@@ -184,8 +184,8 @@
         92.026978
       ],
       "base_rotation_xyzw": [
-        -0.0000011991,
         0.0000677824,
+        -0.0000011991,
         -0.6944889985,
         0.7195033192
       ]
@@ -204,8 +204,8 @@
         -49.822998
       ],
       "base_rotation_xyzw": [
-        0.4152908707,
-        0.5380251257,
+        -0.1431554704,
+        0.6644125634,
         -0.7115398486,
         -0.1782512293
       ]
@@ -244,8 +244,8 @@
         -17.18811
       ],
       "base_rotation_xyzw": [
-        -0.1428997801,
-        0.1003279954,
+        -0.1661657407,
+        0.0536190306,
         -0.1349070851,
         0.9753532819
       ]
@@ -284,8 +284,8 @@
         -141.130371
       ],
       "base_rotation_xyzw": [
-        -0.36078744,
-        0.1773253697,
+        0.1696197943,
+        -0.3644735779,
         -0.8889029447,
         0.21963536
       ]
@@ -364,8 +364,8 @@
         -120.882568
       ],
       "base_rotation_xyzw": [
-        0.418741733,
-        -0.2246960682,
+        -0.0220929202,
+        0.4747050294,
         -0.8162046603,
         0.3285985248
       ]
@@ -404,11 +404,15 @@
         -70.252075
       ],
       "base_rotation_xyzw": [
-        -0.0065994255,
-        -0.0075481536,
+        0.0048744023,
+        -0.0087616918,
         -0.5753566731,
         0.8178411653
       ]
     }
+  ],
+  "rotation_order": "SM64_ZXY_APPLIES_Z_THEN_X_THEN_Y",
+  "notes": [
+    "base_rotation_xyzw values are recalculated from first_frame_euler16 using the actual SM64 ZXY engine matrix order."
   ]
 }
