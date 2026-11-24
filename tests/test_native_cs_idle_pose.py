@@ -35,6 +35,13 @@ class NativeCSIdlePoseTests(unittest.TestCase):
         self.assertAlmostEqual(rotations["Body"][1], math.sin(math.pi / 4), delta=0.001)
         self.assertAlmostEqual(rotations["Body"][3], math.cos(math.pi / 4), delta=0.001)
 
+    def test_reference_pose_is_default_game_idle_not_head_center_idle(self):
+        import json
+        data = json.loads((ROOT / "tools/native_mario_idle_pose.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["source_animation"], "MARIO_ANIM_IDLE (anim_00)")
+        self.assertEqual(data["source_file"], "assets/anims/anim_00.inc.c")
+        self.assertEqual(data["nodes"][0]["first_frame_euler16"], ["0000", "3FFF", "0000"])
+
     def test_identity_motion_restores_native_body_root_rotation(self):
         base = q_from_euler_xyz(0.0, math.radians(89.994507), 0.0)
         values, indices = build_identity_channels(1)
@@ -86,7 +93,7 @@ class NativeCSIdlePoseTests(unittest.TestCase):
             '    {\n' + "\n".join(idx) + '\n    }\n)\n'
         )
         output, report = apply_native_pose(source, pose_path)
-        self.assertIn("CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED", output)
+        self.assertIn("CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED", output)
         self.assertEqual(report["clip_count"], 1)
         self.assertLess(report["neutral_idle_first_frame_residual_radians"], math.radians(0.02))
         with self.assertRaisesRegex(ValueError, "already been applied"):
