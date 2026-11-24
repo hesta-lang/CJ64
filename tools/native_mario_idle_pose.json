@@ -1,9 +1,9 @@
 {
   "format": "cj64-native-mario-cs-pose-anchor-v1",
   "source_repository": "https://github.com/n64decomp/sm64",
-  "source_file": "assets/anims/anim_C5.inc.c",
-  "source_animation": "MARIO_ANIM_IDLE_HEAD_CENTER (anim_C5)",
-  "description": "Frame-zero rotations for the 20 animated-part nodes. These native Mario local rotations provide the pose anchor for the Character Select CJ actor; GTA IFP rotations are relative motion deltas composed on top.",
+  "source_file": "assets/anims/anim_00.inc.c",
+  "source_animation": "MARIO_ANIM_IDLE (anim_00)",
+  "description": "Default SM64/Character Select idle frame-zero local rotations for the 20 animated-part nodes. GTA motion deltas are composed over this neutral gameplay idle pose, not the special head-centered anim_C5 pose.",
   "channel_layout": "three root translation channels followed by XYZ rotation triplets for each animated node",
   "angle_format": "signed 16-bit turns; 65536 units per revolution",
   "node_count": 20,
@@ -34,60 +34,60 @@
       "index": 1,
       "node": "Butt",
       "first_frame_euler16": [
-        "0000",
-        "0000",
-        "40A6"
+        "FF94",
+        "0580",
+        "3F76"
       ],
       "first_frame_degrees": [
-        0,
-        0,
-        90.911865
+        -0.593262,
+        7.734375,
+        89.241943
       ],
       "base_rotation_xyzw": [
-        0,
-        0,
-        0.7127111543,
-        0.7014576328
+        -0.0510494462,
+        0.0443756183,
+        0.7010534112,
+        0.7098935647
       ]
     },
     {
       "index": 2,
       "node": "Torso",
       "first_frame_euler16": [
-        "0000",
-        "0000",
-        "0884"
+        "FFDB",
+        "FC30",
+        "FC1C"
       ],
       "first_frame_degrees": [
-        0,
-        0,
-        11.975098
+        -0.203247,
+        -5.361328,
+        -5.471191
       ],
       "base_rotation_xyzw": [
-        0,
-        0,
-        0.1043123373,
-        0.9945445874
+        -0.0040018622,
+        -0.0466314168,
+        -0.0477575708,
+        0.9977618506
       ]
     },
     {
       "index": 3,
       "node": "Head",
       "first_frame_euler16": [
-        "DD83",
-        "FA36",
-        "FD3C"
+        "01E1",
+        "FEFF",
+        "EC5B"
       ],
       "first_frame_degrees": [
-        -48.499146,
-        -8.140869,
-        -3.88916
+        2.642212,
+        -1.411743,
+        -27.625122
       ],
       "base_rotation_xyzw": [
-        -0.4116362423,
-        -0.0507808563,
-        -0.0599973886,
-        0.9079522135
+        0.0194467366,
+        -0.0174640607,
+        -0.2383889602,
+        0.970817972
       ]
     },
     {
@@ -114,20 +114,20 @@
       "index": 5,
       "node": "Left Arm Color",
       "first_frame_euler16": [
-        "FAF6",
-        "D305",
-        "D4EA"
+        "AAD0",
+        "956B",
+        "E0E1"
       ],
       "first_frame_degrees": [
-        -7.086182,
-        -63.253784,
-        -60.5896
+        -119.794922,
+        -149.880981,
+        -43.764038
       ],
       "base_rotation_xyzw": [
-        -0.3094553236,
-        -0.4253662371,
-        -0.4566891176,
-        0.7174510554
+        -0.3890910242,
+        -0.36565551,
+        -0.8237959232,
+        -0.1904324021
       ]
     },
     {
@@ -136,38 +136,38 @@
       "first_frame_euler16": [
         "0000",
         "0000",
-        "CA3F"
+        "F503"
       ],
       "first_frame_degrees": [
         0,
         0,
-        -75.591431
+        -15.452271
       ],
       "base_rotation_xyzw": [
         0,
         0,
-        -0.6128479629,
-        0.7902008443
+        -0.1344382047,
+        0.9909219793
       ]
     },
     {
       "index": 7,
       "node": "Left Hand",
       "first_frame_euler16": [
-        "0003",
-        "F97C",
-        "ED77"
+        "17FE",
+        "FF33",
+        "F1E5"
       ],
       "first_frame_degrees": [
-        0.016479,
-        -9.162598,
-        -26.065063
+        33.739014,
+        -1.126099,
+        -19.835815
       ],
       "base_rotation_xyzw": [
-        -0.0178721716,
-        -0.0778485311,
-        -0.2247725729,
-        0.9711320622
+        0.2842226288,
+        -0.0592430406,
+        -0.1620082721,
+        0.9431124425
       ]
     },
     {
@@ -194,20 +194,20 @@
       "index": 9,
       "node": "Right Arm Color",
       "first_frame_euler16": [
-        "0579",
-        "2BC3",
-        "CD36"
+        "4363",
+        "6F45",
+        "DC92"
       ],
       "first_frame_degrees": [
-        7.695923,
-        61.539917,
-        -71.422119
+        94.762573,
+        156.472778,
+        -49.822998
       ],
       "base_rotation_xyzw": [
-        0.3447621714,
-        0.3808044668,
-        -0.5282761509,
-        0.6760557015
+        0.4152908707,
+        0.5380251257,
+        -0.7115398486,
+        -0.1782512293
       ]
     },
     {
@@ -216,38 +216,38 @@
       "first_frame_euler16": [
         "0000",
         "0000",
-        "C7E1"
+        "F8AB"
       ],
       "first_frame_degrees": [
         0,
         0,
-        -78.920288
+        -10.310669
       ],
       "base_rotation_xyzw": [
         0,
         0,
-        -0.6355413107,
-        0.7720668639
+        -0.0898562006,
+        0.9959547496
       ]
     },
     {
       "index": 11,
       "node": "Right Hand",
       "first_frame_euler16": [
-        "0000",
-        "0000",
-        "F51C"
+        "F32C",
+        "066E",
+        "F3C7"
       ],
       "first_frame_degrees": [
-        0,
-        0,
-        -15.314941
+        -18.039551,
+        9.041748,
+        -17.18811
       ],
       "base_rotation_xyzw": [
-        0,
-        0,
-        -0.1332505653,
-        0.9910823815
+        -0.1428997801,
+        0.1003279954,
+        -0.1349070851,
+        0.9753532819
       ]
     },
     {
@@ -274,20 +274,20 @@
       "index": 13,
       "node": "Left Thigh Color",
       "first_frame_euler16": [
-        "D654",
-        "EC2A",
-        "B58C"
+        "E71E",
+        "E79C",
+        "9BA4"
       ],
       "first_frame_degrees": [
-        -58.601074,
-        -27.894287,
-        -104.699707
+        -34.991455,
+        -34.299316,
+        -141.130371
       ],
       "base_rotation_xyzw": [
-        -0.4565451347,
-        0.2476615752,
-        -0.7421581722,
-        0.4235935924
+        -0.36078744,
+        0.1773253697,
+        -0.8889029447,
+        0.21963536
       ]
     },
     {
@@ -296,38 +296,38 @@
       "first_frame_euler16": [
         "0000",
         "0000",
-        "2571"
+        "4A2F"
       ],
       "first_frame_degrees": [
         0,
         0,
-        52.651978
+        104.320679
       ],
       "base_rotation_xyzw": [
         0,
         0,
-        0.4434777821,
-        0.8962853657
+        0.7897305634,
+        0.613453859
       ]
     },
     {
       "index": 15,
       "node": "Left Shoe",
       "first_frame_euler16": [
-        "FFFB",
-        "FFFF",
-        "BF1F"
+        "0000",
+        "0000",
+        "BA4D"
       ],
       "first_frame_degrees": [
-        -0.027466,
-        -0.005493,
-        -91.235962
+        0,
+        0,
+        -98.014526
       ],
       "base_rotation_xyzw": [
-        -0.0002019048,
-        0.0001377717,
-        -0.7146922043,
-        0.6994390562
+        0,
+        0,
+        -0.7547927404,
+        0.6559633519
       ]
     },
     {
@@ -354,20 +354,20 @@
       "index": 17,
       "node": "Right Thigh Color",
       "first_frame_euler16": [
-        "1AFA",
-        "1157",
-        "AC25"
+        "2333",
+        "170B",
+        "AA0A"
       ],
       "first_frame_degrees": [
-        37.935791,
-        24.384155,
-        -117.921753
+        49.498901,
+        32.404175,
+        -120.882568
       ],
       "base_rotation_xyzw": [
-        0.3349422523,
-        -0.1692349123,
-        -0.8274098548,
-        0.4178111586
+        0.418741733,
+        -0.2246960682,
+        -0.8162046603,
+        0.3285985248
       ]
     },
     {
@@ -376,38 +376,38 @@
       "first_frame_euler16": [
         "0000",
         "0000",
-        "1E91"
+        "2741"
       ],
       "first_frame_degrees": [
         0,
         0,
-        42.984009
+        55.200806
       ],
       "base_rotation_xyzw": [
         0,
         0,
-        0.3663713837,
-        0.930468704
+        0.4633022658,
+        0.8862003219
       ]
     },
     {
       "index": 19,
       "node": "Right Shoe",
       "first_frame_euler16": [
-        "0005",
-        "FF32",
-        "C9AE"
+        "FFEA",
+        "FF30",
+        "CE0B"
       ],
       "first_frame_degrees": [
-        0.027466,
-        -1.131592,
-        -76.387939
+        -0.12085,
+        -1.142578,
+        -70.252075
       ],
       "base_rotation_xyzw": [
-        -0.0059175034,
-        -0.00790905,
-        -0.6182936561,
-        0.7858850965
+        -0.0065994255,
+        -0.0075481536,
+        -0.5753566731,
+        0.8178411653
       ]
     }
   ]
