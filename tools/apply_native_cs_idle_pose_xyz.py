@@ -234,20 +234,19 @@ def apply_native_pose(source: str, pose_path: Path):
 
             for frame in range(frame_count):
                 # The GTA Normal/root channel is not Mario's world root.
-                # Keep Body at native anim_00 so SM64CoopDX owns heading.
+                # Keep Body's exact native XYZ samples in every frame.
                 if node_index == 0:
-                    combined = bases[node_name]
+                    output_angles = reference_angles
                 else:
                     delta_angles = tuple(
                         decode_angle(values[offset + frame]) for offset in offsets
                     )
                     motion_delta = q_from_euler_xyz(*delta_angles)
                     combined = qmul(bases[node_name], motion_delta)
-
-                if frame == 0 and quaternion_error(combined, bases[node_name]) < 1e-9:
-                    output_angles = reference_angles
-                else:
-                    output_angles = euler_xyz_near(combined, previous_angles)
+                    if frame == 0 and quaternion_error(combined, bases[node_name]) < 1e-9:
+                        output_angles = reference_angles
+                    else:
+                        output_angles = euler_xyz_near(combined, previous_angles)
 
                 encoded = [encode_angle(value) for value in output_angles]
                 for axis, offset in enumerate(offsets):

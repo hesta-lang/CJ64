@@ -125,11 +125,14 @@ class NativeCSIdlePoseXYZTests(unittest.TestCase):
         )
         indices = [int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{1,4})", indices_match.group(1))]
         expected = [decode_angle(int(v, 16)) for v in pose["nodes"][0]["first_frame_euler16"]]
+        expected_raw = [int(v, 16) for v in pose["nodes"][0]["first_frame_euler16"]]
         for frame in range(3):
-            actual = [
-                decode_angle(values[indices[(3 + axis) * 2 + 1] + frame])
+            actual_raw = [
+                values[indices[(3 + axis) * 2 + 1] + frame]
                 for axis in range(3)
             ]
+            self.assertEqual(actual_raw, expected_raw)
+            actual = [decode_angle(value) for value in actual_raw]
             self.assertLess(quaternion_error(q_from_euler_xyz(*actual), q_from_euler_xyz(*expected)),
                             math.radians(0.02))
 
