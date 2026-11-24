@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Compose GTA rotation deltas on the native Mario/CS standing pose.
+"""Compose GTA rotation deltas on the default SM64 Character Select idle pose.
 
 The CS DynOS actor is animated with SM64's 20-part Mario animation layout.
 Zero Euler channels are NOT its visible neutral pose. For example, the
-MARIO_ANIM_IDLE_HEAD_CENTER Body channel has a ~90 degree Y rotation.
+MARIO_ANIM_IDLE Body channel has a ~90 degree Y rotation.
 
 This tool restores the native Mario idle frame-zero pose for all 20 parts,
 then composes the GTA retargeted local-motion delta on top of that pose.
@@ -28,7 +28,7 @@ REGISTRATION_RE = re.compile(
     re.S,
 )
 HEX_RE = re.compile(r"0x([0-9A-Fa-f]{1,4})")
-APPLIED_MARKER = "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED"
+APPLIED_MARKER = "CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED"
 
 
 def qnorm(q):
@@ -246,7 +246,7 @@ def apply_native_pose(source: str, pose_path: Path) -> tuple[str, dict[str, Any]
         output = output[:start] + replacement + output[end:]
     output = (
         "-- " + APPLIED_MARKER + "\n"
-        "-- Native pose anchor: SM64 MARIO_ANIM_IDLE_HEAD_CENTER (anim_C5), frame 0.\n"
+        "-- Native pose anchor: SM64 MARIO_ANIM_IDLE (anim_00), frame 0.\n"
         "-- GTA retarget channels are local motion deltas composed on top of this pose.\n"
         + output
     )
