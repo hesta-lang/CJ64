@@ -31,24 +31,20 @@ The 0.2.8 preview incorrectly treated animated-part channels as ZXY. The source 
 
 The 0.2.9-alpha pipeline restores these original XYZ channel values without reordering them.
 
-## Body-root alignment: 0.2.10-alpha
+## All-joint native pose composition: 0.2.11-alpha
 
-The 0.2.9 runtime made the limbs animate correctly, but the complete CJ actor still appeared laid down. The root cause is the distinction between GTA's source skeleton root and the Body root orientation expected by the compiled Character Select actor.
+The Body-only adjustment in 0.2.10 was not sufficient. It changed the root rotation but retained the 19 articulated nodes' absolute GTA source rotations. Those values describe GTA's source pose, not motion deltas in the destination CS animation channels.
 
-The direct GTA table includes GTA's own Normal/root orientation. That is not a safe replacement for the target actor's model-space root orientation: applying it tilts the whole actor and every child animated part. The game already owns player heading and world movement, so this GTA root orientation must not be transferred to MarioState.
+The active animation-only pipeline is now:
 
-The 0.2.10-alpha pipeline now does the following:
+1. Reconstruct the original direct GTA XYZ channel table and verify the 13 clip names, sample counts, index bounds and fixed-zero player translations.
+2. Normalize every node's local rotations as `inverse(IDLE_stance frame 0) * current frame`, producing neutral-relative motion deltas.
+3. Read the raw frame-zero XYZ channels from native SM64 `MARIO_ANIM_IDLE (anim_00)`.
+4. Compose each of the 19 articulated nodes as `native anim_00 local pose * GTA local motion delta`, and encode the result using the engine's `mtxf_rotate_xyz_and_translate` convention.
+5. Keep Body fixed at its native `anim_00` XYZ orientation. The GTA `Normal` track is not Mario's world root; SM64CoopDX continues to own player heading, translation, movement, collision, camera and physics.
+6. Verify the idle first frame reconstructs all 20 native joint rotations, all root translations remain zero, and animation index tables are unchanged.
 
-1. Rebuilds the direct GTA table and validates the 13 clips, XYZ channel order, frame counts and value/index bounds.
-2. Loads the known-good native CS/Mario \`anim_00\` frame-zero reference and reads only the Body node's rotation: XYZ \`[0000, 3FFF, 0000]\`.
-3. Replaces only Body X/Y/Z on every frame of all 13 clips with those fixed values.
-4. Preserves root translation as zero and leaves all channel-index entries untouched.
-5. Verifies that all 57 rotation channels belonging to the other 19 animated parts match the pre-correction table exactly in every clip.
-6. Keeps the original CS actor binary and all existing animation role/action mappings unchanged.
-
-This does not apply the full Mario idle pose to CJ's limbs. The GTA limb animation samples remain as in 0.2.9; only the actor-wide Body root orientation is aligned to the known-good CS pose. The one-axis Y reference is the same physical rotation in the archived XYZ and ZXY angle order descriptions because X and Z are zero.
-
-The root correction is strongly isolated and regression-tested. It still requires Android visual validation, because automated validation cannot inspect the final rendered geometry, local mesh axes or joint seams.
+This changes only animation channel samples. It does not modify the CS DynOS binary, mesh, textures, bone definitions, rig, GeoLayout hierarchy or runtime action mapping. Android visual validation is still required; this rig has 20 animated parts and cannot reproduce GTA's independent finger, toe, jaw, eyebrow, belly or breast tracks.
 
 ## Runtime animation mapping
 

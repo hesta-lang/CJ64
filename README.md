@@ -15,7 +15,7 @@ The runtime actor remains the original Character Select DynOS model:
 The experimental FBX/Fast64 actor is not used by the current runtime package. The packaged actor is checked against the known working CS binary SHA-256:
 \`1e85ef10af95a94d14cf014589811e74adeb437c4e9439eb88d1d3b87b4d0ce4\`.
 
-## GTA San Andreas animation preview — 0.2.10-alpha
+## GTA San Andreas animation preview — 0.2.11-alpha
 
 The preview uses 13 player-movement clips from the supplied GTA SA ped.ifp, sampled at 30 FPS and mapped to the CS actor's 20 animated parts:
 
@@ -28,17 +28,20 @@ The preview uses 13 player-movement clips from the supplied GTA SA ped.ifp, samp
 | FALL_fall, FALL_glide, FALL_land | Falling, air, landing |
 | Swim_Tread | Swimming idle |
 
-### Rotation channels and upright Body root
+### Animation basis and native CS pose composition
 
-The 0.2.8 preview incorrectly converted XYZ animation channels to ZXY. The 0.2.9 preview corrected that by preserving the direct GTA XYZ samples, as consumed by \`geo_process_animated_part\` through \`mtxf_rotate_xyz_and_translate\`.
+The 0.2.8 preview used the wrong rotation convention. The current conversion verifies the XYZ path used by `geo_process_animated_part` through `mtxf_rotate_xyz_and_translate`.
 
-The remaining posture issue was isolated to the root \`Body\` animated part. The direct GTA table contains GTA's own Normal/root orientation, but this is not the orientation basis of the compiled Character Select actor. Copying that root rotation to the CS actor tilts the complete model, including every child part.
+The 0.2.10 correction was insufficient: it replaced only the Body root while leaving the 19 child nodes with absolute GTA rotations. Those values are not neutral-relative motion for the CS rig, so a Body-only change could not correct the complete pose.
 
-The 0.2.10-alpha pipeline therefore changes only the three rotation channels of the \`Body\` node. It replaces them on every frame with the known-good native CS/Mario \`anim_00\` frame-zero Body orientation: XYZ \`[0000, 3FFF, 0000]\` (approximately 89.9945 degrees around Y). It deliberately does **not** apply the complete Mario idle pose to CJ's limbs.
+The 0.2.11-alpha pipeline now:
+1. Validates and preserves the original source XYZ channels.
+2. Converts each node's GTA rotations to motion deltas relative to the first frame of `IDLE_stance`.
+3. Composes those deltas over all 20 frame-zero joint rotations from the native CS/Mario `anim_00` pose, using the engine XYZ convention.
+4. Keeps GTA's `Normal`/root rotation out of player/world heading; the Body node remains on the native `anim_00` base orientation.
+5. Preserves zero root translations, the original actor binary, and the existing runtime action mapping.
 
-All root translation channels remain zero. The 19 child animated parts retain their original GTA XYZ samples, frame counts, and channel indices exactly. The regression tests compare those samples before and after the Body correction for all 13 clips.
-
-This is an isolated root calibration based on the known-good CS idle pose; it does not alter the actor mesh, embedded textures, child joints, action mapping, physics, camera, or player/world movement. Android visual validation remains necessary to confirm the model is now upright in the actual game runtime.
+This is an animation-only correction. It does not edit `mario_geo.bin`, the mesh, bones, skeleton hierarchy, textures, `character.lua`, camera, movement, collision or physics. The CS rig has fewer deform joints than GTA's ped skeleton, so the result is still an approximation and must be visually checked in SM64CoopDX on Android.
 
 ## Model and rig limitations
 
@@ -50,7 +53,7 @@ The four PNG files under \`assets/gta_sa/original/\` are source textures only. T
 
 ## Install the preview
 
-Use the artifact \`CJ64-GTA-Animations-Test-0.2.10-alpha.zip\` from the latest successful **Build CJ64 GTA animation preview with CS Body root alignment** workflow. Extract it into the game's root; it creates:
+Use the artifact \`CJ64-GTA-Animations-Test-0.2.11-alpha.zip\` from the latest successful **Build CJ64 GTA animation preview with native CS anim_00 XYZ pose** workflow. Extract it into the game's root; it creates:
 
 \`mods/CJ64-GTA-Animations-Test/\`
 

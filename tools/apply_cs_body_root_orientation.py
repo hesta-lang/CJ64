@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Align only the CJ64 Body root to the known-good native CS idle orientation.
+"""RETIRED: body-only alignment experiment; not used by the active 0.2.11 pipeline.
 
-The direct GTA table carries GTA's own root/Normal orientation. That track must
-not rotate the SM64CoopDX player model: SM64 owns world heading and movement.
-We replace only Body's XYZ angles with the Body frame-zero orientation from
-the known-good native Mario/CS anim_00 pose. All other 19 animated parts,
-their motion samples, indices, and root translations remain unchanged.
+The old helper replaced only Body and left 19 absolute GTA child rotations intact.
+That approach did not correct the complete pose and is superseded by the active
+all-joint neutral-relative XYZ compositor. Do not use this file in the build.
 """
 from __future__ import annotations
 
