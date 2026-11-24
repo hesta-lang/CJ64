@@ -52,35 +52,39 @@ def patch_geo_layout(path: Path) -> dict:
 
 def configure_main(path: Path) -> None:
     source = path.read_text(encoding="utf-8")
-    require('CJ64.version = "0.1.8-alpha"' in source, "Unexpected source-rest actor main.lua baseline")
-    require("CJ64.useGTAAnimations = false" in source, "Expected GTA animations to be disabled in source baseline")
+    require(re.search(r'(?m)^CJ64\.version = "[^"]+"$', source) is not None,
+            "Source-rest actor main.lua does not declare a version")
+    require(re.search(r'(?m)^CJ64\.useGTAAnimations = (true|false)$', source) is not None,
+            "Source-rest actor main.lua does not declare GTA animation state")
     source = source.replace('CJ64.name = "CJ64"', 'CJ64.name = "CJ64 GTA Source Rest"', 1)
-    source = source.replace('CJ64.version = "0.1.8-alpha"', f'CJ64.version = "{VERSION}"', 1)
-    source = source.replace("CJ64.csActor = true", "CJ64.csActor = false\nCJ64.sourceRestActor = true", 1)
-    source = source.replace(
-        "-- Use the original Character Select DynOS actor, which was confirmed in-game\n"
-        "-- with native Mario animations. Do not substitute the experimental FBX export.\n"
-        "-- GTA playback remains disabled until the CS actor local rotation basis is calibrated.\n"
-        "CJ64.useGTAAnimations = false\n"
-        "CJ64.animationTablesLoaded = false\n"
-        'CJ64.animationStatus = "disabled_unverified_cs_node_order_and_rest_pose"',
+    source = re.sub(r'(?m)^CJ64\.version = "[^"]+"$', f'CJ64.version = "{VERSION}"', source, count=1)
+    source = re.sub(r'(?m)^CJ64\.csActor = true$',
+                    "CJ64.csActor = false\nCJ64.sourceRestActor = true", source, count=1)
+    source = re.sub(r'(?m)^CJ64\.useGTAAnimations = (true|false)$',
+                    "CJ64.useGTAAnimations = true", source, count=1)
+    source = re.sub(r'(?m)^CJ64\.animationStatus = "[^"]+"$',
+                    'CJ64.animationStatus = "source_rest_gta_retarget_experimental"', source, count=1)
+    source = re.sub(
+        r'(?m)(?:^-- .*\n)+(?=CJ64\.useGTAAnimations = true$)',
         "-- This build uses the CJ FBX source-rest rig and rebased GTA local channels.\n"
-        "-- It deliberately does not apply Mario anim_C5 as a pose anchor.\n"
-        "CJ64.useGTAAnimations = true\n"
-        "CJ64.animationTablesLoaded = false\n"
-        'CJ64.animationStatus = "source_rest_gta_retarget_experimental"',
-        1,
+        "-- Mario anim_C5 is not used as a pose anchor.\n"
+        "-- Mario-only dynamic pose callbacks are removed from the actor GeoLayout.\n",
+        source, count=1,
+    )
+    source = re.sub(r'(?m)^([ \t]*)CJ64\.animationStatus = "loaded_[^"]+"$',
+                    r'\1CJ64.animationStatus = "loaded_cj_source_rest_retarget"', source)
+    source = source.replace(
+        'GTA San Andreas animations loaded with the native Mario idle pose anchor.',
+        'GTA San Andreas animations loaded in CJ source-rest joint frames.',
     )
     source = source.replace(
-        'print("[CJ64] GTA clips disabled: using SM64CoopDX native player animations until the CS node order and rest pose are verified.")',
-        'print("[CJ64] GTA source-rest animation retarget enabled (experimental).")',
-        1,
+        'GTA clips unavailable: keeping the working Character Select actor and native SM64CoopDX animations.',
+        'GTA clips unavailable: source-rest actor application remains blocked until animation tables load.',
     )
     require("CJ64.useGTAAnimations = true" in source, "Failed to enable GTA animation playback")
-    require("CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in source,
-            "Mario idle pose anchor must not be loaded by main.lua")
+    require("CJ64.sourceRestActor = true" in source, "Failed to mark source-rest actor")
+    require("native Mario idle pose anchor" not in source, "A Mario pose anchor description remains in main.lua")
     path.write_text(source, encoding="utf-8")
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -126,6 +130,10 @@ def main() -> int:
             "-- GTA clips are rebased to the CJ rest frame; movement and physics stay native.\n",
             1,
         )
+        guard = ("function state.try_register(force)\n"
+                 "    if CJ64.sourceRestActor == true and CJ64.animationTablesLoaded ~= true then return false end\n")
+        require("function state.try_register(force)\n" in char_text, "character.lua registration function is missing")
+        char_text = char_text.replace("function state.try_register(force)\n", guard, 1)
         character.write_text(char_text, encoding="utf-8")
         (mod_root / "README-INSTALL.txt").write_text(
             f"CJ64 {VERSION} - GTA San Andreas source-rest animation test\n\n"
