@@ -112,7 +112,7 @@ class DirectGtaSm64ZxyTests(unittest.TestCase):
         self.assertLess(residual, math.radians(0.02))
         for index in range(len(NODE_ORDER)):
             angles = [
-                decode_angle(converted[(3 + index * 3 + axis) * 2 + 1])
+                decode_angle(converted[indices[(3 + index * 3 + axis) * 2 + 1]])
                 for axis in range(3)
             ]
             actual = q_from_sm64_zxy(*angles)
