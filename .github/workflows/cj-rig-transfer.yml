@@ -130,7 +130,8 @@ jobs:
       - name: Validate exported actor and single-bone skinning
         run: |
           python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json" "$RUNNER_TEMP/cj-rig-output/CJ64/Assets/geo.inc.c" <<'PY'
-          import json,sys
+          import json,re,sys
+          from pathlib import Path
           d=json.load(open(sys.argv[1],encoding="utf-8"))
           mapping=json.load(open(sys.argv[2],encoding="utf-8"))
           assert d["status"]=="MOD_EMBEDDED_DYNOS_ACTOR_SOURCE_PREFLIGHT_PASSED_NOT_TESTED_IN_GAME"
