@@ -1,41 +1,150 @@
 {
-  "format": "cj64-gta-ifp-native-cs-retarget-report-v1",
+  "format": "cj64-gta-ifp-direct-source-pose-cs-retarget-report-v3",
   "source_package": "ped",
   "source_file": "user-supplied GTA San Andreas ped.ifp",
   "source_file_size_bytes": 1433248,
   "source_animation_count": 294,
-  "target_rest_profile": "native_mario_cs_actor",
+  "target_rest_profile": "original_character_select_actor_20_node_layout",
   "target_animated_part_count": 20,
   "sample_rate_fps": 30,
   "selected_clip_count": 13,
   "selected_source_keyframes": 5097,
   "output_channels_per_clip": 63,
   "index_entries_per_clip": 126,
-  "neutral_reference": "cj64_anim_idle first sample from IDLE_stance",
-  "neutral_calibration": "inverse(reference_idle_first_pose) * current_pose",
+  "neutral_reference": "not neutralized; original GTA IDLE_stance frame 0 is preserved in the direct Lua table",
+  "neutral_calibration": "none in the production archive; direct pre-neutral-calibration GTA pose channels are packaged",
   "neutral_reference_first_frame_max_residual_radians": 5.551115123125783e-17,
   "root_translation_channels": "fixed zero; SM64CoopDX owns world movement",
   "root_heading": "GTA Normal track excluded; SM64CoopDX owns player heading",
-  "runtime_actor": "original Character Select DynOS mario_geo.bin",
-  "runtime_gta_animations": "enabled in 0.2.0-alpha preview package",
+  "runtime_actor": "original Character Select DynOS mario_geo.bin copied byte-for-byte; SHA-256 1e85ef10af95a94d14cf014589811e74adeb437c4e9439eb88d1d3b87b4d0ce4",
+  "runtime_gta_animations": "13 direct GTA source-pose clips on the existing CS 20-node animation layout",
   "clips": [
-    {"source": "IDLE_stance", "role": "idle", "loop": true, "duration_seconds": 1.5, "sampled_frames": 46, "source_tracks": 32, "source_keyframes": 1098},
-    {"source": "WALK_start", "role": "walk_start", "loop": false, "duration_seconds": 0.267, "sampled_frames": 9, "source_tracks": 32, "source_keyframes": 84},
-    {"source": "WALK_player", "role": "walk", "loop": true, "duration_seconds": 1.2, "sampled_frames": 37, "source_tracks": 32, "source_keyframes": 968},
-    {"source": "run_player", "role": "run", "loop": true, "duration_seconds": 0.733, "sampled_frames": 23, "source_tracks": 32, "source_keyframes": 604},
-    {"source": "sprint_civi", "role": "sprint_candidate", "loop": true, "duration_seconds": 0.533, "sampled_frames": 17, "source_tracks": 32, "source_keyframes": 448, "note": "Generic civilian sprint candidate; not confirmed CJ-exclusive."},
-    {"source": "Run_stop", "role": "run_stop", "loop": false, "duration_seconds": 0.867, "sampled_frames": 27, "source_tracks": 32, "source_keyframes": 282},
-    {"source": "JUMP_launch", "role": "jump_start", "loop": false, "duration_seconds": 0.2, "sampled_frames": 7, "source_tracks": 26, "source_keyframes": 78},
-    {"source": "JUMP_glide", "role": "jump_air", "loop": true, "duration_seconds": 0.5, "sampled_frames": 16, "source_tracks": 26, "source_keyframes": 160},
-    {"source": "JUMP_land", "role": "jump_land", "loop": false, "duration_seconds": 0.233, "sampled_frames": 8, "source_tracks": 26, "source_keyframes": 208},
-    {"source": "FALL_fall", "role": "fall", "loop": true, "duration_seconds": 0.733, "sampled_frames": 23, "source_tracks": 26, "source_keyframes": 598},
-    {"source": "FALL_glide", "role": "fall_air", "loop": true, "duration_seconds": 0.8, "sampled_frames": 25, "source_tracks": 26, "source_keyframes": 65},
-    {"source": "FALL_land", "role": "fall_land", "loop": false, "duration_seconds": 0.467, "sampled_frames": 15, "source_tracks": 26, "source_keyframes": 186},
-    {"source": "Swim_Tread", "role": "swim_tread", "loop": true, "duration_seconds": 1.3, "sampled_frames": 40, "source_tracks": 32, "source_keyframes": 318}
+    {
+      "source": "IDLE_stance",
+      "role": "idle",
+      "loop": true,
+      "duration_seconds": 1.5,
+      "sampled_frames": 46,
+      "source_tracks": 32,
+      "source_keyframes": 1098
+    },
+    {
+      "source": "WALK_start",
+      "role": "walk_start",
+      "loop": false,
+      "duration_seconds": 0.267,
+      "sampled_frames": 9,
+      "source_tracks": 32,
+      "source_keyframes": 84
+    },
+    {
+      "source": "WALK_player",
+      "role": "walk",
+      "loop": true,
+      "duration_seconds": 1.2,
+      "sampled_frames": 37,
+      "source_tracks": 32,
+      "source_keyframes": 968
+    },
+    {
+      "source": "run_player",
+      "role": "run",
+      "loop": true,
+      "duration_seconds": 0.733,
+      "sampled_frames": 23,
+      "source_tracks": 32,
+      "source_keyframes": 604
+    },
+    {
+      "source": "sprint_civi",
+      "role": "sprint_candidate",
+      "loop": true,
+      "duration_seconds": 0.533,
+      "sampled_frames": 17,
+      "source_tracks": 32,
+      "source_keyframes": 448,
+      "note": "Generic civilian sprint candidate; not confirmed CJ-exclusive."
+    },
+    {
+      "source": "Run_stop",
+      "role": "run_stop",
+      "loop": false,
+      "duration_seconds": 0.867,
+      "sampled_frames": 27,
+      "source_tracks": 32,
+      "source_keyframes": 282
+    },
+    {
+      "source": "JUMP_launch",
+      "role": "jump_start",
+      "loop": false,
+      "duration_seconds": 0.2,
+      "sampled_frames": 7,
+      "source_tracks": 26,
+      "source_keyframes": 78
+    },
+    {
+      "source": "JUMP_glide",
+      "role": "jump_air",
+      "loop": true,
+      "duration_seconds": 0.5,
+      "sampled_frames": 16,
+      "source_tracks": 26,
+      "source_keyframes": 160
+    },
+    {
+      "source": "JUMP_land",
+      "role": "jump_land",
+      "loop": false,
+      "duration_seconds": 0.233,
+      "sampled_frames": 8,
+      "source_tracks": 26,
+      "source_keyframes": 208
+    },
+    {
+      "source": "FALL_fall",
+      "role": "fall",
+      "loop": true,
+      "duration_seconds": 0.733,
+      "sampled_frames": 23,
+      "source_tracks": 26,
+      "source_keyframes": 598
+    },
+    {
+      "source": "FALL_glide",
+      "role": "fall_air",
+      "loop": true,
+      "duration_seconds": 0.8,
+      "sampled_frames": 25,
+      "source_tracks": 26,
+      "source_keyframes": 65
+    },
+    {
+      "source": "FALL_land",
+      "role": "fall_land",
+      "loop": false,
+      "duration_seconds": 0.467,
+      "sampled_frames": 15,
+      "source_tracks": 26,
+      "source_keyframes": 186
+    },
+    {
+      "source": "Swim_Tread",
+      "role": "swim_tread",
+      "loop": true,
+      "duration_seconds": 1.3,
+      "sampled_frames": 40,
+      "source_tracks": 32,
+      "source_keyframes": 318
+    }
   ],
   "unsupported_independent_tracks": [
-    "jaw", "left/right brow", "left/right finger segments", "left/right toe",
-    "belly", "left/right breast"
+    "jaw",
+    "left/right brow",
+    "left/right finger segments",
+    "left/right toe",
+    "belly",
+    "left/right breast"
   ],
   "validation": {
     "ifp_parse": true,
@@ -45,7 +154,13 @@
     "idle_first_frame_neutral_calibration": true,
     "lua_syntax": "validated by build workflow",
     "actor_binary_identity": "validated by build workflow",
-    "android_in_game_pose_validation": false
+    "android_in_game_pose_validation": false,
+    "direct_table_checksum": true,
+    "source_idle_pose_matches_pose_map": "verified by build workflow",
+    "neutral_idle_calibration": false
   },
-  "status": "ALPHA_PREVIEW_REQUIRES_ANDROID_POSE_REVIEW"
+  "status": "ALPHA_DIRECT_GTA_SOURCE_POSE_ON_ORIGINAL_CS_MODEL_REQUIRES_ANDROID_POSE_REVIEW",
+  "native_mario_idle_pose_anchor": "not used",
+  "direct_source_lua_sha256": "b918749df18418ee97e69b8e9e0f750be8b5e00aa2403aae024a430ded02b601",
+  "source_archive": "tools/animations/cj64_gta_direct_source.xz.b64.part-*"
 }

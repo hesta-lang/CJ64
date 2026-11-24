@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Inspect-only workflow input; source bytes remain unchanged.
 from __future__ import annotations
 
 import hashlib

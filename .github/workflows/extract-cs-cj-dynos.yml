@@ -1,4 +1,5 @@
 name: Extract CS CJ DynOS actor
+# Keep the original CS source archive inspectable for animation/model calibration.
 
 on:
   workflow_dispatch:
