@@ -184,9 +184,8 @@ jobs:
 
           This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
           actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          Each GTA motion delta is composed over the original Character Select
-          actor's required native Mario idle pose (anim_C5) on all 20 animated parts.
-          This restores the CS bind/rest pose and prevents CJ from lying on his side.
+          The 13 GTA clips use neutral-relative local motion deltas directly.
+          No Mario anim_C5 idle pose is applied: it is not the CJ actor's bind pose.
           The packaged actors/mario_geo.bin is byte-for-byte the original working
           Character Select model; its mesh and textures are not rebuilt.
           SM64CoopDX continues to own MarioState, root movement, heading,
