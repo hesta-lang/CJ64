@@ -21,45 +21,46 @@ The CS DynOS actor has 20 `GEO_ANIMATED_PART` commands. `tools/inspect_cs_animat
 
 The project owner confirmed that the compiled CS model appears normally with native Mario animations. This isolates the deformation issue to the custom animation data/runtime path rather than the base mesh.
 
-## Native CS actor pose anchor — 0.2.1-alpha
+## Direct GTA source-pose restoration — 0.2.2-alpha
 
-The 0.2.0-alpha preview incorrectly treated zero animation channels as the
-visible neutral pose. That assumption was false for the working Character
-Select actor: its 20 animated parts use the native Mario animation channel
-layout, and the model relies on non-zero frame-zero rotations from the Mario
-idle pose to stand upright. Omitting those constants left CJ lying on his side.
+The original CS actor remains the installed model. The binary
+`actors/cj/mario_geo.bin` is copied byte-for-byte into the mod package. Its
+geometry, textures, scale, and 20-part animation hierarchy are not rebuilt by
+the animation workflow.
 
-The correct anchor is frame zero of
-`MARIO_ANIM_IDLE_HEAD_CENTER` (`anim_C5`) from the SM64 animation assets.
-The source file is
-[`assets/anims/anim_C5.inc.c`](https://github.com/n64decomp/sm64/blob/master/assets/anims/anim_C5.inc.c).
-Its first Body rotation is `(0x0000, 0x3FFF, 0x0000)`, approximately
-`(0°, 89.995°, 0°)`. The Butt and the remaining parts also have non-zero
-native frame-zero rotations.
+The previous 0.2.1-alpha pipeline composed every GTA motion delta over the
+frame-zero pose of Mario's `MARIO_ANIM_IDLE_HEAD_CENTER` (`anim_C5`). That
+made Mario's animation frame the permanent pose reference. This is no longer
+used in the production package.
 
-The package build now performs these steps:
+The neutral-relative GTA channels are now restored using the original
+`IDLE_stance` frame-zero pose from the user-supplied GTA `ped.ifp`. The
+per-node quaternions are recorded in `tools/gta_idle_source_pose.json`.
+For each node and frame, the postprocessor computes:
 
-1. Generate GTA rotations as local motion deltas, keeping GTA Normal/world
-   heading and root translation out of MarioState.
-2. Load the 20 native idle-pose quaternions from
-   `tools/native_mario_idle_pose.json`.
-3. For every animated part and every frame, compose
-   `native_idle_local_pose * GTA_local_motion_delta`.
-4. Encode the result back into SM64's 16-bit Euler channels and verify that
-   the first frame of `cj64_anim_idle` reproduces the native idle pose within
-   0.02 degrees.
-5. Reconstruct and syntax-check the Lua tables before packaging them with the
-   unchanged Character Select `mario_geo.bin`.
+`q_GTA_pose = q_GTA_idle_source * q_relative_motion`
 
-The postprocessor is `tools/apply_native_cs_idle_pose.py`. It refuses to
-apply the anchor twice. The regression tests check the 90-degree Body anchor,
-all 20 node entries, delta composition and the zeroed root translation.
-This is a pose calibration, not a mesh or scale change.
+The result is encoded into the same 16-bit Euler channels consumed by the
+existing 20-node CS DynOS actor. No Mario `anim_C5` animation is loaded as a
+pose overlay, and the 3 root translation channels remain fixed at zero.
+SM64CoopDX continues to own player translation, world heading, physics,
+collision and camera.
 
-The pose anchor corrects the missing native base pose that caused the 0.2.0
-model to lie sideways. The remaining GTA-to-CS joint motion still needs visual
-checking in Android; successful CI alone does not establish that every limb
-follows the original GTA animation perfectly.
+The postprocessor is `tools/restore_gta_source_idle_pose.py`. It checks the
+20-node pose map, 13 expected clips, all 63 channels per clip, channel bounds,
+fixed-zero root translation, and quantization residual. Its regression tests
+ensure the restored `cj64_anim_idle` first frame matches the original GTA
+source pose and reject any input already composed with Mario `anim_C5`.
+
+The workflow also verifies that the packaged
+`actors/mario_geo.bin` has the exact SHA-256 of the working Character Select
+actor. This prevents the FBX/Fast64 experimental model from replacing CS.
+
+This is still an alpha retarget, not a claim of perfect GTA parity. The CS
+actor has only 20 animated parts, so finger, toe, jaw, brow, belly and breast
+tracks cannot move independently. `sprint_civi` remains a generic civilian
+sprint candidate. Android in-game pose review is still required for Idle,
+walk, run, sprint, jump, fall, landing and swimming.
 
 ## Neutral-pose calibration
 
