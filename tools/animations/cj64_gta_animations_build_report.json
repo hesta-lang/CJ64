@@ -1,5 +1,5 @@
 {
-  "format": "cj64-gta-ifp-neutral-relative-report-v3",
+  "format": "cj64-gta-ifp-cs-body-root-only-report-v4",
   "source_package": "ped",
   "source_file": "user-supplied GTA San Andreas ped.ifp",
   "source_file_size_bytes": 1433248,
@@ -17,7 +17,7 @@
   "root_translation_channels": "fixed zero; SM64CoopDX owns world movement",
   "root_heading": "GTA Normal track excluded; SM64CoopDX owns player heading",
   "runtime_actor": "original Character Select DynOS mario_geo.bin",
-  "runtime_gta_animations": "13 GTA clips using neutral-relative local motion deltas; no Mario anim_C5 pose layer",
+  "runtime_gta_animations": "13 neutral-relative GTA clips with a fixed +89.9945 degree Y orientation on the CS Body root only",
   "clips": [
     {
       "source": "IDLE_stance",
@@ -157,10 +157,21 @@
     "android_in_game_pose_validation": false,
     "native_pose_anchor": false,
     "native_idle_pose_anchor_reported": "20 nodes, body Y rotation approx 89.994507 degrees, first-frame residual under 0.02 degrees",
-    "idle_first_frame": "identity rotations on all 20 nodes"
+    "idle_first_frame": "identity rotations on all 20 nodes",
+    "body_root_orientation_only": true,
+    "body_root_angle_all_clips": true,
+    "limb_node_channels_preserved": true
   },
-  "status": "ALPHA_NEUTRAL_RELATIVE_NO_MARIO_IDLE_ANCHOR_REQUIRES_ANDROID_POSE_REVIEW",
-  "pose_correction": "neutral-relative GTA local motion deltas used directly; GTA root/Normal excluded",
+  "status": "ALPHA_CS_BODY_ROOT_ONLY_REQUIRES_ANDROID_VISUAL_VALIDATION",
+  "pose_correction": "fixed CS Body root Y orientation * GTA neutral-relative motion; 19 articulated limb nodes are not given Mario anim_C5 pose rotations",
   "root_cause_022": "direct GTA IDLE_stance absolute rotations were incompatible with CS local rest axes and left CJ lying on his side",
-  "root_cause_023": "Mario anim_C5 is an idle animation pose, not the CJ/CS bind pose; applying it to every node reintroduced Mario's wide-legged bent-arm stance"
+  "root_cause_023": "Mario anim_C5 is an idle animation pose, not the CJ/CS bind pose; applying it to every node reintroduced Mario's wide-legged bent-arm stance",
+  "root_cause_024": "neutral-relative zero Body root rotation left the CS actor horizontal; full Mario C5 anchor corrected orientation but incorrectly changed all limb poses",
+  "body_root_orientation_degrees": [
+    0,
+    89.994507,
+    0
+  ],
+  "body_root_orientation_scope": "Body node only, all frames and all 13 clips",
+  "native_mario_idle_pose_applied_to_limb_nodes": false
 }
