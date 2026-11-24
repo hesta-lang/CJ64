@@ -80,7 +80,7 @@ def make_lua():
 class RestoreGtaSourcePoseTests(unittest.TestCase):
     def test_restores_all_twenty_original_gta_idle_rotations(self):
         source = make_lua()
-        output, report = restore_pose(source, POSE)
+        output, report = restore_pose(source, POSE, expected_clips=2)
         self.assertIn(RESTORED_MARKER, output)
         self.assertNotIn("CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED", output)
         self.assertFalse(report["native_mario_anim_C5_used"])
@@ -96,7 +96,7 @@ class RestoreGtaSourcePoseTests(unittest.TestCase):
         self.assertLess(report["max_quantized_rotation_error_radians"], math.radians(0.02))
 
     def test_keeps_root_translation_zero(self):
-        output, _ = restore_pose(make_lua(), POSE)
+        output, _ = restore_pose(make_lua(), POSE, expected_clips=2)
         for item in parse_registrations(output):
             for axis in range(3):
                 count, offset = item["indices"][axis*2:axis*2+2]
