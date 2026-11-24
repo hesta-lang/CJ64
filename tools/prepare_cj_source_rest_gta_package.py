@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rebase_gta_animation_rest_pose import rebase  # noqa: E402
 
 PACKAGE_NAME = "CJ64-GTA-SourceRest-Test"
-VERSION = "0.3.0-alpha"
+VERSION = "0.3.1-alpha"
 REMOVE_GEO_CALLBACKS = (
     "geo_mario_tilt_torso",
     "geo_mario_head_rotation",
