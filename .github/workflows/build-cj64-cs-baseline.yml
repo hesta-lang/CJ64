@@ -264,6 +264,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CJ64-GTA-Animations-Test-0.2.6-alpha
-          path: CJ64-GTA-Animations-Test-0.2.5-alpha.zip
+          path: CJ64-GTA-Animations-Test-0.2.6-alpha.zip
           if-no-files-found: error
           retention-days: 14
