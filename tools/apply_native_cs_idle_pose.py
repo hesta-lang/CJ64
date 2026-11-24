@@ -253,7 +253,7 @@ def apply_native_pose(source: str, pose_path: Path) -> tuple[str, dict[str, Any]
 
     report = {
         "format": "cj64-native-cs-pose-application-report-v1",
-        "source_native_animation": "MARIO_ANIM_IDLE_HEAD_CENTER (anim_C5), frame 0",
+        "source_native_animation": "MARIO_ANIM_IDLE (anim_00), frame 0",
         "source_pose_file": pose_path.name,
         "target_nodes": node_names,
         "clip_count": len(clip_reports),
