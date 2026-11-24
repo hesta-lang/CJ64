@@ -61,7 +61,7 @@ jobs:
           test -s "$MOD/character.lua"
           test -s "$MOD/cj64_gta_animations.lua"
           test -s "$MOD/actors/Assets/geo.inc.c"
-          test -s "$RUNNER_TEMP/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.0-alpha-install.zip"
+          test -s "$RUNNER_TEMP/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.1-alpha-install.zip"
           luac5.4 -p "$MOD/main.lua" "$MOD/character.lua" "$MOD/cj64_gta_animations.lua"
           python3 - "$MOD" <<'PY'
           import pathlib,sys
@@ -84,7 +84,7 @@ jobs:
         with:
           name: CJ64-GTA-SourceRest-Test
           path: |
-            ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.0-alpha-install.zip
+            ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.1-alpha-install.zip
             ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-report.json
           if-no-files-found: error
           retention-days: 14
