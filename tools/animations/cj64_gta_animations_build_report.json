@@ -1,5 +1,5 @@
 {
-  "format": "cj64-gta-ifp-direct-source-pose-cs-retarget-report-v2",
+  "format": "cj64-gta-ifp-direct-source-pose-cs-retarget-report-v3",
   "source_package": "ped",
   "source_file": "user-supplied GTA San Andreas ped.ifp",
   "source_file_size_bytes": 1433248,
@@ -11,13 +11,13 @@
   "selected_source_keyframes": 5097,
   "output_channels_per_clip": 63,
   "index_entries_per_clip": 126,
-  "neutral_reference": "original GTA ped.ifp IDLE_stance frame 0",
-  "neutral_calibration": "restore original GTA source idle quaternion * neutral-relative motion",
+  "neutral_reference": "not neutralized; original GTA IDLE_stance frame 0 is preserved in the direct Lua table",
+  "neutral_calibration": "none in the production archive; direct pre-neutral-calibration GTA pose channels are packaged",
   "neutral_reference_first_frame_max_residual_radians": 5.551115123125783e-17,
   "root_translation_channels": "fixed zero; SM64CoopDX owns world movement",
   "root_heading": "GTA Normal track excluded; SM64CoopDX owns player heading",
-  "runtime_actor": "original Character Select DynOS mario_geo.bin copied byte-for-byte",
-  "runtime_gta_animations": "13 GTA source-pose clips restored on the existing CS 20-node animation layout",
+  "runtime_actor": "original Character Select DynOS mario_geo.bin copied byte-for-byte; SHA-256 1e85ef10af95a94d14cf014589811e74adeb437c4e9439eb88d1d3b87b4d0ce4",
+  "runtime_gta_animations": "13 direct GTA source-pose clips on the existing CS 20-node animation layout",
   "clips": [
     {
       "source": "IDLE_stance",
@@ -154,8 +154,13 @@
     "idle_first_frame_neutral_calibration": true,
     "lua_syntax": "validated by build workflow",
     "actor_binary_identity": "validated by build workflow",
-    "android_in_game_pose_validation": false
+    "android_in_game_pose_validation": false,
+    "direct_table_checksum": true,
+    "source_idle_pose_matches_pose_map": "verified by build workflow",
+    "neutral_idle_calibration": false
   },
-  "status": "ALPHA_DIRECT_GTA_SOURCE_POSE_REQUIRES_ANDROID_POSE_REVIEW",
-  "native_mario_idle_pose_anchor": "not used"
+  "status": "ALPHA_DIRECT_GTA_SOURCE_POSE_ON_ORIGINAL_CS_MODEL_REQUIRES_ANDROID_POSE_REVIEW",
+  "native_mario_idle_pose_anchor": "not used",
+  "direct_source_lua_sha256": "b918749df18418ee97e69b8e9e0f750be8b5e00aa2403aae024a430ded02b601",
+  "source_archive": "tools/animations/cj64_gta_direct_source.xz.b64.part-*"
 }
