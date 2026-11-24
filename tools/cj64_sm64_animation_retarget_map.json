@@ -387,5 +387,17 @@
     "SM64-compatible weights assign one deform bone per vertex at weight 1.0."
   ],
   "generated_from_actual_rig": true,
-  "target_animation_node_count": 20
+  "target_animation_node_count": 20,
+  "source_rest_animation_profile_contract": {
+    "schema": "cj64-dual-rest-animation-profile-v1",
+    "source_profile": {
+      "field": "native_mario_parent_rest_rotation_wxyz",
+      "description": "Original Character Select/Mario armature parent bind frames captured before CJ rig transfer."
+    },
+    "destination_profile": {
+      "field": "target_parent_rest_rotation_wxyz",
+      "description": "Actual CJ FBX source-rest parent frames after axis, unit and scale conversion."
+    },
+    "usage": "Rebase GTA local animation channels between these parent-frame bases; do not apply a Mario animation pose as an additional anchor."
+  }
 }
