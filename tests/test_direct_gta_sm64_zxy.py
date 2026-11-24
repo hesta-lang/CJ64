@@ -148,6 +148,20 @@ class DirectGtaSm64ZxyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Root translation"):
             convert_values(values, indices)
 
+    def test_rejects_declared_frame_count_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            pose_path = tmp / "pose.json"
+            angles = fixture_pose(pose_path)
+            source = make_lua(angles)
+            source = source.replace(
+                'smlua_anim_util_register_animation("cj64_anim_run", 0, 1, 0, 0, 2,',
+                'smlua_anim_util_register_animation("cj64_anim_run", 0, 1, 0, 0, 1,',
+                1,
+            )
+            with self.assertRaisesRegex(ValueError, "declared 2 frames"):
+                convert_direct_table(source, pose_path)
+
     def test_expected_clip_set_is_exact(self):
         self.assertEqual(len(CLIP_NAMES), 13)
 
