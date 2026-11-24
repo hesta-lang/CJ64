@@ -6,7 +6,7 @@ CJ64.csActor = true
 
 -- Use the original Character Select DynOS actor, which was confirmed in-game
 -- with native Mario animations. Do not substitute the experimental FBX export.
--- GTA source IDLE_stance pose is restored directly; no Mario anim_C5 pose is composed.
+-- Direct GTA IDLE_stance source-pose channels are used; no Mario anim_C5 pose is composed.
 -- Movement, collision, camera and player heading remain owned by SM64CoopDX.
 CJ64.useGTAAnimations = true
 CJ64.animationTablesLoaded = false
