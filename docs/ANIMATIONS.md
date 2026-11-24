@@ -21,36 +21,39 @@ The CS DynOS actor has 20 `GEO_ANIMATED_PART` commands. `tools/inspect_cs_animat
 
 The project owner confirmed that the compiled CS model appears normally with native Mario animations. This isolates the deformation issue to the custom animation data/runtime path rather than the base mesh.
 
-## CS Body-root-only orientation — 0.2.5-alpha
+## Default Character Select idle pose — 0.2.6-alpha
 
-The installed model remains the original Character Select `mario_geo.bin`,
-copied byte-for-byte. Geometry, textures, scale and the 20-part hierarchy
-are unchanged.
+The installed actor remains the original Character Select `mario_geo.bin`.
+Its geometry, textures, scale and 20-part hierarchy are copied unchanged.
 
-The Android screenshots from 0.2.4-alpha show CJ lying almost horizontally
-above the ground. The 0.2.4 neutral-relative animation table has an identity
-rotation on all three Body channels, including every frame. In the earlier
-0.2.3 build, applying the full Mario `anim_C5` pose made CJ upright but also
-copied Mario's bent-arm and wide-legged stance onto all 20 animated parts.
+The Android screenshots from 0.2.2 through 0.2.5 show CJ persistently lying
+on his side. The neutral-relative channels used by 0.2.4 and 0.2.5 left every
+part at identity, which is not a valid visible rest pose for this CS actor.
+The 0.2.5 attempt added a guessed Y rotation to Body alone; that was not
+sufficient and is removed from the production pipeline.
 
-The 0.2.5 correction isolates the useful part of that observation: only the
-Body root receives the fixed +89.9945-degree Y orientation used by the
-working CS actor. The other 19 animated-part nodes keep their neutral-relative
-GTA motion channels unchanged. No limb rotations from Mario `anim_C5` are
-copied. GTA Normal/root rotation and all root translations remain excluded.
+The 0.2.3 attempt used `MARIO_ANIM_IDLE_HEAD_CENTER` (`anim_C5`) as the
+base for every node. Although it made the actor upright, that clip is a
+special head-centered idle pose with distinct limb and head rotations. It
+also imposed Mario's distinctive stance on CJ.
 
-The postprocessor is `tools/apply_cs_body_root_orientation.py`. It refuses
-pre-rotated Body input and double application. CI verifies 13 clips, all 63
-channels and 126 index entries per clip, the fixed Body-root Y angle across
-every frame, fixed-zero root translation, and zero limb-node offsets in the
-first idle frame. Unit tests verify that only the Body Y channel changes and
-all 19 articulated nodes are preserved byte-for-byte.
+The 0.2.6 test uses the frame-zero pose of the regular SM64 default idle
+animation `MARIO_ANIM_IDLE` (`anim_00`) as the reference for all 20 CS
+animated parts. The reference quaternion table was extracted directly from
+`assets/anims/anim_00.inc.c`. GTA local-motion deltas are composed over
+that complete reference pose; the special `anim_C5` pose and the guessed
+Body-only rotation are not used.
 
-This is a targeted orientation correction, not a geometry fix. It should
-remove the horizontal root orientation while avoiding the full Mario pose
-that caused the 0.2.3 posture. Android visual validation is still required
-to confirm the root axis direction in-game and inspect the limb seams during
-idle, walking, running, jumping, falling, landing and swimming.
+The postprocessor is `tools/apply_native_cs_idle_pose.py`. CI runs its
+regression tests and checks that the 13 GTA clips have 20 nodes, valid channel
+ranges, fixed-zero root translation, and that the first frame of the GTA
+idle clip reproduces the 20-node `anim_00` reference within 0.02 degrees.
+
+This is an animation-reference correction, not a mesh rebuild. The original
+CS actor binary is verified byte-for-byte in the package. It does not yet
+prove perfect GTA animation parity: CS has only 20 animated parts, and the
+Android result must still be checked for standing posture, limb seams,
+walking, running, jumping, falling, landing and swimming.
 
 ## Neutral-pose calibration
 
