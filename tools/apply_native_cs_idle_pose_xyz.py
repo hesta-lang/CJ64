@@ -236,6 +236,7 @@ def apply_native_pose(source: str, pose_path: Path):
                 # The GTA Normal/root channel is not Mario's world root.
                 # Keep Body's exact native XYZ samples in every frame.
                 if node_index == 0:
+                    combined = bases[node_name]
                     output_angles = reference_angles
                 else:
                     delta_angles = tuple(
