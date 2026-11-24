@@ -1,12 +1,12 @@
 -- CJ64 - Character Select DynOS actor baseline for SM64CoopDX
 CJ64 = CJ64 or {}
 CJ64.name = "CJ64"
-CJ64.version = "0.2.6-alpha"
+CJ64.version = "0.2.7-alpha"
 CJ64.csActor = true
 
 -- Use the original Character Select DynOS actor, which was confirmed in-game
 -- with native Mario animations. Do not substitute the experimental FBX export.
--- GTA motion deltas are composed on the default SM64 CS idle pose (anim_00), not the special anim_C5 pose.
+-- GTA motion deltas are composed on anim_00 and encoded with the SM64 ZXY matrix convention, not the intermediate XYZ serialization.
 -- Movement, collision, camera and player heading remain owned by SM64CoopDX.
 CJ64.useGTAAnimations = true
 CJ64.animationTablesLoaded = false
