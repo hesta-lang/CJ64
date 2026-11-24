@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate GTA SA local-motion deltas for the 20-node Mario/CS animation layout.
+"""Generate GTA SA local-motion deltas for the 20-node Character Select layout.
 
-The output is an intermediate motion table. Before packaging it for the
-Character Select actor, tools/apply_native_cs_idle_pose.py MUST compose each
-GTA local delta on the native Mario idle pose frame. Zero rotation channels
-alone are not the actor's visible neutral pose.
+The intermediate table is neutral-relative: its idle frame zero is identity.
+The production CS package restores the original GTA IDLE_stance source pose
+with tools/restore_gta_source_idle_pose.py. Do not apply Mario anim_C5 as an
+additional pose anchor; the installed model is the unchanged CS binary.
 """
 from __future__ import annotations
 import argparse
