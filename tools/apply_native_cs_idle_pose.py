@@ -355,11 +355,11 @@ def apply_native_pose(source: str, pose_path: Path) -> tuple[str, dict[str, Any]
     for (start, end), replacement in reversed(replacements):
         output = output[:start] + replacement + output[end:]
     output = (
-        "-- " + SM64_ZXY_MARKER + "\\n"
-        "-- " + APPLIED_MARKER + "\\n"
-        "-- Native pose anchor: SM64 MARIO_ANIM_IDLE (anim_00), frame 0.\\n"
-        "-- SM64 engine order: apply Z, then X, then Y; channel storage remains X,Y,Z.\\n"
-        "-- Intermediate retarget quaternions are decoded from XYZ Euler and emitted as SM64 ZXY channels.\\n"
+        "-- " + SM64_ZXY_MARKER + "\n"
+        "-- " + APPLIED_MARKER + "\n"
+        "-- Native pose anchor: SM64 MARIO_ANIM_IDLE (anim_00), frame 0.\n"
+        "-- SM64 engine order: apply Z, then X, then Y; channel storage remains X,Y,Z.\n"
+        "-- Intermediate retarget quaternions are decoded from XYZ Euler and emitted as SM64 ZXY channels.\n"
         + output
     )
 
