@@ -173,6 +173,16 @@ jobs:
           assert set(mapping["target_parent_rest_rotation_wxyz"]) == set(mapping["target_node_order"])
           assert d["cj_source_rest_pose_transferred"] is True
           assert d["native_mario_rest_pose_preserved"] is False
+          assert d["source_root_wrapper_neutralized"] is True
+          assert d["source_root_wrapper_name"] == "Cap State Switch"
+          assert d["source_root_wrapper_head_error"] < 1e-4
+          wrapper_q = d["source_root_wrapper_final_rotation_wxyz"]
+          assert len(wrapper_q) == 4 and abs(float(wrapper_q[0]) - 1.0) < 1e-4
+          assert max(abs(float(value)) for value in wrapper_q[1:]) < 1e-4
+          body_parent_q = mapping["target_parent_rest_rotation_wxyz"]["Body"]
+          assert len(body_parent_q) == 4
+          assert abs(float(body_parent_q[0]) - 1.0) < 1e-4
+          assert max(abs(float(value)) for value in body_parent_q[1:]) < 1e-4
           assert d["source_rest_alignment_head_max_error"] < 1e-4
           assert d["source_rest_alignment_tail_max_error"] < 1e-4
           assert d["source_rest_alignment_rotation_max_error_degrees"] < 0.1
@@ -189,7 +199,8 @@ jobs:
           assert any(p["path"]=="Assets/geo.inc.c" for p in d["actor_files"])
           assert any(p["path"]=="Assets/model.inc.c" for p in d["actor_files"])
           assert any(p["path"]=="Assets/geo_header.h" for p in d["actor_files"])
-          print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex.")
+          geo_path = __import__("pathlib").Path(sys.argv[1]).parent / "unused"
+          print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex; Mario root wrapper neutralized.")
           PY
 
       - name: Upload rigged CJ actor package and authoring scene
