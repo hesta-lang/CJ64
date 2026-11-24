@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Generate GTA SA local-motion deltas for the 20-node Character Select layout.
+"""Generate GTA SA motion channels for the 20-node Character Select layout.
 
-The intermediate table is neutral-relative: its idle frame zero is identity.
-The production CS package restores the original GTA IDLE_stance source pose
-with tools/restore_gta_source_idle_pose.py. Do not apply Mario anim_C5 as an
-additional pose anchor; the installed model is the unchanged CS binary.
+The production 0.2.2-alpha archive is the direct pre-neutral-calibration Lua
+table generated from the supplied ANP3 ped.ifp. Do not replace it with the
+neutral-relative output from tools/normalize_cs_animation_tables.py unless
+the original GTA IDLE_stance source pose is preserved and revalidated.
+Do not apply Mario anim_C5 as an animation or pose anchor.
 """
 from __future__ import annotations
 import argparse
