@@ -1,0 +1,91 @@
+name: Build CJ64 GTA source-rest animation test
+
+on:
+  workflow_run:
+    workflows: ["CJ64 rigged actor export"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build-source-rest-gta-test:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Lua validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 xz-utils
+
+      - name: Download the exact successful CJ source-rest rig artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CJ64-rigged-actor
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/cj64-rig-artifact
+
+      - name: Reconstruct raw GTA animation tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tools/animations/cj64_gta_animations.xz.b64.part-* \
+            | base64 --decode \
+            | xz --decompress > "$RUNNER_TEMP/cj64-gta-raw.lua"
+          test -s "$RUNNER_TEMP/cj64-gta-raw.lua"
+          if grep -q 'CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED' "$RUNNER_TEMP/cj64-gta-raw.lua"; then
+            echo "Expected raw GTA channels before any Mario pose anchor" >&2
+            exit 1
+          fi
+
+      - name: Rebase GTA motion to CJ FBX rest frames and remove Mario pose overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_source_rest_animation_rebase.py' -v
+          python3 tools/prepare_cj_source_rest_gta_package.py \
+            --actor-zip "$RUNNER_TEMP/cj64-rig-artifact/CJ64-Rigged-Test.zip" \
+            --map "$RUNNER_TEMP/cj64-rig-artifact/cj64_sm64_animation_retarget_map.json" \
+            --raw-lua "$RUNNER_TEMP/cj64-gta-raw.lua" \
+            --output-dir "$RUNNER_TEMP/cj64-source-rest-out"
+          MOD="$RUNNER_TEMP/cj64-source-rest-out/CJ64-GTA-SourceRest-Test"
+          test -s "$MOD/main.lua"
+          test -s "$MOD/character.lua"
+          test -s "$MOD/cj64_gta_animations.lua"
+          test -s "$MOD/actors/Assets/geo.inc.c"
+          test -s "$RUNNER_TEMP/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.0-alpha-install.zip"
+          luac5.4 -p "$MOD/main.lua" "$MOD/character.lua" "$MOD/cj64_gta_animations.lua"
+          python3 - "$MOD" <<'PY'
+          import pathlib,sys
+          mod=pathlib.Path(sys.argv[1])
+          main=(mod/'main.lua').read_text()
+          geo=(mod/'actors/Assets/geo.inc.c').read_text()
+          anim=(mod/'cj64_gta_animations.lua').read_text()
+          assert 'CJ64.useGTAAnimations = true' in main
+          assert 'CJ64_REBASED_TO_CJ_FBX_SOURCE_REST_V1' in anim
+          assert 'CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED' not in anim
+          for name in ('geo_mario_tilt_torso','geo_mario_head_rotation',
+                       'geo_mario_hand_foot_scaler','geo_mario_rotate_wing_cap_wings'):
+              assert name not in geo, name
+          assert 'GEO_ASM(0, geo_move_mario_part_from_parent)' in geo
+          print('Validated source-rest GTA actor package and retained player parent transform.')
+          PY
+
+      - name: Upload source-rest GTA animation test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: CJ64-GTA-SourceRest-Test
+          path: |
+            ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.0-alpha-install.zip
+            ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-report.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 1
