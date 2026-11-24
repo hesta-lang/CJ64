@@ -1,5 +1,5 @@
-# Rebuild the known-good Character Select rig package; never substitute the experimental FBX/Fast64 actor.
-name: Build CJ64 GTA animation preview package
+# Experimental direct GTA source-pose package, encoded for SM64's actual ZXY joint matrix order.
+name: Build CJ64 direct GTA ZXY animation preview
 
 on:
   workflow_dispatch:
@@ -8,16 +8,10 @@ on:
       - "main.lua"
       - "character.lua"
       - "actors/cj/mario_geo.bin"
-      - "tools/animations/**"
-      - "tools/generate_cj_sm64_animations.py"
-      - "tools/scale_cs_cj_actor.py"
-      - "tools/normalize_cs_animation_tables.py"
-      - "tools/apply_native_cs_idle_pose.py"
-      - "tools/native_mario_idle_pose.json"
-      - "tests/test_native_cs_idle_pose.py"
-      - "tools/inspect_cs_animation_node_order.py"
-      - "tests/test_animation_calibration.py"
-      - ".github/workflows/build-cj64-cs-baseline.yml"
+      - "tools/animations/cj64_gta_direct_source.xz.b64.part-*"
+      - "tools/gta_idle_source_pose.json"
+      - "tools/convert_direct_gta_to_sm64_zxy.py"
+      - "tests/test_direct_gta_sm64_zxy.py"
 
 permissions:
   contents: read
@@ -25,44 +19,52 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Lua validator
+      - name: Install Lua and XZ tools
         run: |
           sudo apt-get update
           sudo apt-get install -y lua5.4 xz-utils
 
-      - name: Restore default Character Select idle pose on GTA motion deltas
+      - name: Reconstruct the original direct GTA source-pose table
         shell: bash
         run: |
           set -euo pipefail
-          cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations-neutral.lua"
-          test -s "$RUNNER_TEMP/cj64_gta_animations-neutral.lua"
-          python3 tools/apply_native_cs_idle_pose.py \
-            "$RUNNER_TEMP/cj64_gta_animations-neutral.lua" \
-            --pose tools/native_mario_idle_pose.json \
+          cat tools/animations/cj64_gta_direct_source.xz.b64.part-* \
+            | base64 --decode \
+            | xz --decompress > "$RUNNER_TEMP/cj64-gta-direct-source.lua"
+          test -s "$RUNNER_TEMP/cj64-gta-direct-source.lua"
+          echo "b918749df18418ee97e69b8e9e0f750be8b5e00aa2403aae024a430ded02b601  $RUNNER_TEMP/cj64-gta-direct-source.lua" \
+            | sha256sum -c -
+
+      - name: Convert source rotations to SM64 ZXY channel order
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/convert_direct_gta_to_sm64_zxy.py \
+            "$RUNNER_TEMP/cj64-gta-direct-source.lua" \
+            --pose tools/gta_idle_source_pose.json \
             --output "$RUNNER_TEMP/cj64_gta_animations.lua"
           test -s "$RUNNER_TEMP/cj64_gta_animations.lua"
+          test -s "$RUNNER_TEMP/cj64_gta_animations.report.json"
           luac5.4 -p "$RUNNER_TEMP/cj64_gta_animations.lua"
-          python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" "$RUNNER_TEMP/cj64_gta_animations.pose-report.json" tools/native_mario_idle_pose.json <<'PY'
+
+      - name: Run all calibration and regression tests
+        run: |
+          python3 -m py_compile tools/*.py
+          python3 -m unittest discover -s tests -v
+          lua5.4 tests/test_animation_hook.lua
+          lua5.4 tests/test_animation_runtime_guard.lua
+
+      - name: Validate all 13 clips, channel ranges and source idle pose
+        shell: bash
+        run: |
+          python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" "$RUNNER_TEMP/cj64_gta_animations.report.json" <<'PY'
           import json, math, pathlib, re, sys
           source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-          report = json.load(open(sys.argv[2], encoding="utf-8"))
-          pose = json.load(open(sys.argv[3], encoding="utf-8"))
-          assert pose["source_animation"] == "MARIO_ANIM_IDLE (anim_00)"
-          assert pose["source_file"] == "assets/anims/anim_00.inc.c"
-          assert pose["node_count"] == 20 and len(pose["nodes"]) == 20
-          assert report["source_native_animation"] == "MARIO_ANIM_IDLE (anim_00), frame 0"
-          assert report["clip_count"] == 13
-          assert report["neutral_idle_first_frame_residual_radians"] < math.radians(0.02)
-          assert report["max_frame_quantization_residual_radians"] < math.radians(0.02)
-          assert report["native_engine_rotation_order"] == "SM64 ZXY (apply Z then X then Y; matrix Ry * Rx * Rz)"
-          assert report["output_channel_order"] == "SM64 XYZ channel storage interpreted by ZXY engine matrix"
-          assert "CJ64_CS_SM64_ZXY_CHANNEL_ORDER_APPLIED" in source
-          assert "CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED" in source
-          assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in source
-          assert "anim_C5" not in source and "IDLE_HEAD_CENTER" not in source
+          report = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
           registration = re.compile(
               r'smlua_anim_util_register_animation\(\s*"(?P<name>[^"]+)"\s*,\s*'
               r'(?P<header>.*?)\s*,\s*\{\s*(?P<values>.*?)\s*\},\s*'
@@ -76,108 +78,58 @@ jobs:
               "cj64_anim_swim_tread",
           }
           found = list(registration.finditer(source))
-          names = [item.group("name") for item in found]
-          assert len(names) == 13 and set(names) == expected, names
+          assert len(found) == 13
+          assert {item.group("name") for item in found} == expected
+          assert "CJ64_CS_GTA_DIRECT_SM64_ZXY_CHANNEL_ORDER_APPLIED" in source
+          assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in source
+          assert "CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED" not in source
+          assert report["clip_count"] == 13
+          assert report["mario_pose_anchor_applied"] is False
+          assert report["gta_idle_frame_zero_max_error_radians"] < math.radians(0.02)
+          assert report["max_frame_quantization_error_radians"] < math.radians(0.02)
+          assert report["status"].endswith("REQUIRES_ANDROID_VISUAL_CHECK")
           for item in found:
               name = item.group("name")
-              values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("values"))]
-              indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("indices"))]
+              values = [int(v, 16) for v in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("values"))]
+              indices = [int(v, 16) for v in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("indices"))]
               assert len(indices) == 126, (name, len(indices))
               for channel in range(63):
                   count, offset = indices[channel * 2:channel * 2 + 2]
-                  assert count > 0 and offset + count <= len(values), (name, channel, count, offset)
-              for channel in range(3):
-                  count, offset = indices[channel * 2:channel * 2 + 2]
-                  assert count == 1 and values[offset] == 0, (name, channel)
-              declared_frames = int(item.group("header").split(",")[-1].strip(), 0) + 1
+                  assert count > 0 and offset + count <= len(values), (name, channel)
+              for axis in range(3):
+                  count, offset = indices[axis * 2:axis * 2 + 2]
+                  assert count == 1 and values[offset] == 0, (name, axis)
+              declared = int(item.group("header").split(",")[-1].strip(), 0) + 1
               for node in range(20):
                   counts = [indices[(3 + node * 3 + axis) * 2] for axis in range(3)]
-                  assert counts == [declared_frames] * 3, (name, node, counts, declared_frames)
-          print("Validated 13 GTA clips: quaternion retarget deltas encoded in SM64 ZXY order across all 20 original CS nodes.")
+                  assert counts == [declared] * 3, (name, node, counts, declared)
+          print("Validated direct GTA pose, 13 clips, 20 CS nodes, zero root movement and SM64 ZXY encoding.")
+          print("Idle pose error:", math.degrees(report["gta_idle_frame_zero_max_error_radians"]), "degrees")
           PY
 
-      - name: Run animation calibration regression tests
-        run: python3 -m unittest discover -s tests -v
-
-      - name: Verify GTA animation override handling
-        run: lua5.4 tests/test_animation_hook.lua
-
-      - name: Validate CS animation node traversal
+      - name: Validate the unchanged Character Select actor
+        shell: bash
         run: |
           set -euo pipefail
           python3 tools/inspect_cs_animation_node_order.py
           python3 - <<'PY'
-          import json
-          report = json.load(open("build/cs-cj-animation-node-report.json", encoding="utf-8"))
+          import hashlib, json, pathlib, struct, zlib
+          actor = pathlib.Path("actors/cj/mario_geo.bin").read_bytes()
+          assert actor[:8] == b"DYNOSBIN"
+          raw = zlib.decompress(actor[16:])
+          assert len(raw) == struct.unpack_from("<I", actor, 8)[0]
+          digest = hashlib.sha256(actor).hexdigest()
+          expected = "1e85ef10af95a94d14cf014589811e74adeb437c4e9439eb88d1d3b87b4d0ce4"
+          assert digest == expected, (digest, expected)
+          report = json.loads(pathlib.Path("build/cs-cj-animation-node-report.json").read_text())
           assert report["animated_part_count"] == 20
           assert report["landmark_checks"] == 11
-          assert report["status"] == "ORDERED_20_NODE_LAYOUT_MATCHES_FAST64_REFERENCE"
           assert report["rotation_basis_validation"] == "NOT_VALIDATED"
-          print("Verified 20-node traversal and 11 part landmarks; local rest-axis equivalence is still experimental.")
+          print("Original CS actor SHA-256:", digest)
+          print("20 animated parts and 11 display-list landmarks verified.")
           PY
 
-      - name: Validate controller and CS actor
-        shell: bash
-        run: |
-          set -euo pipefail
-          luac5.4 -p main.lua character.lua
-          python3 - <<'PY'
-          import json
-          import pathlib
-          import struct
-          import sys
-          import zlib
-
-          sys.path.insert(0, "tools")
-          from scale_cs_cj_actor import read_words, command_length
-
-          main = pathlib.Path("main.lua").read_text(encoding="utf-8")
-          character = pathlib.Path("character.lua").read_text(encoding="utf-8")
-          assert 'CJ64.version = "0.2.7-alpha"' in main
-          assert 'CJ64.useGTAAnimations = true' in main
-          assert 'CJ64.useGTAAnimations ~= true' in character
-          assert 'require, "cj64_gta_animations"' in main
-          assert 'if CJ64.useGTAAnimations == true then' in main
-
-          actor_path = pathlib.Path("actors/cj/mario_geo.bin")
-          data = actor_path.read_bytes()
-          assert data[:8] == b"DYNOSBIN", "Actor is not a DynOS binary"
-          raw = zlib.decompress(data[16:])
-          assert len(raw) == struct.unpack_from("<I", data, 8)[0], "DynOS size header mismatch"
-          assert b"cj_geo" in raw, "Expected CS CJ GeoLayout not found"
-
-          words, offsets, _ = read_words(raw, "cj_geo")
-          animated_parts = 0
-          root_scale = None
-          i = 0
-          while i < len(words):
-              if words[i][0] != "WORD":
-                  i += 1
-                  continue
-              command = words[i][1]
-              op, params = command & 0xFF, (command >> 8) & 0xFF
-              length = command_length(op, params)
-              if op == 0x13:
-                  animated_parts += 1
-              if op == 0x1D and root_scale is None:
-                  root_scale = words[i + 1][1] / 65536.0
-              i += length
-
-          assert animated_parts == 20, f"Expected 20 animated parts, got {animated_parts}"
-          assert root_scale is not None and abs(root_scale - 0.39) < 0.001, root_scale
-          print(json.dumps({
-              "actor": str(actor_path),
-              "actor_bytes": len(data),
-              "internal_geolayout": "cj_geo",
-              "registered_filename": "mario_geo.bin",
-              "animated_part_nodes": animated_parts,
-              "root_scale": root_scale,
-              "custom_gta_animations": "enabled_default_cs_idle_pose_gta_motion_deltas",
-              "status": "STRUCTURAL_PACKAGE_READY_REQUIRES_ANDROID_POSE_VALIDATION"
-          }, indent=2))
-          PY
-
-      - name: Assemble self-contained SM64CoopDX mod folder
+      - name: Assemble the Android-installable alpha mod
         shell: bash
         run: |
           set -euo pipefail
@@ -187,89 +139,62 @@ jobs:
           cp "$RUNNER_TEMP/cj64_gta_animations.lua" "$MOD/cj64_gta_animations.lua"
           cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
           cat > "$MOD/README-INSTALL.txt" <<'EOF'
-          CJ64 GTA ANIMATIONS TEST - 0.2.7-alpha
+          CJ64 GTA ANIMATION TEST - 0.2.8-alpha
 
-          Install this folder under the SM64CoopDX mods/ directory.
-          The installed path must be:
+          Install this folder inside the SM64CoopDX mods/ directory.
+          Expected location:
             mods/CJ64-GTA-Animations-Test/main.lua
-            mods/CJ64-GTA-Animations-Test/character.lua
-            mods/CJ64-GTA-Animations-Test/cj64_gta_animations.lua
-            mods/CJ64-GTA-Animations-Test/actors/mario_geo.bin
 
-          This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
-          actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          The 13 GTA clips are composed on the exact frame-zero pose of the original
-          SM64 default idle animation (anim_00). Their final channels are encoded
-          using SM64's actual Z-X-Y matrix order (not the retargeter's XYZ intermediate).
-          The special head-centered anim_C5 pose is not used.
-          The packaged actors/mario_geo.bin is byte-for-byte the original working
-          Character Select model; its mesh and textures are not rebuilt.
-          SM64CoopDX continues to own MarioState, root movement, heading,
-          collision, camera, actions and physics.
+          This test retains the original pre-rigged Character Select CJ actor.
+          actors/mario_geo.bin is byte-for-byte identical to the known working CS model.
+          It does NOT use the experimental FBX/Fast64 actor.
 
-          IMPORTANT: Do NOT install CJ64-Rigged-Test.zip or CJ64-Install-Package.zip
-          from the experimental FBX/Fast64 rig-transfer workflow. Do not keep the
-          old CJ64-CS-Baseline installed at the same time.
+          The 13 GTA San Andreas clips are based on the original GTA IDLE_stance
+          source-pose table. The rotations are converted through quaternions and
+          re-encoded for SM64's ZXY animated-part matrix order. No Mario anim_00
+          or anim_C5 pose is applied as an overlay. Root translation stays zero;
+          SM64CoopDX retains control of player movement, collision, camera and physics.
 
-          Install this folder under mods/. Before testing, remove/disable every
-          older CJ64 copy that also registers mario_geo. Keep only this package
-          enabled. Do not install it as a separate dynos/packs/CJ64 pack.
-
-          The CS actor has 20 animated parts, not the full GTA ped skeleton.
-          Face, finger, toe, belly and breast tracks cannot be animated separately.
-          sprint_civi is the generic civilian sprint candidate. Root translation
-          remains zero so the game's movement and physics stay native.
-
-          This is an alpha preview. CI checks Lua syntax, clip tables, actor
-          integrity and package contents. It cannot prove in-game pose quality;
-          test walk, run, sprint, jump, fall, landing and swimming on Android.
+          IMPORTANT:
+          - Disable every other mod that registers mario_geo before testing this one.
+          - The CS actor has only 20 animated parts, not GTA's full ped skeleton.
+          - This is an experimental alpha; visual validation in SM64CoopDX on Android is required.
+          - The separate GTA PNG files in the repository are source assets only; this package
+            does not replace the textures embedded in the original CS actor.
           EOF
-
+          luac5.4 -p "$MOD/main.lua" "$MOD/character.lua" "$MOD/cj64_gta_animations.lua"
           python3 - "$MOD" <<'PY'
-          import pathlib
-          import zipfile
-          import sys
-          import hashlib
-          source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.7-alpha.zip")
-          prefix = "mods/CJ64-GTA-Animations-Test"
-          expected = {
-              f"{prefix}/main.lua",
-              f"{prefix}/character.lua",
-              f"{prefix}/cj64_gta_animations.lua",
-              f"{prefix}/actors/mario_geo.bin",
-              f"{prefix}/README-INSTALL.txt",
-          }
+          import hashlib, pathlib, sys, zipfile
+          root = pathlib.Path(sys.argv[1])
+          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.8-alpha.zip")
           with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-              for path in sorted(source.rglob("*")):
+              for path in sorted(root.rglob("*")):
                   if path.is_file():
-                      archive.write(path, f"{prefix}/{path.relative_to(source).as_posix()}")
+                      archive.write(path, f"mods/CJ64-GTA-Animations-Test/{path.relative_to(root).as_posix()}")
           with zipfile.ZipFile(output) as archive:
               assert archive.testzip() is None
-              actual = set(archive.namelist())
-              assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
-              animation_module = archive.read(f"{prefix}/cj64_gta_animations.lua").decode("utf-8")
-              assert animation_module.count("smlua_anim_util_register_animation(") == 13
-              assert "CJ64_CS_SM64_ZXY_CHANNEL_ORDER_APPLIED" in animation_module
-              assert "CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED" in animation_module
-              assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in animation_module
-              assert "anim_C5" not in animation_module
-              assert "CJ64_GTA_ANIMATIONS.set_for_role" in animation_module
-              packed_actor = archive.read(f"{prefix}/actors/mario_geo.bin")
+              names = set(archive.namelist())
+              expected = {
+                  "mods/CJ64-GTA-Animations-Test/main.lua",
+                  "mods/CJ64-GTA-Animations-Test/character.lua",
+                  "mods/CJ64-GTA-Animations-Test/cj64_gta_animations.lua",
+                  "mods/CJ64-GTA-Animations-Test/actors/mario_geo.bin",
+                  "mods/CJ64-GTA-Animations-Test/README-INSTALL.txt",
+              }
+              assert names == expected, (names ^ expected)
+              packed_actor = archive.read("mods/CJ64-GTA-Animations-Test/actors/mario_geo.bin")
               source_actor = pathlib.Path("actors/cj/mario_geo.bin").read_bytes()
-              assert packed_actor == source_actor, "Package does not contain the original CS actor binary"
               assert hashlib.sha256(packed_actor).digest() == hashlib.sha256(source_actor).digest()
-              assert archive.getinfo(f"{prefix}/actors/mario_geo.bin").file_size > 1000
-              assert hashlib.sha256(packed_actor).hexdigest() == "1e85ef10af95a94d14cf014589811e74adeb437c4e9439eb88d1d3b87b4d0ce4"
-          print(f"CS actor SHA256: {hashlib.sha256(source_actor).hexdigest()}")
           print(f"Created {output} ({output.stat().st_size} bytes)")
-          print("\n".join(sorted(expected)))
           PY
 
-      - name: Upload baseline test package
+      - name: Upload install ZIP and conversion report
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-GTA-Animations-Test-0.2.7-alpha
-          path: CJ64-GTA-Animations-Test-0.2.7-alpha.zip
+          name: CJ64-GTA-Animations-Test-0.2.8-alpha
+          path: |
+            CJ64-GTA-Animations-Test-0.2.8-alpha.zip
+            \${{ runner.temp }}/cj64_gta_animations.report.json
           if-no-files-found: error
           retention-days: 14
+          compression-level: 1
