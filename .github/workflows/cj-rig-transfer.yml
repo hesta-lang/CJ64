@@ -84,7 +84,8 @@ jobs:
             assets/cj/source/CarlJohnson-GTASA.FBX \
             "$RUNNER_TEMP/cj-rig-inspection"
           python - "$RUNNER_TEMP/cj-rig-inspection/cj_mario_rig_inspection.json" <<'PY'
-          import json,sys
+          import json,re,sys
+          from pathlib import Path
           d=json.load(open(sys.argv[1],encoding="utf-8"))
           assert d["format"]=="cj64-cj-mario-rig-inspection-v3"
           assert d["fast64_addon"]=="Fast64 Gart Edition"
@@ -128,7 +129,7 @@ jobs:
 
       - name: Validate exported actor and single-bone skinning
         run: |
-          python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json" <<'PY'
+          python - "$RUNNER_TEMP/cj-rig-output/cj64_rig_transfer_report.json" "$RUNNER_TEMP/cj-rig-output/cj64_sm64_animation_retarget_map.json" "$RUNNER_TEMP/cj-rig-output/CJ64/Assets/geo.inc.c" <<'PY'
           import json,sys
           d=json.load(open(sys.argv[1],encoding="utf-8"))
           mapping=json.load(open(sys.argv[2],encoding="utf-8"))
@@ -199,8 +200,17 @@ jobs:
           assert any(p["path"]=="Assets/geo.inc.c" for p in d["actor_files"])
           assert any(p["path"]=="Assets/model.inc.c" for p in d["actor_files"])
           assert any(p["path"]=="Assets/geo_header.h" for p in d["actor_files"])
-          geo_path = __import__("pathlib").Path(sys.argv[1]).parent / "unused"
-          print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex; Mario root wrapper neutralized.")
+          geo_source = Path(sys.argv[3]).read_text(encoding="utf-8")
+          root_at = geo_source.index("GeoLayout mario_geo[]")
+          first_part_at = geo_source.index("GEO_ANIMATED_PART", root_at)
+          root_prefix = geo_source[root_at:first_part_at]
+          root_transforms = re.findall(
+              r"GEO_TRANSLATE_ROTATE\\s*\\(\\s*[^,]+,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)",
+              root_prefix,
+          )
+          for transform in root_transforms:
+              assert all(int(value) == 0 for value in transform), (root_transforms, root_prefix)
+          print("Fast64-Gart exported CJ: 280 units, 20 animation nodes, one deform bone per vertex; root GeoLayout has no Mario axis transform.")
           PY
 
       - name: Upload rigged CJ actor package and authoring scene
