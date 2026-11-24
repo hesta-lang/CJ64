@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - "README.md"
       - "main.lua"
       - "character.lua"
       - "actors/cj/mario_geo.bin"
