@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-source-rest-gta-test:
-    if: \${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,16 +29,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CJ64-rigged-actor
-          run-id: \${{ github.event.workflow_run.id }}
-          github-token: \${{ secrets.GITHUB_TOKEN }}
-          path: \${{ runner.temp }}/cj64-rig-artifact
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/cj64-rig-artifact
 
       - name: Reconstruct raw GTA animation tables
         shell: bash
         run: |
           set -euo pipefail
-          cat tools/animations/cj64_gta_animations.xz.b64.part-* \\
-            | base64 --decode \\
+          cat tools/animations/cj64_gta_animations.xz.b64.part-* \
+            | base64 --decode \
             | xz --decompress > "$RUNNER_TEMP/cj64-gta-raw.lua"
           test -s "$RUNNER_TEMP/cj64-gta-raw.lua"
           if grep -q 'CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED' "$RUNNER_TEMP/cj64-gta-raw.lua"; then
@@ -51,10 +51,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_source_rest_animation_rebase.py' -v
-          python3 tools/prepare_cj_source_rest_gta_package.py \\
-            --actor-zip "$RUNNER_TEMP/cj64-rig-artifact/CJ64-Rigged-Test.zip" \\
-            --map "$RUNNER_TEMP/cj64-rig-artifact/cj64_sm64_animation_retarget_map.json" \\
-            --raw-lua "$RUNNER_TEMP/cj64-gta-raw.lua" \\
+          python3 tools/prepare_cj_source_rest_gta_package.py \
+            --actor-zip "$RUNNER_TEMP/cj64-rig-artifact/CJ64-Rigged-Test.zip" \
+            --map "$RUNNER_TEMP/cj64-rig-artifact/cj64_sm64_animation_retarget_map.json" \
+            --raw-lua "$RUNNER_TEMP/cj64-gta-raw.lua" \
             --output-dir "$RUNNER_TEMP/cj64-source-rest-out"
           MOD="$RUNNER_TEMP/cj64-source-rest-out/CJ64-GTA-SourceRest-Test"
           test -s "$MOD/main.lua"
@@ -84,8 +84,8 @@ jobs:
         with:
           name: CJ64-GTA-SourceRest-Test
           path: |
-            \${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.0-alpha-install.zip
-            \${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-report.json
+            ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-0.3.0-alpha-install.zip
+            ${{ runner.temp }}/cj64-source-rest-out/CJ64-GTA-SourceRest-Test-report.json
           if-no-files-found: error
           retention-days: 14
           compression-level: 1
