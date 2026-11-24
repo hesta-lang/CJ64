@@ -1,23 +1,23 @@
 {
-  "format": "cj64-gta-ifp-direct-source-pose-cs-retarget-report-v3",
+  "format": "cj64-gta-ifp-native-cs-retarget-report-v2",
   "source_package": "ped",
   "source_file": "user-supplied GTA San Andreas ped.ifp",
   "source_file_size_bytes": 1433248,
   "source_animation_count": 294,
-  "target_rest_profile": "original_character_select_actor_20_node_layout",
+  "target_rest_profile": "native_mario_cs_actor",
   "target_animated_part_count": 20,
   "sample_rate_fps": 30,
   "selected_clip_count": 13,
   "selected_source_keyframes": 5097,
   "output_channels_per_clip": 63,
   "index_entries_per_clip": 126,
-  "neutral_reference": "not neutralized; original GTA IDLE_stance frame 0 is preserved in the direct Lua table",
-  "neutral_calibration": "none in the production archive; direct pre-neutral-calibration GTA pose channels are packaged",
+  "neutral_reference": "cj64_anim_idle first sample from IDLE_stance",
+  "neutral_calibration": "inverse(reference_idle_first_pose) * current_pose",
   "neutral_reference_first_frame_max_residual_radians": 5.551115123125783e-17,
   "root_translation_channels": "fixed zero; SM64CoopDX owns world movement",
   "root_heading": "GTA Normal track excluded; SM64CoopDX owns player heading",
-  "runtime_actor": "original Character Select DynOS mario_geo.bin copied byte-for-byte; SHA-256 1e85ef10af95a94d14cf014589811e74adeb437c4e9439eb88d1d3b87b4d0ce4",
-  "runtime_gta_animations": "13 direct GTA source-pose clips on the existing CS 20-node animation layout",
+  "runtime_actor": "original Character Select DynOS mario_geo.bin",
+  "runtime_gta_animations": "13 GTA clips composed on the native CS/Mario anim_C5 rest pose",
   "clips": [
     {
       "source": "IDLE_stance",
@@ -155,12 +155,10 @@
     "lua_syntax": "validated by build workflow",
     "actor_binary_identity": "validated by build workflow",
     "android_in_game_pose_validation": false,
-    "direct_table_checksum": true,
-    "source_idle_pose_matches_pose_map": "verified by build workflow",
-    "neutral_idle_calibration": false
+    "native_pose_anchor": true,
+    "native_idle_pose_anchor_reported": "20 nodes, body Y rotation approx 89.994507 degrees, first-frame residual under 0.02 degrees"
   },
-  "status": "ALPHA_DIRECT_GTA_SOURCE_POSE_ON_ORIGINAL_CS_MODEL_REQUIRES_ANDROID_POSE_REVIEW",
-  "native_mario_idle_pose_anchor": "not used",
-  "direct_source_lua_sha256": "b918749df18418ee97e69b8e9e0f750be8b5e00aa2403aae024a430ded02b601",
-  "source_archive": "tools/animations/cj64_gta_direct_source.xz.b64.part-*"
+  "status": "ALPHA_NATIVE_CS_POSE_ANCHORED_REQUIRES_ANDROID_POSE_REVIEW",
+  "pose_correction": "native CS local pose * neutral-relative GTA local-motion delta",
+  "root_cause_022": "direct GTA IDLE_stance absolute rotations were incompatible with CS local rest axes and left CJ lying on his side"
 }
