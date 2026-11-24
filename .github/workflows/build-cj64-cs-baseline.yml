@@ -202,9 +202,11 @@ jobs:
 
           This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
           actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          The original GTA IDLE_stance source-pose rotations are retained in the direct GTA table.
-          No Mario anim_C5 pose is composed. The packaged
-          actors/mario_geo.bin is byte-for-byte the original working Character Select model.
+          Each GTA motion delta is composed over the original Character Select
+          actor's required native Mario idle pose (anim_C5) on all 20 animated parts.
+          This restores the CS bind/rest pose and prevents CJ from lying on his side.
+          The packaged actors/mario_geo.bin is byte-for-byte the original working
+          Character Select model; its mesh and textures are not rebuilt.
           SM64CoopDX continues to own MarioState, root movement, heading,
           collision, camera, actions and physics.
 
@@ -251,6 +253,8 @@ jobs:
               assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
               animation_module = archive.read(f"{prefix}/cj64_gta_animations.lua").decode("utf-8")
               assert animation_module.count("smlua_anim_util_register_animation(") == 13
+              assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" in animation_module
+              assert "CJ64_GTA_SOURCE_IDLE_POSE_RESTORED" not in animation_module
               packed_actor = archive.read(f"{prefix}/actors/mario_geo.bin")
               source_actor = pathlib.Path("actors/cj/mario_geo.bin").read_bytes()
               assert packed_actor == source_actor, "Package does not contain the original CS actor binary"
