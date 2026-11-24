@@ -48,6 +48,11 @@ def decode_angle(value: int) -> float:
     return signed * (2.0 * math.pi / 65536.0)
 
 
+def encode_angle(radians: float) -> int:
+    """Encode radians as the signed-16 animation angle stored in a u16."""
+    return int(round(radians * 65536.0 / (2.0 * math.pi))) & 0xFFFF
+
+
 def qnorm(q):
     length = math.sqrt(sum(float(value) * float(value) for value in q))
     if not math.isfinite(length) or length < 1e-12:
@@ -275,8 +280,12 @@ def convert_direct_table(source: str, pose_path: Path) -> tuple[str, dict[str, A
     values_digest = hashlib.sha256()
     for table in tables:
         values_digest.update(table["name"].encode("utf-8"))
-        values_digest.update(bytes(table["values"]))
-        values_digest.update(bytes(table["indices"]))
+        values_digest.update(json.dumps(
+            table["values"], separators=(",", ":")
+        ).encode("ascii"))
+        values_digest.update(json.dumps(
+            table["indices"], separators=(",", ":")
+        ).encode("ascii"))
     output = (
         "-- " + APPLIED_MARKER + "\n"
         "-- The source table already uses SM64 animated-part XYZ channel order.\n"

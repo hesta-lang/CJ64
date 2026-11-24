@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import sys
 import tempfile
 import unittest
@@ -146,11 +147,14 @@ class DirectGtaSm64XyzTests(unittest.TestCase):
             tmp = Path(tmp)
             pose_path = tmp / "pose.json"
             fixture_pose(pose_path)
-            source = make_lua().replace(
-                "0x0001, 0x0000, 0x0000",
-                "0x0001, 0x0001, 0x0000",
-                1,
+            source, replacements = re.subn(
+                r'(smlua_anim_util_register_animation\(\s*"cj64_anim_idle".*?\{\s*)0x0000',
+                r'\g<1>0x0001',
+                make_lua(),
+                count=1,
+                flags=re.S,
             )
+            self.assertEqual(replacements, 1)
             with self.assertRaisesRegex(ValueError, "root translation"):
                 convert_direct_table(source, pose_path)
 
