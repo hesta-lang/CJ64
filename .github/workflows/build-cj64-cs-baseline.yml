@@ -208,8 +208,8 @@ jobs:
 
           This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
           actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          The original GTA IDLE_stance source pose is restored on all 20 CS animated parts.
-          This does NOT compose Mario anim_C5 as a pose anchor. The packaged
+          The original GTA IDLE_stance source-pose rotations are retained in the direct GTA table.
+          No Mario anim_C5 pose is composed. The packaged
           actors/mario_geo.bin is byte-for-byte the original working Character Select model.
           SM64CoopDX continues to own MarioState, root movement, heading,
           collision, camera, actions and physics.
