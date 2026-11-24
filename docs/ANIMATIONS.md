@@ -21,52 +21,38 @@ The CS DynOS actor has 20 `GEO_ANIMATED_PART` commands. `tools/inspect_cs_animat
 
 The project owner confirmed that the compiled CS model appears normally with native Mario animations. This isolates the deformation issue to the custom animation data/runtime path rather than the base mesh.
 
-## Native Character Select rest pose — 0.2.3-alpha
+## Neutral-relative GTA pose — 0.2.4-alpha
 
-The installed model remains the original, working Character Select actor.
-The binary `actors/cj/mario_geo.bin` is copied byte-for-byte into the mod.
-Its geometry, textures, scale, and existing 20-part hierarchy are not rebuilt.
+The installed actor remains the original Character Select `mario_geo.bin`.
+Its geometry, textures, scale and 20 animated-part hierarchy are unchanged.
 
-The 0.2.2-alpha package removed the native Character Select rest-pose anchor
-and applied the original GTA `IDLE_stance` rotations directly to the CS rig.
-That was incorrect: the GTA ped and the CS/Mario actor use different local
-rest-axis conventions. The clearest mismatch is the Body rotation: GTA's
-source-pose table carries an approximately 90-degree Z rotation, while the
-working CS actor expects its native approximately 90-degree Y rotation.
-Applying the GTA source pose as an absolute CS pose therefore leaves CJ lying
-on his side and makes the limb seams look detached.
+The 0.2.3-alpha correction made CJ upright again, but it used the first frame
+of SM64's `MARIO_ANIM_IDLE_HEAD_CENTER` (`anim_C5`) as the base rotation for
+every part. That is a Mario idle animation pose, not the CJ actor's neutral
+bind pose. It therefore reintroduced Mario's bent-arm and wide-legged stance
+into CJ's GTA idle, which is visible in the user's Android screenshot.
 
-The 0.2.3-alpha build restores the calibration already validated for this
-20-part CS actor:
+The 0.2.4-alpha package removes that extra pose layer. The GTA animation table
+is already neutral-relative: the first frame of `cj64_anim_idle` is identity
+for all 20 animated parts. Those channels are used directly, without applying
+`anim_C5`, and the GTA root/Normal track remains excluded so the game owns
+world orientation and movement.
 
-1. Reconstruct the neutral-relative GTA table from
-   `tools/animations/cj64_gta_animations.xz.b64.part-*`.
-2. Load the native CS/Mario frame-zero pose from
-   `tools/native_mario_idle_pose.json` (the original
-   `MARIO_ANIM_IDLE_HEAD_CENTER`, `anim_C5`, source).
-3. For every GTA clip, every frame and every animated part, compose
-   `native_CS_local_pose * GTA_local_motion_delta`.
-4. Encode the result back into the CS 16-bit Euler channels and verify that
-   the first frame of `cj64_anim_idle` reproduces the native CS rest pose
-   within 0.02 degrees for all 20 nodes.
+CI verifies all 13 clips, 63 channels and 126 index entries per clip, zero
+root translation, and identity first-frame rotations for all 20 nodes in the
+idle clip. It also verifies that the packaged Lua module does not contain the
+native Mario idle-pose anchor marker.
 
-The postprocessor is `tools/apply_native_cs_idle_pose.py`. It refuses double
-application. The build also checks the native-pose marker, the 13 clips, the
-63 channels per clip, the 20-node layout, zero root translation, and the
-unchanged CS actor SHA-256.
-
-This correction changes animation pose calibration, not mesh geometry. The
-original CS model already appeared normally with native Mario animations, so
-moving thigh, knee or shoe geometry before restoring its actual rest pose
-would risk adding an unnecessary deformation. After the corrected pose is
-tested in Android, any remaining gap can be addressed specifically at the
-affected vertex/display-list seam.
+This is a correction to animation pose calibration, not a mesh edit. The CS
+actor binary is preserved byte-for-byte. If this neutral-relative version
+still shows detached seams, the next step is to inspect the actual per-part
+rest transforms and the 20-node local rotation basis, not to apply another
+global Mario pose or blindly move the thigh/shoe geometry.
 
 The actor still has only 20 animated parts rather than GTA's full ped
 skeleton. Individual finger, toe, jaw, brow, belly and breast tracks cannot
-move independently. `sprint_civi` remains a generic civilian sprint
-candidate. Android visual validation is still required for idle, walking,
-running, jumping, falling, landing and swimming.
+move independently. Android visual validation remains required for idle,
+walking, running, jumping, falling, landing and swimming.
 
 ## Neutral-pose calibration
 

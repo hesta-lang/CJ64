@@ -9,14 +9,11 @@ on:
       - "character.lua"
       - "actors/cj/mario_geo.bin"
       - "tools/animations/**"
-      - "tools/native_mario_idle_pose.json"
-      - "tools/apply_native_cs_idle_pose.py"
       - "tools/generate_cj_sm64_animations.py"
       - "tools/scale_cs_cj_actor.py"
       - "tools/normalize_cs_animation_tables.py"
       - "tools/inspect_cs_animation_node_order.py"
       - "tests/test_animation_calibration.py"
-      - "tests/test_native_cs_idle_pose.py"
       - ".github/workflows/build-cj64-cs-baseline.yml"
 
 permissions:
@@ -33,32 +30,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lua5.4 xz-utils
 
-      - name: Reconstruct native-CS GTA animation tables
+      - name: Reconstruct neutral-relative GTA animation tables
         shell: bash
         run: |
           set -euo pipefail
-          cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
-          test -s "$RUNNER_TEMP/cj64_gta_animations-raw.lua"
-          python3 tools/apply_native_cs_idle_pose.py "$RUNNER_TEMP/cj64_gta_animations-raw.lua" \
-            --pose tools/native_mario_idle_pose.json \
-            --output "$RUNNER_TEMP/cj64_gta_animations.lua"
+          cat tools/animations/cj64_gta_animations.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/cj64_gta_animations.lua"
           test -s "$RUNNER_TEMP/cj64_gta_animations.lua"
           luac5.4 -p "$RUNNER_TEMP/cj64_gta_animations.lua"
-          python3 - "$RUNNER_TEMP/cj64_gta_animations.pose-report.json" <<'PY'
-          import json, math, sys
-          report = json.load(open(sys.argv[1], encoding="utf-8"))
-          pose = json.load(open("tools/native_mario_idle_pose.json", encoding="utf-8"))
-          reference = json.load(open("tools/cj_fast64_animation_node_order.json", encoding="utf-8"))
-          pose_order = [node["node"] for node in pose["nodes"]]
-          reference_order = [node["name"] for node in reference["nodes"]]
-          assert pose_order == reference_order, (pose_order, reference_order)
-          assert report["target_nodes"] == reference_order
-          assert report["clip_count"] == 13, report["clip_count"]
-          assert report["neutral_idle_first_frame_residual_radians"] < math.radians(0.02), report
-          assert abs(report["body_base_euler_degrees"][1] - 89.994507) < 0.02, report
-          assert len(report["target_nodes"]) == 20
-          print("Native Mario idle pose anchor and 20-node order verified against the CS/Fast64 animation layout.")
-          PY
           python3 - "$RUNNER_TEMP/cj64_gta_animations.lua" <<'PY'
           import pathlib, re, sys
           source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
@@ -82,7 +60,6 @@ jobs:
               values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("values"))]
               indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', item.group("indices"))]
               assert len(indices) == 126, (name, len(indices))
-              assert len(values) > 0, name
               for channel in range(63):
                   count, offset = indices[channel * 2:channel * 2 + 2]
                   assert count > 0 and offset + count <= len(values), (name, channel, count, offset)
@@ -96,9 +73,13 @@ jobs:
           idle = next(item for item in found if item.group("name") == "cj64_anim_idle")
           idle_values = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("values"))]
           idle_indices = [int(value, 16) for value in re.findall(r'0x([0-9A-Fa-f]{1,4})', idle.group("indices"))]
-          assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" in source
+          for node in range(20):
+              for axis in range(3):
+                  count, offset = idle_indices[(3 + node * 3 + axis) * 2:(3 + node * 3 + axis) * 2 + 2]
+                  assert idle_values[offset] == 0, ("idle must start neutral-relative, not Mario anim_C5", node, axis, idle_values[offset])
+          assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in source
           assert "CJ64_GTA_ANIMATIONS.set_for_role" in source
-          print(f"Validated {len(names)} GTA SA clips, 20 nodes and native idle pose anchor.")
+          print(f"Validated {len(names)} GTA clips, 20 nodes, neutral-relative idle and no Mario anim_C5 anchor.")
           PY
 
       - name: Run animation calibration regression tests
@@ -138,7 +119,7 @@ jobs:
 
           main = pathlib.Path("main.lua").read_text(encoding="utf-8")
           character = pathlib.Path("character.lua").read_text(encoding="utf-8")
-          assert 'CJ64.version = "0.2.3-alpha"' in main
+          assert 'CJ64.version = "0.2.4-alpha"' in main
           assert 'CJ64.useGTAAnimations = true' in main
           assert 'CJ64.useGTAAnimations ~= true' in character
           assert 'require, "cj64_gta_animations"' in main
@@ -177,7 +158,7 @@ jobs:
               "registered_filename": "mario_geo.bin",
               "animated_part_nodes": animated_parts,
               "root_scale": root_scale,
-              "custom_gta_animations": "enabled_native_mario_idle_pose_anchor",
+              "custom_gta_animations": "enabled_neutral_relative_gta_clips_no_mario_idle_anchor",
               "status": "STRUCTURAL_PACKAGE_READY_REQUIRES_ANDROID_POSE_VALIDATION"
           }, indent=2))
           PY
@@ -192,7 +173,7 @@ jobs:
           cp "$RUNNER_TEMP/cj64_gta_animations.lua" "$MOD/cj64_gta_animations.lua"
           cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
           cat > "$MOD/README-INSTALL.txt" <<'EOF'
-          CJ64 GTA ANIMATIONS TEST - 0.2.3-alpha
+          CJ64 GTA ANIMATIONS TEST - 0.2.4-alpha
 
           Install this folder under the SM64CoopDX mods/ directory.
           The installed path must be:
@@ -203,9 +184,8 @@ jobs:
 
           This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
           actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          Each GTA motion delta is composed over the original Character Select
-          actor's required native Mario idle pose (anim_C5) on all 20 animated parts.
-          This restores the CS bind/rest pose and prevents CJ from lying on his side.
+          The 13 GTA clips use neutral-relative local motion deltas directly.
+          No Mario anim_C5 idle pose is applied: it is not the CJ actor's bind pose.
           The packaged actors/mario_geo.bin is byte-for-byte the original working
           Character Select model; its mesh and textures are not rebuilt.
           SM64CoopDX continues to own MarioState, root movement, heading,
@@ -235,7 +215,7 @@ jobs:
           import sys
           import hashlib
           source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.3-alpha.zip")
+          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.4-alpha.zip")
           prefix = "mods/CJ64-GTA-Animations-Test"
           expected = {
               f"{prefix}/main.lua",
@@ -254,8 +234,8 @@ jobs:
               assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
               animation_module = archive.read(f"{prefix}/cj64_gta_animations.lua").decode("utf-8")
               assert animation_module.count("smlua_anim_util_register_animation(") == 13
-              assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" in animation_module
-              assert "CJ64_GTA_SOURCE_IDLE_POSE_RESTORED" not in animation_module
+              assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in animation_module
+              assert "CJ64_GTA_ANIMATIONS.set_for_role" in animation_module
               packed_actor = archive.read(f"{prefix}/actors/mario_geo.bin")
               source_actor = pathlib.Path("actors/cj/mario_geo.bin").read_bytes()
               assert packed_actor == source_actor, "Package does not contain the original CS actor binary"
@@ -270,7 +250,7 @@ jobs:
       - name: Upload baseline test package
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-GTA-Animations-Test-0.2.3-alpha
-          path: CJ64-GTA-Animations-Test-0.2.3-alpha.zip
+          name: CJ64-GTA-Animations-Test-0.2.4-alpha
+          path: CJ64-GTA-Animations-Test-0.2.4-alpha.zip
           if-no-files-found: error
           retention-days: 14
