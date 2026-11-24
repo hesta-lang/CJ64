@@ -335,6 +335,25 @@ def main():
     bpy.context.view_layer.objects.active = target_arm
     bpy.ops.object.mode_set(mode="EDIT")
     edit_bones = target_arm.data.edit_bones
+
+    # The Mario template has a 90-degree X-up transform on its non-animated
+    # root "Cap State Switch". CJ's FBX has already been converted from Y-up
+    # into the SM64 target coordinate system and Body is mapped to the actual
+    # transformed GTA "root ground" joint. Keeping this extra Mario transform
+    # applies a second axis rotation to the complete actor and explodes the
+    # exported model at runtime. Neutralize only this static root wrapper;
+    # keep the switch node and its children intact.
+    root_wrapper_name = "Cap State Switch"
+    root_wrapper = edit_bones.get(root_wrapper_name)
+    require(root_wrapper is not None,
+            f"Target rig is missing the root wrapper {root_wrapper_name}")
+    native_root_wrapper_matrix = native_target_rest_bones[root_wrapper_name].copy()
+    native_root_wrapper_q = native_root_wrapper_matrix.to_3x3().to_quaternion()
+    root_wrapper_length = max(float(root_wrapper.length), 0.001)
+    root_wrapper.matrix = Matrix.Identity(4)
+    root_wrapper.length = root_wrapper_length
+    root_wrapper.use_connect = False
+
     for target_name, source_name in target_bone_sources.items():
         edit_bone = edit_bones.get(target_name)
         source_bone = source_arm.data.bones.get(source_name)
@@ -348,6 +367,15 @@ def main():
         )
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
+
+    root_wrapper_rest = target_arm.data.bones[root_wrapper_name]
+    root_wrapper_head_error = root_wrapper_rest.head_local.length
+    root_wrapper_rest_q = root_wrapper_rest.matrix_local.to_3x3().to_quaternion()
+    root_wrapper_identity_dot = abs(float(root_wrapper_rest_q.w))
+    require(root_wrapper_head_error < 1e-4,
+            f"{root_wrapper_name} root translation was not neutralized: {root_wrapper_head_error}")
+    require(root_wrapper_identity_dot > 0.99999,
+            f"{root_wrapper_name} root rotation is not identity: {root_wrapper_rest_q[:]}")
 
     source_rest_head_max_error = 0.0
     source_rest_tail_max_error = 0.0
@@ -1378,6 +1406,21 @@ def main():
         "axis_alignment": "source FBX Y-up to Mario template X-up: Rz(-90 degrees)",
         "native_mario_rest_pose_preserved": False,
         "cj_source_rest_pose_transferred": True,
+        "source_root_wrapper_neutralized": True,
+        "source_root_wrapper_name": root_wrapper_name,
+        "source_root_wrapper_original_mario_rotation_wxyz": [
+            round(float(x), 7) for x in (
+                native_root_wrapper_q.w, native_root_wrapper_q.x,
+                native_root_wrapper_q.y, native_root_wrapper_q.z
+            )
+        ],
+        "source_root_wrapper_final_rotation_wxyz": [
+            round(float(x), 7) for x in (
+                root_wrapper_rest_q.w, root_wrapper_rest_q.x,
+                root_wrapper_rest_q.y, root_wrapper_rest_q.z
+            )
+        ],
+        "source_root_wrapper_head_error": root_wrapper_head_error,
         "source_rest_alignment_head_max_error": source_rest_head_max_error,
         "source_rest_alignment_tail_max_error": source_rest_tail_max_error,
         "source_rest_alignment_rotation_max_error_degrees": source_rest_rotation_max_error_degrees,
