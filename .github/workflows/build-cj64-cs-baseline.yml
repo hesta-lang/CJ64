@@ -10,6 +10,7 @@ on:
       - "actors/cj/mario_geo.bin"
       - "tools/animations/**"
       - "tools/native_mario_idle_pose.json"
+      - "tools/apply_native_cs_idle_pose.py"
       - "tools/generate_cj_sm64_animations.py"
       - "tools/scale_cs_cj_actor.py"
       - "tools/normalize_cs_animation_tables.py"
