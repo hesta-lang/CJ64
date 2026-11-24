@@ -45,7 +45,7 @@ def sm64_engine_zxy_matrix(rx, ry, rz):
     return (
         (cy * cz + sx * sy * sz, -cy * sz + sx * sy * cz, cx * sy),
         (cx * sz, cx * cz, -sx),
-        (-sy * cz + sx * cy * sz, sy * sz + cx * cy * 0.0 + sx * cy * cz, cx * cy),
+        (-sy * cz + sx * cy * sz, sy * sz + sx * cy * cz, cx * cy),
     )
 
 
