@@ -205,7 +205,7 @@ jobs:
           first_part_at = geo_source.index("GEO_ANIMATED_PART", root_at)
           root_prefix = geo_source[root_at:first_part_at]
           root_transforms = re.findall(
-              r"GEO_TRANSLATE_ROTATE\\s*\\(\\s*[^,]+,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)",
+              r"GEO_TRANSLATE_ROTATE\s*\(\s*[^,]+,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)",
               root_prefix,
           )
           for transform in root_transforms:
