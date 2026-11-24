@@ -56,6 +56,10 @@ jobs:
           assert report["source_native_animation"] == "MARIO_ANIM_IDLE (anim_00), frame 0"
           assert report["clip_count"] == 13
           assert report["neutral_idle_first_frame_residual_radians"] < math.radians(0.02)
+          assert report["max_frame_quantization_residual_radians"] < math.radians(0.02)
+          assert report["native_engine_rotation_order"] == "SM64 ZXY (apply Z then X then Y; matrix Ry * Rx * Rz)"
+          assert report["output_channel_order"] == "SM64 XYZ channel storage interpreted by ZXY engine matrix"
+          assert "CJ64_CS_SM64_ZXY_CHANNEL_ORDER_APPLIED" in source
           assert "CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED" in source
           assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in source
           assert "anim_C5" not in source and "IDLE_HEAD_CENTER" not in source
@@ -89,7 +93,7 @@ jobs:
               for node in range(20):
                   counts = [indices[(3 + node * 3 + axis) * 2] for axis in range(3)]
                   assert counts == [declared_frames] * 3, (name, node, counts, declared_frames)
-          print("Validated 13 GTA clips rebased on original SM64 default idle anim_00 pose, all 20 CS nodes.")
+          print("Validated 13 GTA clips: quaternion retarget deltas encoded in SM64 ZXY order across all 20 original CS nodes.")
           PY
 
       - name: Run animation calibration regression tests
@@ -129,7 +133,7 @@ jobs:
 
           main = pathlib.Path("main.lua").read_text(encoding="utf-8")
           character = pathlib.Path("character.lua").read_text(encoding="utf-8")
-          assert 'CJ64.version = "0.2.6-alpha"' in main
+          assert 'CJ64.version = "0.2.7-alpha"' in main
           assert 'CJ64.useGTAAnimations = true' in main
           assert 'CJ64.useGTAAnimations ~= true' in character
           assert 'require, "cj64_gta_animations"' in main
@@ -183,7 +187,7 @@ jobs:
           cp "$RUNNER_TEMP/cj64_gta_animations.lua" "$MOD/cj64_gta_animations.lua"
           cp actors/cj/mario_geo.bin "$MOD/actors/mario_geo.bin"
           cat > "$MOD/README-INSTALL.txt" <<'EOF'
-          CJ64 GTA ANIMATIONS TEST - 0.2.6-alpha
+          CJ64 GTA ANIMATIONS TEST - 0.2.7-alpha
 
           Install this folder under the SM64CoopDX mods/ directory.
           The installed path must be:
@@ -194,8 +198,9 @@ jobs:
 
           This package keeps the PRE-RIGGED Character Select CJ DynOS actor from
           actors/cj/mario_geo.bin and enables 13 GTA San Andreas movement clips.
-          The 13 GTA clips are composed on the frame-zero pose of the original
-          SM64 default idle animation (anim_00), matching the CS actor convention.
+          The 13 GTA clips are composed on the exact frame-zero pose of the original
+          SM64 default idle animation (anim_00). Their final channels are encoded
+          using SM64's actual Z-X-Y matrix order (not the retargeter's XYZ intermediate).
           The special head-centered anim_C5 pose is not used.
           The packaged actors/mario_geo.bin is byte-for-byte the original working
           Character Select model; its mesh and textures are not rebuilt.
@@ -226,7 +231,7 @@ jobs:
           import sys
           import hashlib
           source = pathlib.Path(sys.argv[1])
-          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.6-alpha.zip")
+          output = pathlib.Path("CJ64-GTA-Animations-Test-0.2.7-alpha.zip")
           prefix = "mods/CJ64-GTA-Animations-Test"
           expected = {
               f"{prefix}/main.lua",
@@ -245,6 +250,7 @@ jobs:
               assert actual == expected, f"ZIP entries mismatch: {actual ^ expected}"
               animation_module = archive.read(f"{prefix}/cj64_gta_animations.lua").decode("utf-8")
               assert animation_module.count("smlua_anim_util_register_animation(") == 13
+              assert "CJ64_CS_SM64_ZXY_CHANNEL_ORDER_APPLIED" in animation_module
               assert "CJ64_CS_DEFAULT_IDLE_POSE_ANCHOR_APPLIED" in animation_module
               assert "CJ64_NATIVE_MARIO_IDLE_POSE_ANCHOR_APPLIED" not in animation_module
               assert "anim_C5" not in animation_module
@@ -263,7 +269,7 @@ jobs:
       - name: Upload baseline test package
         uses: actions/upload-artifact@v4
         with:
-          name: CJ64-GTA-Animations-Test-0.2.6-alpha
-          path: CJ64-GTA-Animations-Test-0.2.6-alpha.zip
+          name: CJ64-GTA-Animations-Test-0.2.7-alpha
+          path: CJ64-GTA-Animations-Test-0.2.7-alpha.zip
           if-no-files-found: error
           retention-days: 14
