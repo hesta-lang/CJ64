@@ -64,7 +64,7 @@ class CSBodyRootOrientationTests(unittest.TestCase):
             self.assertEqual(original["indices"], fixed["indices"])
             old_values, new_values = original["values"], fixed["values"]
             for axis in range(3):
-                count, offset = fixed["indices"][3 + axis * 2:3 + axis * 2 + 2]
+                count, offset = fixed["indices"][(3 + axis) * 2:(3 + axis) * 2 + 2]
                 samples = new_values[offset:offset + count]
                 if axis == 1:
                     self.assertEqual(samples, [EXPECTED_BODY_Y, EXPECTED_BODY_Y])
